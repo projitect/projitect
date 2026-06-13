@@ -75,13 +75,13 @@ importers:
   apps/website:
     dependencies:
       '@astrojs/mdx':
-        specifier: ^5.0.6
+        specifier: 5.0.6
         version: 5.0.6(astro@6.4.4(@types/node@22.19.19)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.60.4)(tsx@4.22.3)(yaml@2.9.0))
       '@astrojs/starlight':
-        specifier: ^0.39.0
+        specifier: 0.39.3
         version: 0.39.3(astro@6.4.4(@types/node@22.19.19)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.60.4)(tsx@4.22.3)(yaml@2.9.0))(typescript@5.9.3)
       astro:
-        specifier: ^6.0.0
+        specifier: 6.4.4
         version: 6.4.4(@types/node@22.19.19)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.60.4)(tsx@4.22.3)(yaml@2.9.0)
       sharp:
         specifier: 0.34.5
