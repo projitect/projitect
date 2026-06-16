@@ -33,6 +33,33 @@ If `pnpm` is not found, escalate in this exact order — do not chain them:
 Do **not** prepend `cd /path/to/repo` to pnpm commands — pnpm respects the current working
 directory. Chaining `cd && pnpm` triggers permission prompts unnecessarily.
 
+## Permission-prompt posture (command shape)
+
+Most permission prompts are a **command-shape problem, not a missing allowlist entry** — the engine
+auto-approves a command only when *every* part of it is independently safe, so several wrappers defeat
+an otherwise-allowlisted command. The allowlist in [`.claude/settings.json`](./.claude/settings.json)
+covers the safe reads and routine scripts; you keep prompts low by *how* you invoke things:
+
+- **Prefer the built-in `Grep` / `Glob` / `Read` tools** over shell `grep` / `find` / `cat` and
+  pipelines. They don't go through the Bash permission path, so they never prompt — and they're faster.
+- **One command per tool call — never `&&` / `;` / `|` chains.** A compound line is auto-approved only
+  if every segment independently clears, so even an all-allowlisted chain (`git add … && git commit …
+  && git log …`) prompts. Run the steps as separate calls.
+- **Run project scripts verbatim** — `pnpm tc` / `pnpm test` / `pnpm lint` / `pnpm check-all`, with no
+  env-var prefix (`TMPDIR=…`), no extra flags, and no `2>&1 | tail` / `2>/dev/null` capture wrapper. Run
+  them bare and read the output; the redirect/pipe is itself what prompts.
+- **Commit with `-m` (or `-F <file>`), never a heredoc.** `git commit <<'EOF' … EOF` is an input
+  redirect and prompts on *every* commit.
+- **Don't `cd` / `git -C <path>` into the worktree you're already in** — an out-of-cwd path triggers a
+  prompt. The cwd already *is* the repo; run `git status`, `pnpm test`, etc. directly.
+
+Consequential actions stay **deliberately gated** (they *should* prompt): inline code runners
+(`tsx -e`, `npx -e`), `gh pr merge`, `gh issue create`, publishes (`changeset publish`), and
+destructive git (`git reset --hard`, `git clean -fd`, bare `git push --force`). Expanding the allowlist
+is the smallest lever, not the first — fix the root cause in scripts or command shape before reaching
+for it. (This is the static-enforcement reflex from [Reach for ESLint first](#reach-for-eslint-first)
+applied to the permission layer.)
+
 ## Node version
 
 Pinned in `.nvmrc` to **22.12.0**. The published `engines.node` is `>=22.12.0`. We rely on Node
