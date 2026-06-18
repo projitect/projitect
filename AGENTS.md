@@ -36,29 +36,40 @@ directory. Chaining `cd && pnpm` triggers permission prompts unnecessarily.
 ## Permission-prompt posture (command shape)
 
 Most permission prompts are a **command-shape problem, not a missing allowlist entry** — the engine
-auto-approves a command only when *every* part of it is independently safe, so several wrappers defeat
+auto-approves a command only when _every_ part of it is independently safe, so several wrappers defeat
 an otherwise-allowlisted command. The allowlist in [`.claude/settings.json`](./.claude/settings.json)
-covers the safe reads and routine scripts; you keep prompts low by *how* you invoke things:
+covers the safe reads and routine scripts; you keep prompts low by _how_ you invoke things:
 
-- **Prefer the built-in `Grep` / `Glob` / `Read` tools** over shell `grep` / `find` / `cat` and
-  pipelines. They don't go through the Bash permission path, so they never prompt — and they're faster.
-- **One command per tool call — never `&&` / `;` / `|` chains.** A compound line is auto-approved only
-  if every segment independently clears, so even an all-allowlisted chain (`git add … && git commit …
-  && git log …`) prompts. Run the steps as separate calls.
+- **Prefer the built-in `Grep` / `Glob` / `Read` tools** over shell `grep` / `git grep` / `find` /
+  `cat` / `sed` / `head` and pipelines. They don't go through the Bash permission path, so they never
+  prompt — and they're faster. Concretely:
+  - `sed -n 'A,Bp' file` / `head -n N file` → `Read` with `offset` / `limit`.
+  - `grep … file` / `git grep …` → the `Grep` tool. Scope with `glob` (e.g. `**/*.ts`) and exclude
+    tests with a negated glob (`!**/*.test.*`) instead of a `| grep -v` pipe.
+  - **Reading or searching N files → one `Grep`/`Read`, never a `for f in …; do grep …; done` loop.**
+  - Drop `echo "=== … ==="` section separators and `|| echo "no matches"` fallbacks entirely — the
+    native tools label their output and report empty results for free. A stray `echo` is enough to
+    force a prompt on an otherwise-allowlisted block.
+- **One command per tool call — never `&&` / `;` / `|` / `$(…)` chains or `for`/`while` loops.** A
+  compound line is auto-approved only if every segment independently clears, so even an all-allowlisted
+  chain (`git add … && git commit … && git log …`) prompts. Run the steps as separate calls. Loops and
+  command substitution prompt structurally — that gate is intentional, so reach for the native tools
+  above instead of trying to allowlist your way around it.
 - **Run project scripts verbatim** — `pnpm tc` / `pnpm test` / `pnpm lint` / `pnpm check-all`, with no
   env-var prefix (`TMPDIR=…`), no extra flags, and no `2>&1 | tail` / `2>/dev/null` capture wrapper. Run
   them bare and read the output; the redirect/pipe is itself what prompts.
 - **Commit with `-m` (or `-F <file>`), never a heredoc.** `git commit <<'EOF' … EOF` is an input
-  redirect and prompts on *every* commit.
+  redirect and prompts on _every_ commit.
 - **Don't `cd` / `git -C <path>` into the worktree you're already in** — an out-of-cwd path triggers a
-  prompt. The cwd already *is* the repo; run `git status`, `pnpm test`, etc. directly.
+  prompt. The cwd already _is_ the repo; run `git status`, `pnpm test`, etc. directly.
 
-Consequential actions stay **deliberately gated** (they *should* prompt): inline code runners
-(`tsx -e`, `npx -e`), `gh pr merge`, `gh issue create`, publishes (`changeset publish`), and
-destructive git (`git reset --hard`, `git clean -fd`, bare `git push --force`). Expanding the allowlist
-is the smallest lever, not the first — fix the root cause in scripts or command shape before reaching
-for it. (This is the static-enforcement reflex from [Reach for ESLint first](#reach-for-eslint-first)
-applied to the permission layer.)
+Consequential actions stay **deliberately gated** (they _should_ prompt): inline code runners
+(`node -e`, `tsx -e`, `npx -e`), `gh pr merge`, `gh issue create`, publishes (`changeset publish`), and
+destructive git (`git reset --hard`, `git clean -fd`, bare `git push --force`). To probe a library's
+runtime behavior, write a throwaway test and run it with the allowlisted `pnpm test` instead of an inline
+`-e` eval. Expanding the allowlist is the smallest lever, not the first — fix the root cause in scripts or
+command shape before reaching for it. (This is the static-enforcement reflex from
+[Reach for ESLint first](#reach-for-eslint-first) applied to the permission layer.)
 
 ## Node version
 
