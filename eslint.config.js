@@ -192,7 +192,7 @@ export default tseslint.config(
         "error",
         { checkArguments: false, checkArrowFunctionBody: false },
       ],
-      // Schema.TaggedErrorClass constructors clash with this rule.
+      // Schema.TaggedError constructors clash with this rule.
       "unicorn/custom-error-definition": "off",
       // Effect.forEach + array.forEach are idiomatic for side-effecting iterations.
       "unicorn/no-array-for-each": "off",

@@ -5,14 +5,14 @@ import { Schema } from "effect"
  * the id + URL when an error reaches the terminal; `pjt explain <id>` opens the local docs page;
  * `apps/website/check:errors` fails CI if any id lacks a docs entry.
  *
- * Errors use `Schema.TaggedErrorClass` so they serialize cleanly into the `--json` output mode.
+ * Errors use `Schema.TaggedError` so they serialize cleanly into the `--json` output mode.
  */
 
 // ---------------------------------------------------------------------------
 // Filesystem errors
 // ---------------------------------------------------------------------------
 
-export class FsPermissionDenied extends Schema.TaggedErrorClass<FsPermissionDenied>()(
+export class FsPermissionDenied extends Schema.TaggedError<FsPermissionDenied>()(
   "FsPermissionDenied",
   {
     id: Schema.Literal("pjt.fs.permission-denied"),
@@ -23,14 +23,14 @@ export class FsPermissionDenied extends Schema.TaggedErrorClass<FsPermissionDeni
   },
 ) {}
 
-export class FsReadFailed extends Schema.TaggedErrorClass<FsReadFailed>()("FsReadFailed", {
+export class FsReadFailed extends Schema.TaggedError<FsReadFailed>()("FsReadFailed", {
   id: Schema.Literal("pjt.fs.read-failed"),
   path: Schema.String,
   cause: Schema.String,
   message: Schema.String,
 }) {}
 
-export class FsWriteFailed extends Schema.TaggedErrorClass<FsWriteFailed>()("FsWriteFailed", {
+export class FsWriteFailed extends Schema.TaggedError<FsWriteFailed>()("FsWriteFailed", {
   id: Schema.Literal("pjt.fs.write-failed"),
   path: Schema.String,
   cause: Schema.String,
@@ -41,7 +41,7 @@ export class FsWriteFailed extends Schema.TaggedErrorClass<FsWriteFailed>()("FsW
 // Loader errors — when the user's `.pjt.ts` can't be parsed or doesn't export a valid default
 // ---------------------------------------------------------------------------
 
-export class LoaderImportFailed extends Schema.TaggedErrorClass<LoaderImportFailed>()(
+export class LoaderImportFailed extends Schema.TaggedError<LoaderImportFailed>()(
   "LoaderImportFailed",
   {
     id: Schema.Literal("pjt.loader.import-failed"),
@@ -51,7 +51,7 @@ export class LoaderImportFailed extends Schema.TaggedErrorClass<LoaderImportFail
   },
 ) {}
 
-export class LoaderInvalidDefaultExport extends Schema.TaggedErrorClass<LoaderInvalidDefaultExport>()(
+export class LoaderInvalidDefaultExport extends Schema.TaggedError<LoaderInvalidDefaultExport>()(
   "LoaderInvalidDefaultExport",
   {
     id: Schema.Literal("pjt.loader.invalid-default-export"),
@@ -65,14 +65,14 @@ export class LoaderInvalidDefaultExport extends Schema.TaggedErrorClass<LoaderIn
 // Config errors
 // ---------------------------------------------------------------------------
 
-export class ConfigInvalid extends Schema.TaggedErrorClass<ConfigInvalid>()("ConfigInvalid", {
+export class ConfigInvalid extends Schema.TaggedError<ConfigInvalid>()("ConfigInvalid", {
   id: Schema.Literal("pjt.config.invalid"),
   source: Schema.Literals(["defaults", "env", "blueprintFile", "cliArgs"]),
   field: Schema.String,
   message: Schema.String,
 }) {}
 
-export class ConfigBlueprintFileNotFound extends Schema.TaggedErrorClass<ConfigBlueprintFileNotFound>()(
+export class ConfigBlueprintFileNotFound extends Schema.TaggedError<ConfigBlueprintFileNotFound>()(
   "ConfigBlueprintFileNotFound",
   {
     id: Schema.Literal("pjt.config.blueprint-file-not-found"),
@@ -85,7 +85,7 @@ export class ConfigBlueprintFileNotFound extends Schema.TaggedErrorClass<ConfigB
 // Plan errors — surfaced when reducing the blueprint tree into a project plan
 // ---------------------------------------------------------------------------
 
-export class PlanConflictRegion extends Schema.TaggedErrorClass<PlanConflictRegion>()(
+export class PlanConflictRegion extends Schema.TaggedError<PlanConflictRegion>()(
   "PlanConflictRegion",
   {
     id: Schema.Literal("pjt.plan.conflict-region"),
@@ -96,7 +96,7 @@ export class PlanConflictRegion extends Schema.TaggedErrorClass<PlanConflictRegi
   },
 ) {}
 
-export class PlanConflictMerge extends Schema.TaggedErrorClass<PlanConflictMerge>()(
+export class PlanConflictMerge extends Schema.TaggedError<PlanConflictMerge>()(
   "PlanConflictMerge",
   {
     id: Schema.Literal("pjt.plan.conflict-merge"),
@@ -108,7 +108,7 @@ export class PlanConflictMerge extends Schema.TaggedErrorClass<PlanConflictMerge
   },
 ) {}
 
-export class PlanConflictOwned extends Schema.TaggedErrorClass<PlanConflictOwned>()(
+export class PlanConflictOwned extends Schema.TaggedError<PlanConflictOwned>()(
   "PlanConflictOwned",
   {
     id: Schema.Literal("pjt.plan.conflict-owned"),
@@ -123,18 +123,15 @@ export class PlanConflictOwned extends Schema.TaggedErrorClass<PlanConflictOwned
 // Region marker errors — encountered when reading existing file content
 // ---------------------------------------------------------------------------
 
-export class RegionMissingEnd extends Schema.TaggedErrorClass<RegionMissingEnd>()(
-  "RegionMissingEnd",
-  {
-    id: Schema.Literal("pjt.region.missing-end"),
-    path: Schema.String,
-    ownerId: Schema.String,
-    startLine: Schema.Number,
-    message: Schema.String,
-  },
-) {}
+export class RegionMissingEnd extends Schema.TaggedError<RegionMissingEnd>()("RegionMissingEnd", {
+  id: Schema.Literal("pjt.region.missing-end"),
+  path: Schema.String,
+  ownerId: Schema.String,
+  startLine: Schema.Number,
+  message: Schema.String,
+}) {}
 
-export class RegionDuplicate extends Schema.TaggedErrorClass<RegionDuplicate>()("RegionDuplicate", {
+export class RegionDuplicate extends Schema.TaggedError<RegionDuplicate>()("RegionDuplicate", {
   id: Schema.Literal("pjt.region.duplicate"),
   path: Schema.String,
   ownerId: Schema.String,
@@ -145,18 +142,18 @@ export class RegionDuplicate extends Schema.TaggedErrorClass<RegionDuplicate>()(
 // Apply / init errors
 // ---------------------------------------------------------------------------
 
-export class ApplyDirtyGit extends Schema.TaggedErrorClass<ApplyDirtyGit>()("ApplyDirtyGit", {
+export class ApplyDirtyGit extends Schema.TaggedError<ApplyDirtyGit>()("ApplyDirtyGit", {
   id: Schema.Literal("pjt.apply.dirty-git"),
   command: Schema.Literals(["build", "remodel"]),
   message: Schema.String,
 }) {}
 
-export class InitGitMissing extends Schema.TaggedErrorClass<InitGitMissing>()("InitGitMissing", {
+export class InitGitMissing extends Schema.TaggedError<InitGitMissing>()("InitGitMissing", {
   id: Schema.Literal("pjt.init.git-missing"),
   message: Schema.String,
 }) {}
 
-export class InitPackageJsonMissing extends Schema.TaggedErrorClass<InitPackageJsonMissing>()(
+export class InitPackageJsonMissing extends Schema.TaggedError<InitPackageJsonMissing>()(
   "InitPackageJsonMissing",
   {
     id: Schema.Literal("pjt.init.package-json-missing"),
@@ -168,7 +165,7 @@ export class InitPackageJsonMissing extends Schema.TaggedErrorClass<InitPackageJ
 // Drift — not an error class in the throwing sense, but reported via inspect's nonzero exit
 // ---------------------------------------------------------------------------
 
-export class DriftDetected extends Schema.TaggedErrorClass<DriftDetected>()("DriftDetected", {
+export class DriftDetected extends Schema.TaggedError<DriftDetected>()("DriftDetected", {
   id: Schema.Literal("pjt.drift.detected"),
   affectedPaths: Schema.Array(Schema.String),
   message: Schema.String,
@@ -178,13 +175,13 @@ export class DriftDetected extends Schema.TaggedErrorClass<DriftDetected>()("Dri
 // Package-manager errors (used by `pjt add`)
 // ---------------------------------------------------------------------------
 
-export class PmNotDetected extends Schema.TaggedErrorClass<PmNotDetected>()("PmNotDetected", {
+export class PmNotDetected extends Schema.TaggedError<PmNotDetected>()("PmNotDetected", {
   id: Schema.Literal("pjt.pm.not-detected"),
   projectRoot: Schema.String,
   message: Schema.String,
 }) {}
 
-export class PmInstallFailed extends Schema.TaggedErrorClass<PmInstallFailed>()("PmInstallFailed", {
+export class PmInstallFailed extends Schema.TaggedError<PmInstallFailed>()("PmInstallFailed", {
   id: Schema.Literal("pjt.pm.install-failed"),
   packageManager: Schema.String,
   pkg: Schema.String,
@@ -196,7 +193,7 @@ export class PmInstallFailed extends Schema.TaggedErrorClass<PmInstallFailed>()(
 // `pjt add` errors
 // ---------------------------------------------------------------------------
 
-export class AddMarkersMissing extends Schema.TaggedErrorClass<AddMarkersMissing>()(
+export class AddMarkersMissing extends Schema.TaggedError<AddMarkersMissing>()(
   "AddMarkersMissing",
   {
     id: Schema.Literal("pjt.add.markers-missing"),
@@ -210,34 +207,31 @@ export class AddMarkersMissing extends Schema.TaggedErrorClass<AddMarkersMissing
 // Git errors
 // ---------------------------------------------------------------------------
 
-export class GitNotARepo extends Schema.TaggedErrorClass<GitNotARepo>()("GitNotARepo", {
+export class GitNotARepo extends Schema.TaggedError<GitNotARepo>()("GitNotARepo", {
   id: Schema.Literal("pjt.git.not-a-repo"),
   projectRoot: Schema.String,
   message: Schema.String,
 }) {}
 
-export class GitCommandFailed extends Schema.TaggedErrorClass<GitCommandFailed>()(
-  "GitCommandFailed",
-  {
-    id: Schema.Literal("pjt.git.command-failed"),
-    command: Schema.String,
-    cause: Schema.String,
-    message: Schema.String,
-  },
-) {}
+export class GitCommandFailed extends Schema.TaggedError<GitCommandFailed>()("GitCommandFailed", {
+  id: Schema.Literal("pjt.git.command-failed"),
+  command: Schema.String,
+  cause: Schema.String,
+  message: Schema.String,
+}) {}
 
 // ---------------------------------------------------------------------------
 // Lockfile errors
 // ---------------------------------------------------------------------------
 
-export class LockParseFailed extends Schema.TaggedErrorClass<LockParseFailed>()("LockParseFailed", {
+export class LockParseFailed extends Schema.TaggedError<LockParseFailed>()("LockParseFailed", {
   id: Schema.Literal("pjt.lock.parse-failed"),
   path: Schema.String,
   cause: Schema.String,
   message: Schema.String,
 }) {}
 
-export class LockVersionMismatch extends Schema.TaggedErrorClass<LockVersionMismatch>()(
+export class LockVersionMismatch extends Schema.TaggedError<LockVersionMismatch>()(
   "LockVersionMismatch",
   {
     id: Schema.Literal("pjt.lock.version-mismatch"),

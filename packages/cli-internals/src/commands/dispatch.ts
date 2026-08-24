@@ -67,6 +67,7 @@ const initCmd = Command.make(
   "init",
   {
     yes: Flag.boolean("yes").pipe(
+      Flag.withDefault(false),
       Flag.withDescription(
         "Auto-bootstrap missing `.git/` (via `git init`) and `package.json` (minimal stub).",
       ),
@@ -156,6 +157,7 @@ const inspectCmd = Command.make(
   "inspect",
   {
     json: Flag.boolean("json").pipe(
+      Flag.withDefault(false),
       Flag.withDescription(
         "Emit machine-readable JSON output { hasDrift, files, removals, upgrades }. Exit code still 1 on drift.",
       ),
@@ -193,12 +195,15 @@ const buildCmd = Command.make(
   "build",
   {
     force: Flag.boolean("force").pipe(
+      Flag.withDefault(false),
       Flag.withDescription("Required. Wipe the project tree and rebuild from scratch."),
     ),
     forceDirty: Flag.boolean("force-dirty").pipe(
+      Flag.withDefault(false),
       Flag.withDescription("Allow wiping even when git has uncommitted changes."),
     ),
     yes: Flag.boolean("yes").pipe(
+      Flag.withDefault(false),
       Flag.withDescription("Skip the interactive confirmation prompt."),
     ),
   },

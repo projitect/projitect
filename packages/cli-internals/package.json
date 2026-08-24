@@ -25,19 +25,19 @@
     "tc": "tsc --build"
   },
   "dependencies": {
-    "@nunofyobiz/effect-extras": "3.0.0"
+    "@nunofyobiz/effect-extras": "3.2.0"
   },
   "devDependencies": {
     "@projitect/blueprint": "workspace:*",
     "@projitect/core": "workspace:*",
     "@types/node": "22.19.19",
-    "effect": "4.0.0-beta.74",
+    "effect": "4.0.0-rc.111",
     "typescript": "5.9.3"
   },
   "peerDependencies": {
     "@projitect/blueprint": "workspace:*",
     "@projitect/core": "workspace:*",
-    "effect": "4.0.0-beta.74"
+    "effect": "4.0.0-rc.111"
   },
   "engines": {
     "node": ">=22.12.0"

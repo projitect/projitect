@@ -43,7 +43,7 @@ npm install --no-package-lock --silent \
   "file:${PKG}/blueprint-gitignore" \
   "file:${PKG}/blueprint-vitest" \
   "file:${PKG}/blueprint-tsconfig" \
-  "effect@beta" "tsx" 2>&1 | tail -1
+  "effect@rc" "tsx" 2>&1 | tail -1
 
 BIN=node_modules/projitect/bin/pjt.mjs
 

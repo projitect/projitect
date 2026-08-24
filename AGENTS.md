@@ -149,7 +149,7 @@ upgrade or refactor pass can revisit. Don't silently absorb the constraint into 
 
 ## Effect language service
 
-The package's `prepare` script runs `effect-language-service patch` on every `pnpm install`. This patches the local `node_modules/typescript` so that **`tsc --build` produces Effect-specific diagnostics in addition to the standard TS checks** — things like `yield* Effect.fail(new X())` being flagged as redundant (since `new X()` is itself yieldable for `Schema.TaggedErrorClass` errors), `Effect.sync` thunks accidentally returning a Promise, missing Effect requirements, etc.
+The package's `prepare` script runs `effect-language-service patch` on every `pnpm install`. This patches the local `node_modules/typescript` so that **`tsc --build` produces Effect-specific diagnostics in addition to the standard TS checks** — things like `yield* Effect.fail(new X())` being flagged as redundant (since `new X()` is itself yieldable for `Schema.TaggedError` errors), `Effect.sync` thunks accidentally returning a Promise, missing Effect requirements, etc.
 
 If you delete `.tsbuildinfo` files or wipe `node_modules` and the patch doesn't seem to be applied, run `pnpm install` to re-fire `prepare`. `pnpm effect-language-service check` verifies the patch state.
 
@@ -203,7 +203,8 @@ Snapshot npm publishes on PR branches are a tracked follow-up.
 
 ## Effect v4 conventions
 
-This codebase is **Effect-native**. We use `effect@beta`, pinned to the exact `4.0.0-beta.74`.
+This codebase is **Effect-native**. We use the Effect v4 release candidate, pinned to the exact
+`4.0.0-rc.111`.
 
 - **Services** use the `Context.Service<Self, Shape>()("id")` base class — e.g. `BlueprintFileSystem`
   in `@projitect/core`. (There is no `ServiceMap` module in v4; `Context` is where `Service` lives.)
@@ -216,7 +217,7 @@ This codebase is **Effect-native**. We use `effect@beta`, pinned to the exact `4
   (see [Combiners and Reducers](#combiners-and-reducers--the-universal-mergefold)); everything else —
   loader, planner, differ, applier, remover — is a plain Effect-returning function. Don't service-ify
   pure logic.
-- **Errors** use `Schema.TaggedErrorClass` (not `Data.TaggedError`) so they serialize cleanly to JSON
+- **Errors** use `Schema.TaggedError` (not `Data.TaggedError`) so they serialize cleanly to JSON
   for `pjt inspect --json`. Every error declares a semantic `id` field
   (`pjt.<subsystem>.<kebab-case>`) and has a matching MDX page in `apps/website`.
 - **Layer composition** memoizes across `Effect.provide` calls by default in v4. Opt out with
@@ -518,7 +519,7 @@ same move as the config cascade, applied to domain data.
 - **`effect`** (the library) — the first place to look for generic data-manipulation primitives.
   If `Array.foo` already does what you want, use it directly.
 - **`@nunofyobiz/effect-extras`** — the external home for projitect's generic `*X` utilities, a
-  normal published dependency (peer: `effect@4.0.0-beta.74`, the exact version we pin). It is the
+  normal published dependency (peer: `effect@4.0.0-rc.111`, the exact version we pin). It is the
   `*X` suite adapted from StoryCut's `lib/*X` — `StructX`, `RecordX`, `ArrayX`, `OptionX`,
   `PredicateX`, `NonNullableX`, `StringX`, `ResultX`, `OrderX`, `SchemaX`, `WarnResult`, and more. Modules are
   PascalCase, imported as namespaces (`import { StructX } from "@nunofyobiz/effect-extras"`), and
@@ -703,7 +704,7 @@ See `docs/concepts/ownership-modes` on the marketing site for examples.
 
 Errors live in `packages/core/src/errors/`. To add a new one:
 
-1. Define a new `Schema.TaggedErrorClass` class with an `id` field
+1. Define a new `Schema.TaggedError` class with an `id` field
 2. Export it from `packages/core/src/errors/index.ts`
 3. Add `apps/website/src/content/docs/errors/<id>.mdx` with **What**, **Why**, **How to fix**
 4. `pnpm --filter website check:errors` will catch step 3 if you forget
