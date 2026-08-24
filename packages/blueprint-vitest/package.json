@@ -24,13 +24,13 @@
     "@projitect/blueprint": "workspace:*",
     "@projitect/core": "workspace:*",
     "@projitect/test-kit": "workspace:*",
-    "effect": "4.0.0-beta.74",
+    "effect": "4.0.0-rc.111",
     "typescript": "5.9.3"
   },
   "peerDependencies": {
     "@projitect/blueprint": "workspace:*",
     "@projitect/core": "workspace:*",
-    "effect": "4.0.0-beta.74"
+    "effect": "4.0.0-rc.111"
   },
   "engines": {
     "node": ">=22.12.0"

@@ -29,7 +29,7 @@ Plus `apps/website` (Astro Starlight; not published).
 
 ## Status
 
-**v0**, built on Effect v4 (beta). Region-mode end-to-end. `init`, `remodel`, `inspect`, `explain`
+**v0**, built on the Effect v4 release candidate. Region-mode end-to-end. `init`, `remodel`, `inspect`, `explain`
 work. `build --force` and `add` are scaffolded stubs (v0.1). Merge / owned / seed planning modes
 are implemented but not yet exercised by a shipping blueprint.
 

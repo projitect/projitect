@@ -8,7 +8,7 @@ import { Effect, FileSystem, Layer, Option, Stream } from "effect"
  * Node-backed `FileSystem` Layer.
  *
  * Implements the common methods (`readFile`, `writeFile`, `access`, `readDirectory`,
- * `makeDirectory`, `remove`, `stat`, `rename`, `symlink`, `link`, `chmod`, `chown`,
+ * `makeDirectory`, `remove`, `stat`, `rename`, `symlink`, `link`, `chmod`, `chown`, `glob`,
  * `realPath`, `readLink`, `copy`, `copyFile`, `truncate`, `utimes`, `makeTempFile`,
  * `makeTempDirectory`) using `node:fs/promises`. The derived methods (`exists`,
  * `readFileString`, `writeFileString`, `stream`, `sink`) come for free from `FileSystem.make`.
@@ -53,6 +53,17 @@ const make = FileSystem.make({
   copyFile: (fromPath, toPath) => tryEffect("copyFile", () => nodeFs.copyFile(fromPath, toPath)),
   chmod: (path, mode) => tryEffect("chmod", () => nodeFs.chmod(path, mode)),
   chown: (path, uid, gid) => tryEffect("chown", () => nodeFs.chown(path, uid, gid)),
+  glob: (pattern, options) =>
+    tryEffect("glob", async () => {
+      const paths: string[] = []
+      for await (const path of nodeFs.glob(pattern, {
+        cwd: options?.root,
+        exclude: options?.exclude,
+      })) {
+        paths.push(path)
+      }
+      return paths
+    }),
   link: (fromPath, toPath) => tryEffect("link", () => nodeFs.link(fromPath, toPath)),
   makeDirectory: (path, options) =>
     tryEffect("makeDirectory", () =>
