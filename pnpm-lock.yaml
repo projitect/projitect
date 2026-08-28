@@ -15,7 +15,7 @@ importers:
         specifier: 2.31.0
         version: 2.31.0(@types/node@22.19.19)
       '@effect/language-service':
-        specifier: ^0.86.2
+        specifier: 0.86.2
         version: 0.86.2
       '@eslint-community/eslint-plugin-eslint-comments':
         specifier: 4.7.1
@@ -106,8 +106,8 @@ importers:
         specifier: 22.19.19
         version: 22.19.19
       effect:
-        specifier: 4.0.0-rc.111
-        version: 4.0.0-rc.111
+        specifier: 4.0.0-rc.112
+        version: 4.0.0-rc.112
       projitect:
         specifier: workspace:*
         version: link:../../packages/projitect
@@ -119,7 +119,7 @@ importers:
     dependencies:
       '@nunofyobiz/effect-extras':
         specifier: 3.2.0
-        version: 3.2.0(effect@4.0.0-rc.111)
+        version: 3.2.0(effect@4.0.0-rc.112)
     devDependencies:
       '@projitect/core':
         specifier: workspace:*
@@ -128,8 +128,8 @@ importers:
         specifier: workspace:*
         version: link:../test-kit
       effect:
-        specifier: 4.0.0-rc.111
-        version: 4.0.0-rc.111
+        specifier: 4.0.0-rc.112
+        version: 4.0.0-rc.112
       typescript:
         specifier: 5.9.3
         version: 5.9.3
@@ -143,8 +143,8 @@ importers:
         specifier: workspace:*
         version: link:../core
       effect:
-        specifier: 4.0.0-rc.111
-        version: 4.0.0-rc.111
+        specifier: 4.0.0-rc.112
+        version: 4.0.0-rc.112
       typescript:
         specifier: 5.9.3
         version: 5.9.3
@@ -161,8 +161,8 @@ importers:
         specifier: workspace:*
         version: link:../test-kit
       effect:
-        specifier: 4.0.0-rc.111
-        version: 4.0.0-rc.111
+        specifier: 4.0.0-rc.112
+        version: 4.0.0-rc.112
       typescript:
         specifier: 5.9.3
         version: 5.9.3
@@ -179,8 +179,8 @@ importers:
         specifier: workspace:*
         version: link:../test-kit
       effect:
-        specifier: 4.0.0-rc.111
-        version: 4.0.0-rc.111
+        specifier: 4.0.0-rc.112
+        version: 4.0.0-rc.112
       typescript:
         specifier: 5.9.3
         version: 5.9.3
@@ -189,7 +189,7 @@ importers:
     dependencies:
       '@nunofyobiz/effect-extras':
         specifier: 3.2.0
-        version: 3.2.0(effect@4.0.0-rc.111)
+        version: 3.2.0(effect@4.0.0-rc.112)
     devDependencies:
       '@projitect/blueprint':
         specifier: workspace:*
@@ -201,8 +201,8 @@ importers:
         specifier: 22.19.19
         version: 22.19.19
       effect:
-        specifier: 4.0.0-rc.111
-        version: 4.0.0-rc.111
+        specifier: 4.0.0-rc.112
+        version: 4.0.0-rc.112
       typescript:
         specifier: 5.9.3
         version: 5.9.3
@@ -210,8 +210,8 @@ importers:
   packages/core:
     devDependencies:
       effect:
-        specifier: 4.0.0-rc.111
-        version: 4.0.0-rc.111
+        specifier: 4.0.0-rc.112
+        version: 4.0.0-rc.112
       typescript:
         specifier: 5.9.3
         version: 5.9.3
@@ -235,8 +235,8 @@ importers:
         specifier: 22.19.19
         version: 22.19.19
       effect:
-        specifier: 4.0.0-rc.111
-        version: 4.0.0-rc.111
+        specifier: 4.0.0-rc.112
+        version: 4.0.0-rc.112
       typescript:
         specifier: 5.9.3
         version: 5.9.3
@@ -247,8 +247,8 @@ importers:
         specifier: workspace:*
         version: link:../core
       effect:
-        specifier: 4.0.0-rc.111
-        version: 4.0.0-rc.111
+        specifier: 4.0.0-rc.112
+        version: 4.0.0-rc.112
       typescript:
         specifier: 5.9.3
         version: 5.9.3
@@ -2392,8 +2392,8 @@ packages:
     resolution: {integrity: sha512-KIN/nDJBQRcXw0MLVhZE9iQHmG68qAVIBg9CqmUYjmQIhgij9U5MFvrqkUL5FbtyyzZuOeOt0zdeRe4UY7ct+A==}
     engines: {node: '>= 0.4'}
 
-  effect@4.0.0-rc.111:
-    resolution: {integrity: sha512-ASd5L58EIR0CUNueZNKKjSsyOCd+2alxOAIaTcHaqkJkPsaYSsw5Cg/cfANk5K4Jr2YsX756xvX11shzqsreWA==}
+  effect@4.0.0-rc.112:
+    resolution: {integrity: sha512-wXxwuh1Ywnv4cPRM3Wfa0vDwuOHnZ1TsTgHJkG9XgzND6inhBH9n1vBxhg3iIXOia/OrpmvVmd3lrD4vq6bF3A==}
 
   electron-to-chromium@1.5.361:
     resolution: {integrity: sha512-Q6Hts7N9FnJc5LeGRINFvLhCI9xZmNtTDe5ZbcVezQz7cU4a8Aua3GH1b8J2XY8Al9PF+OCwYqhgsOOheMdvkA==}
@@ -2579,6 +2579,7 @@ packages:
   eslint@9.39.4:
     resolution: {integrity: sha512-XoMjdBOwe/esVgEvLmNsD3IRHkm7fbKIUGvrleloJXUZgDHig2IPWNniv+GwjyJXzuNqVjlr5+4yVUZjycJwfQ==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+    deprecated: This version is no longer supported. Please see https://eslint.org/version-support for other options.
     hasBin: true
     peerDependencies:
       jiti: '*'
@@ -5695,9 +5696,9 @@ snapshots:
       '@nodelib/fs.scandir': 2.1.5
       fastq: 1.20.1
 
-  '@nunofyobiz/effect-extras@3.2.0(effect@4.0.0-rc.111)':
+  '@nunofyobiz/effect-extras@3.2.0(effect@4.0.0-rc.112)':
     dependencies:
-      effect: 4.0.0-rc.111
+      effect: 4.0.0-rc.112
 
   '@oslojs/encoding@1.1.0': {}
 
@@ -6767,9 +6768,8 @@ snapshots:
       es-errors: 1.3.0
       gopd: 1.2.0
 
-  effect@4.0.0-rc.111:
+  effect@4.0.0-rc.112:
     dependencies:
-      '@standard-schema/spec': 1.1.0
       fast-check: 4.9.0
       msgpackr: 2.0.5
 

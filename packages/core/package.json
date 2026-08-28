@@ -25,11 +25,11 @@
     "tc": "tsc --build"
   },
   "devDependencies": {
-    "effect": "4.0.0-rc.111",
+    "effect": "4.0.0-rc.112",
     "typescript": "5.9.3"
   },
   "peerDependencies": {
-    "effect": "4.0.0-rc.111"
+    "effect": "4.0.0-rc.112"
   },
   "engines": {
     "node": ">=22.12.0"
