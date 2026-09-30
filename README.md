@@ -24,6 +24,8 @@ the per-error code lookup pages. The published packages are:
 | `@projitect/cli-internals`       | The engine — loader, planner, differ, applier, commands.                                                     |
 | `@projitect/test-kit`            | In-memory `BlueprintFileSystem` for unit tests.                                                              |
 | `@projitect/blueprint-gitignore` | Eight composable `.gitignore` sections (macOS, Windows, Linux, Node, Next, VS Code, JetBrains, tsbuildinfo). |
+| `@projitect/blueprint-tsconfig`  | Managed `tsconfig.json` blueprint.                                                                           |
+| `@projitect/blueprint-vitest`    | Managed Vitest config blueprint.                                                                             |
 
 Plus `apps/website` (Astro Starlight; not published).
 
@@ -40,7 +42,7 @@ The contributor guide lives in [AGENTS.md](./AGENTS.md). `CLAUDE.md` is a symlin
 ```bash
 nvm use                  # Node 22.12+
 pnpm install
-pnpm check-all           # tc + lint + format:check + test + knip
+pnpm check-all           # tc + lint (includes Prettier formatting) + test + knip
 pnpm build               # build all library packages
 pnpm --filter website dev   # the docs site, http://localhost:4321
 ```

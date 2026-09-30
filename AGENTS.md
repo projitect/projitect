@@ -15,9 +15,22 @@ binary is `pjt`. Project maintainers declare a list of **blueprints** in `.pjt.t
 materializes them, `pjt remodel` updates the project to match, and `pjt inspect` reports drift
 with a nonzero exit for CI.
 
-This is a **pnpm monorepo** with five library packages, one binary package, and a marketing
-site. All published packages version in **lockstep** via changesets — one shared version, matching
-Effect v4's own release model.
+This is a **pnpm monorepo**. `packages/*` and `apps/*` are the workspaces:
+
+| Package                          | Role                                                                                                  |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `@projitect/core`                | Shared contracts — `Blueprint`, `ChangeSet`, `Permission`, errors. Runtime-pure, no `node:*`.         |
+| `@projitect/blueprint`           | Authoring SDK — `regionFile`, `jsonMerge`, `ownFile`, `seedFile`, `directory`, `BlueprintFileSystem`. |
+| `@projitect/blueprint-gitignore` | First-party blueprint: composable `.gitignore` sections.                                              |
+| `@projitect/blueprint-tsconfig`  | First-party blueprint: managed `tsconfig.json`.                                                       |
+| `@projitect/blueprint-vitest`    | First-party blueprint: managed Vitest config.                                                         |
+| `@projitect/cli-internals`       | The engine — loader, planner, differ, applier, remover, commands, Node platform layer.                |
+| `projitect`                      | Ships the `pjt` binary and `.pjt.ts` handling.                                                        |
+| `@projitect/test-kit`            | In-memory `BlueprintFileSystem` for unit tests.                                                       |
+| `apps/website`                   | Astro Starlight marketing/docs site. Private, not published.                                          |
+
+All published packages (everything above except `apps/website`) version in **lockstep** via
+changesets — one shared version, matching Effect v4's own release model.
 
 ## Package manager
 
@@ -86,18 +99,22 @@ Before claiming a task done, run **`pnpm check-all`** from the repo root. It run
 3. `pnpm test` — Vitest (unit + integration with the in-memory `BlueprintFileSystem`)
 4. `pnpm knip` — unused exports
 
-If you only changed one package, you can run the same checks scoped: `pnpm --filter <pkg> tc`,
-etc. — but `check-all` is the gate before merging.
+Tests live in `packages/<pkg>/test/*.test.ts` and lean on `makeInMemoryLayer` from
+`@projitect/test-kit`. Packages have no per-package `test` script, so to scope a run to one
+package use `pnpm test packages/<pkg>` (Vitest filters by path); `pnpm --filter <pkg> tc` still
+works for typechecking a single package. `check-all` is the gate before merging.
 
-Three additional checks run in CI but are also runnable locally:
+Three additional checks run in CI but are also runnable locally. All three require built
+packages first — run `pnpm build` before any of them:
 
 - `pnpm --filter website check:examples` — every code snippet under `apps/website/examples/`
   typechecks. Marketing copy is not allowed to lie.
 - `pnpm --filter website check:errors` — every error id exported by `@projitect/core` has a
   matching MDX page under `apps/website/src/content/docs/errors/`.
-- `./scripts/smoke.sh` — end-to-end smoke covering init → add → remodel → inspect → lockfile
-  orphan removal → build --force in a throwaway `/tmp` project. Heaviest gate; run when you've
-  touched the CLI pipeline.
+- `./scripts/smoke.sh` — end-to-end smoke in a throwaway `/tmp` project: exercises every CLI
+  command (`init`, `remodel`, `inspect`, `explain`, `build --force`, `--completions`), validates
+  lockfile-driven orphan removal, and validates the git safety nets (`init` refuses without git,
+  `build` refuses on a dirty tree). Heaviest gate; run when you've touched the CLI pipeline.
 
 ## ESLint absorbs Prettier
 
@@ -718,7 +735,9 @@ into a prioritized backlog, then move through an implementation pipeline with a 
 approval gate at every transition. The kanban workflow is **optional** — contributors who
 don't configure it work on this repo exactly as before. Contributors who do configure it
 get the `/kanban-*` skills as their primary interaction surface with Claude Code on this
-project.
+project. If Trello isn't configured — no `.env.local`, or the Trello MCP server fails to
+connect — skip the `/kanban-*` skills and the `[kanban #…]` commit suffix entirely; proceed
+as if the kanban workflow didn't exist.
 
 The full setup walkthrough is at [.claude/skills/kanban/SETUP.md](.claude/skills/kanban/SETUP.md);
 the canonical reference for the board layout, transition rules, signed-comment format, and
@@ -812,10 +831,18 @@ bundle.
 
 ## Commits and PRs
 
-- Conventional Commits enforced by commitlint
+- Conventional Commits by convention — there is no commitlint config or `commit-msg` hook;
+  `.husky/pre-commit` only runs `pnpm lint-staged` (ESLint + Prettier on staged files). Write
+  conventional subjects anyway, because...
+- PR merge style: merge commit (never squash) — the PR title becomes the merge commit subject, so
+  PR titles are conventional too (e.g. `fix(deps): update dependency sharp (#35)`).
 - One concept per commit; squash trivial fixups locally before opening a PR
-- PR merge style: merge commit (never squash) — preserves the conventional commit history
 - Run `pnpm check-all` before pushing
+- A PR that changes a published package (see the package table under
+  [What this repo is](#what-this-repo-is)) adds a hand-written `.changeset/<kebab-name>.md` —
+  frontmatter `"projitect": <bump>`; the `fixed` group in `.changeset/config.json` bumps every
+  published package together regardless of which one the entry names. `pnpm changeset` walks
+  you through it interactively; the existing files in `.changeset/` are worked examples.
 - When a card from the kanban workflow shipped: include `[kanban #<CARD_ID>]` in the commit
   subject (e.g. `feat(cli): add --json to pjt inspect [kanban #42]`). The orchestrator
   prompts you for this on the final approval gate — see
@@ -884,7 +911,7 @@ The site is not a release-time chore — it's a **continuous obligation**. Three
 
 ### Plan-time
 
-Every plan in `~/.claude/plans/` that introduces a user-facing change must explicitly list
+Every plan, wherever it is written, that introduces a user-facing change must explicitly list
 which marketing pages it will touch. "Add `--json` flag to `pjt inspect`" without naming
 `apps/website/src/content/docs/docs/cli/inspect.mdx` is an incomplete plan.
 
@@ -914,7 +941,21 @@ The human reviewer additionally checks the prose on touched pages for freshness.
 ### Release-time
 
 At release time the docs are already correct by construction. The procedural parts (changeset,
-version bump, publish) are handled by the `release-bump` skill at `.claude/skills/release-bump/`.
+version bump, publish) are handled by the `release-bump` skill at `.claude/skills/release-bump/`
+— see [Shipping a release](#shipping-a-release) for what that skill drives.
+
+## Shipping a release
+
+[`.github/workflows/release.yml`](.github/workflows/release.yml) drives releases: on every push
+to `main`, `changesets/action` looks for `.changeset/*.md` files and opens (or updates) a
+`chore(release): version packages` PR that applies them via `pnpm version-packages`. Merging that
+PR triggers the same workflow again, which runs `pnpm release` — `pnpm build` followed by
+`changeset publish` — publishing every package in the `fixed` group with npm provenance
+(`NPM_CONFIG_PROVENANCE=true`).
+
+Agents never publish directly: there's no interactive `changeset publish` step to run by hand,
+only the changeset file (see [Commits and PRs](#commits-and-prs)) that feeds the gated workflow
+above. Use the `release-bump` skill to walk through cutting a release.
 
 ## Versioning (lockstep)
 
