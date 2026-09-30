@@ -3,9 +3,9 @@ import { defineConfig } from "vitest/config"
 /**
  * Workspace vitest config.
  *
- * The default `include` patterns pick up `**​/*.{test,spec}.{ts,tsx}` across all packages. We
- * don't ship any tests yet (planned for v0.2 once @projitect/test-kit's in-memory FS is
- * exercised), so `vitest run` exits zero on an empty match via `passWithNoTests`.
+ * The default `include` patterns pick up `**​/*.{test,spec}.{ts,tsx}` across all packages. Suites
+ * live under each package's `test/` directory. `passWithNoTests` stays set so a filtered run
+ * (e.g. `pnpm test packages/blueprint`) that matches no files still exits zero.
  */
 export default defineConfig({
   test: {
