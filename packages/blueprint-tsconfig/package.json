@@ -2,6 +2,11 @@
   "name": "@projitect/blueprint-tsconfig",
   "version": "0.0.0",
   "description": "TypeScript tsconfig.json scaffolding blueprint for projitect — strict defaults, owned mode.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/projitect/projitect.git",
+    "directory": "packages/blueprint-tsconfig"
+  },
   "license": "MIT",
   "type": "module",
   "exports": {
