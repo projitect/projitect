@@ -13,7 +13,9 @@ understand it without archaeology.
 `projitect` is a project-scaffolding tool — Terraform for frontend projects. The user-facing
 binary is `pjt`. Project maintainers declare a list of **blueprints** in `.pjt.ts`; `pjt build`
 materializes them, `pjt remodel` updates the project to match, and `pjt inspect` reports drift
-with a nonzero exit for CI.
+with a nonzero exit for CI. The repository's canonical GitHub home is
+**github.com/projitect/projitect** — repo links, every published package's `repository` field,
+and the changesets changelog's `repo` option all use that slug.
 
 This is a **pnpm monorepo**. `packages/*` and `apps/*` are the workspaces:
 

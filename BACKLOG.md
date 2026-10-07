@@ -65,7 +65,7 @@ work can't land until the relevant items here are done.
 
 _As a maintainer, I want the moved repo's PRs and redirects sane, so that the transfer leaves no loose ends._
 
-- [ ] Confirm `github.com/projitect/projitect` redirects to `StoryCut/projitect`
+- [x] Confirm `StoryCut/projitect` redirects to `projitect/projitect` (checked 2026-10-07)
 - [ ] Confirm PR #1 (`v0.1` → `main`) still resolves at the new URL
 - [ ] Triage the stray open PR #2 ("docs: add AGENTS.md…", branch `agent/engineer/0d5e61d1`) — close it if superseded by the AGENTS.md work on `v0.1`
   > Size: S · **Manual**
@@ -110,13 +110,13 @@ _As a maintainer, I want the `@projitect` scope and the unscoped `projitect` nam
 
 _As a maintainer, I want `release.yml` able to publish without a long-lived secret, so that releases are secure and low-maintenance._
 
-- [ ] OIDC trusted publisher configured for `StoryCut/projitect` on each package, **or** an `NPM_TOKEN` repo secret added
+- [ ] OIDC trusted publisher configured for `projitect/projitect` on each package, **or** an `NPM_TOKEN` repo secret added
 - [ ] A `pnpm publish --dry-run` (already in CI) plus one real/staged publish validates the path
   > Size: M · **Manual** · unblocks REL-6, REL-7
 
 ### OPS-7 — Install the Renovate GitHub App
 
-_As a maintainer, I want Renovate active on `StoryCut/projitect`, so that dependency PRs open automatically per `renovate.json5`._
+_As a maintainer, I want Renovate active on `projitect/projitect`, so that dependency PRs open automatically per `renovate.json5`._
 
 - [ ] Renovate App installed on the org/repo
 - [ ] First dependency-dashboard issue appears
@@ -126,7 +126,7 @@ _As a maintainer, I want Renovate active on `StoryCut/projitect`, so that depend
 
 _As a maintainer, I want `apps/website` deployed continuously, so that the docs + `/errors/<id>` pages the CLI links to actually resolve._
 
-- [ ] Vercel project created and linked to `StoryCut/projitect`
+- [ ] Vercel project created and linked to `projitect/projitect`
 - [ ] Root directory set to `apps/website`; build command `pnpm --filter website build` (or framework preset); install at workspace root
 - [ ] Preview deploys on PRs, production on `main`
 - [ ] `/errors/<id>` resolves for every shipped error id
@@ -159,20 +159,20 @@ Automatable code/release work for the first public npm release. The manual block
 
 ### REL-1 — Point changeset changelog at the new repo
 
-_As a maintainer, I want the changelog generator to reference `StoryCut/projitect`, so that
+_As a maintainer, I want the changelog generator to reference `projitect/projitect`, so that
 release notes link to the right GitHub repo._
 
-- [ ] `.changeset/config.json` `changelog` `repo` is `StoryCut/projitect` (currently the stale `kapilkale/projitect`)
+- [x] `.changeset/config.json` `changelog` `repo` is `projitect/projitect` (previously the stale `kapilkale/projitect`)
 - [ ] A test changeset renders links that resolve
   > Size: S
 
 ### REL-2 — Grep the codebase for stale repo references
 
-_As a maintainer, I want every `projitect/projitect` and `kapilkale/projitect` reference updated to `StoryCut/projitect`, so that links in docs, package.json `repository` fields, and CI don't 404._
+_As a maintainer, I want every `kapilkale/projitect` and `StoryCut/projitect` reference updated to `projitect/projitect`, so that links in docs, package.json `repository` fields, and CI don't 404._
 
-- [ ] `rg -n 'projitect/projitect|kapilkale/projitect'` returns only intentional matches
-- [ ] Each published package's `package.json` has a correct `repository` field
-- [ ] Marketing site footer / edit-links point at the new repo
+- [x] `rg -n 'kapilkale/projitect|StoryCut/projitect'` returns only intentional historical matches
+- [x] Each published package's `package.json` has a correct `repository` field
+- [x] Marketing site footer / edit-links point at the new repo
   > Depends on: git remote already moved · Size: S
 
 ### REL-6 — Cut v0.1.0

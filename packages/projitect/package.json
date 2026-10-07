@@ -2,6 +2,11 @@
   "name": "projitect",
   "version": "0.0.0",
   "description": "Project scaffolding that stays in sync. Like Terraform, for your frontend repo. Drift-aware, idempotent, blueprint-driven.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/projitect/projitect.git",
+    "directory": "packages/projitect"
+  },
   "license": "MIT",
   "type": "module",
   "exports": {

@@ -2,6 +2,11 @@
   "name": "@projitect/blueprint-vitest",
   "version": "0.0.0",
   "description": "Vitest scaffolding blueprint for projitect — owns vitest.config.ts, package.json scripts/devDeps, and the .gitignore coverage entry.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/projitect/projitect.git",
+    "directory": "packages/blueprint-vitest"
+  },
   "license": "MIT",
   "type": "module",
   "exports": {

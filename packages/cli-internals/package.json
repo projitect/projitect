@@ -2,6 +2,11 @@
   "name": "@projitect/cli-internals",
   "version": "0.0.0",
   "description": "Engine for the projitect CLI — loader, planner, differ, applier, and command dispatchers.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/projitect/projitect.git",
+    "directory": "packages/cli-internals"
+  },
   "license": "MIT",
   "type": "module",
   "exports": {
