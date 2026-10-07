@@ -1,6 +1,6 @@
 {
   "name": "@projitect/cli-internals",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "Engine for the projitect CLI — loader, planner, differ, applier, and command dispatchers.",
   "repository": {
     "type": "git",
