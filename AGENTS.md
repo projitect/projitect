@@ -964,11 +964,11 @@ above. Use the `release-bump` skill to walk through cutting a release.
 All published packages (`projitect` and every `@projitect/*`) share one version, bumped together
 via changesets. Pick the bump type per this table — cite the rule when running `pnpm changeset`:
 
-| Change                                                                                                                                                         | Bump      |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| Breaking change in any public API (Blueprint shape, ChangeSet shape, Permission shape, CLI flag rename/removal, error id rename/removal, lockfile schema bump) | **major** |
-| New public feature (new ownership mode, new CLI command, new error class with new id, new SDK helper, new blueprint package)                                   | **minor** |
-| Bug fix, doc-only change, internal refactor, dep bump that doesn't change consumer-visible behavior                                                            | **patch** |
+| Change                                                                                                                                                                                                   | Bump      |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| Breaking change in any public API (Blueprint shape, ChangeSet shape, Permission shape, CLI flag rename/removal, error id rename/removal, lockfile schema bump, `pjt inspect --json` schema version bump) | **major** |
+| New public feature (new ownership mode, new CLI command, new error class with new id, new SDK helper, new blueprint package)                                                                             | **minor** |
+| Bug fix, doc-only change, internal refactor, dep bump that doesn't change consumer-visible behavior                                                                                                      | **patch** |
 
 When in doubt about bump severity, pick the higher one. Cost of an unnecessary major is low (no
 consumer breakage); cost of an unannounced major is high.

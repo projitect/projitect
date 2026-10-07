@@ -196,6 +196,7 @@ echo "$OUT" | grep -q "projitect.dev/errors" && pass "explain links docs url" ||
 
 echo "=== 6b. inspect --json emits structured output ==="
 JSON_OUT=$($BIN inspect --json 2>&1)
+echo "$JSON_OUT" | grep -q '"\$schema"'  && pass "--json includes \$schema"  || fail "no \$schema in JSON"
 echo "$JSON_OUT" | grep -q '"hasDrift"' && pass "--json includes hasDrift" || fail "no hasDrift in JSON"
 echo "$JSON_OUT" | grep -q '"files"'    && pass "--json includes files"    || fail "no files in JSON"
 echo "$JSON_OUT" | grep -q '"removals"' && pass "--json includes removals" || fail "no removals in JSON"
