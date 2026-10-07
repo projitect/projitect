@@ -54,6 +54,13 @@ export interface TsconfigOptions {
    * Output directory. Defaults to `"./dist"`.
    */
   readonly outDir?: string
+  /**
+   * Project references for a `tsc -b` solution-style build. Each entry is a path to a
+   * referenced project (a directory or a tsconfig file), written verbatim as `{ path: entry }`
+   * in the given order. Omit or leave empty to emit no `references` field. Each referenced
+   * project's own tsconfig must set `compilerOptions.composite: true`.
+   */
+  readonly references?: readonly string[]
 }
 
 /**
@@ -78,6 +85,7 @@ const renderTsconfig = (options: TsconfigOptions): string => {
   const rootDir = options.rootDir ?? "./src"
   const outDir = options.outDir ?? "./dist"
   const jsx = options.jsx ?? null
+  const references = options.references ?? []
 
   const config: Record<string, unknown> = {
     compilerOptions: {
@@ -109,6 +117,7 @@ const renderTsconfig = (options: TsconfigOptions): string => {
     },
     include: [`${stripDot(rootDir)}/**/*`],
     exclude: ["node_modules", stripDot(outDir)],
+    ...(references.length > 0 && { references: references.map((path) => ({ path })) }),
   }
 
   return `${JSON.stringify(config, null, 2)}\n`

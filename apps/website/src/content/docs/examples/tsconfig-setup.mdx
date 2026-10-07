@@ -59,14 +59,15 @@ tsconfig({
   jsx: null, // "react" | "react-jsx" | "preserve" | null
   rootDir: "./src", // also drives `include`
   outDir: "./dist", // also drives `exclude`
+  references: [], // paths to referenced projects; each must set composite: true in its own tsconfig
 })
 ```
 
 ## Project-specific overrides
 
 The owned-mode contract means `pjt inspect` flags any hand-edit to `tsconfig.json`. For
-overrides projitect's options don't model (e.g. `paths`, custom plugins, `references` for a
-project-references monorepo), use a second config that extends the owned one:
+overrides projitect's options don't model (e.g. `paths`, custom plugins), use a second config
+that extends the owned one:
 
 ```json title="tsconfig.local.json"
 {
@@ -79,6 +80,10 @@ project-references monorepo), use a second config that extends the owned one:
 
 Run `tsc -p tsconfig.local.json` (or point your `package.json` script at it) instead of the
 owned `tsconfig.json` directly. The blueprint stays in sync; your overrides stay private.
+
+Project references are the one exception: TypeScript does not inherit `references` through
+`extends`, so a `tsconfig.local.json` can't express them. Declare them in `tsconfig()` itself
+via the `references` option (see [Options](#options)) instead.
 
 ## Why owned, not merge
 
