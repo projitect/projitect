@@ -12,6 +12,7 @@
  * not ship duplicates.
  */
 export * from "./constructors.js"
+export * from "./define-blueprint.js"
 export * from "./sections.js"
 export * from "./directory.js"
 export * from "./detect.js"

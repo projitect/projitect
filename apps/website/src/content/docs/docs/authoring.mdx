@@ -39,6 +39,38 @@ export default pjt({ blueprints: [myReadmeSection()] })
 
 That's the whole API for static content blueprints.
 
+## Typed arguments with defineBlueprint
+
+A bare factory function like `myReadmeSection` above takes no arguments. When a blueprint needs
+configurable arguments, `defineBlueprint` declares their shape as an Effect `Schema` instead of a
+hand-written TypeScript interface — the argument type is inferred from the Schema, so tooling can
+read it without calling into the blueprint:
+
+```ts
+import { defineBlueprint, ownFile } from "@projitect/blueprint"
+import { Schema } from "effect"
+
+export const greeting = defineBlueprint({
+  id: "my-org:greeting",
+  args: Schema.Struct({
+    name: Schema.optional(Schema.String),
+  }),
+  build: (args) =>
+    ownFile({
+      id: "my-org:greeting",
+      version: "1.0.0",
+      path: "GREETING.md",
+      content: `Hello, ${args.name ?? "world"}!\n`,
+    }),
+})
+```
+
+`greeting` is itself callable — `greeting()` and `greeting({ name: "Ada" })` both return the
+`Blueprint` `build` produces — so project maintainers write the same `.pjt.ts` call shape as for
+any other blueprint. `greeting.id` and `greeting.args` are also readable without calling it, for
+tooling that wants to introspect the Schema. Calling a definition does not decode `args` against
+the Schema — invalid arguments reach `build` unchanged, same as a bare factory function.
+
 ## Section helpers
 
 Two thin wrappers over `regionFile` are exported for the two most common region shapes —

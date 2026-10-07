@@ -5,6 +5,7 @@
     { "path": "./packages/core" },
     { "path": "./packages/test-kit" },
     { "path": "./packages/blueprint" },
+    { "path": "./packages/blueprint/test" },
     { "path": "./packages/cli-internals" },
     { "path": "./packages/projitect" },
     { "path": "./packages/blueprint-gitignore" },
