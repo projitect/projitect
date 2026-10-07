@@ -1,0 +1,199 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://projitect.dev/schemas/inspect.v1.json",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "enum": [
+        "https://projitect.dev/schemas/inspect.v1.json"
+      ],
+      "description": "Identifies the published JSON Schema this output conforms to."
+    },
+    "hasDrift": {
+      "type": "boolean",
+      "description": "Whether the project has drifted from its blueprints or lockfile."
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "create",
+              "modify",
+              "ok"
+            ],
+            "description": "\"create\" — file absent, will be created; \"modify\" — exists but content drifts; \"ok\" — in sync."
+          },
+          "summary": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "status",
+          "summary"
+        ],
+        "additionalProperties": true
+      },
+      "description": "Per-file drift status, one entry per managed file."
+    },
+    "removals": {
+      "type": "array",
+      "items": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "_tag": {
+                "type": "string",
+                "enum": [
+                  "Region"
+                ]
+              },
+              "path": {
+                "type": "string"
+              },
+              "ownerId": {
+                "type": "string"
+              },
+              "commentPrefix": {
+                "type": "string"
+              },
+              "commentSuffix": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "_tag",
+              "path",
+              "ownerId",
+              "commentPrefix"
+            ],
+            "additionalProperties": true
+          },
+          {
+            "type": "object",
+            "properties": {
+              "_tag": {
+                "type": "string",
+                "enum": [
+                  "Merge"
+                ]
+              },
+              "path": {
+                "type": "string"
+              },
+              "ownedKeys": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "_tag",
+              "path",
+              "ownedKeys"
+            ],
+            "additionalProperties": true
+          },
+          {
+            "type": "object",
+            "properties": {
+              "_tag": {
+                "type": "string",
+                "enum": [
+                  "Owned"
+                ]
+              },
+              "path": {
+                "type": "string"
+              },
+              "ownerId": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "_tag",
+              "path",
+              "ownerId"
+            ],
+            "additionalProperties": true
+          },
+          {
+            "type": "object",
+            "properties": {
+              "_tag": {
+                "type": "string",
+                "enum": [
+                  "Seed"
+                ]
+              },
+              "path": {
+                "type": "string"
+              },
+              "ownerId": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "_tag",
+              "path",
+              "ownerId"
+            ],
+            "additionalProperties": true
+          }
+        ]
+      },
+      "description": "Operations recorded in the lockfile whose owning blueprint has left the tree."
+    },
+    "upgrades": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "blueprintId": {
+            "type": "string"
+          },
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "blueprintId",
+          "from",
+          "to"
+        ],
+        "additionalProperties": true
+      },
+      "description": "Blueprints whose locked version differs from the tree's current version."
+    }
+  },
+  "required": [
+    "$schema",
+    "hasDrift",
+    "files",
+    "removals",
+    "upgrades"
+  ],
+  "additionalProperties": true,
+  "title": "pjt inspect --json output",
+  "description": "Structured drift report for `pjt inspect --json`. New keys may be added within this version; removing or renaming a key requires a new schema version."
+}

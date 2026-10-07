@@ -3,6 +3,9 @@
   "workspaces": {
     ".": {
       "entry": [".claude/skills/kanban/scripts/*.ts"]
+    },
+    "packages/cli-internals": {
+      "entry": ["test/fixtures/*.pjt.ts"]
     }
   }
 }
