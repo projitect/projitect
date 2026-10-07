@@ -150,6 +150,34 @@ describe("tsconfig() — custom rootDir/outDir", () => {
   })
 })
 
+describe("tsconfig() — references", () => {
+  it("emits a references array in order with paths unchanged", async () => {
+    const { json } = await planJson(tsconfig({ references: ["./packages/a", "./packages/b"] }))
+    expect((json as { references?: unknown }).references).toEqual([
+      { path: "./packages/a" },
+      { path: "./packages/b" },
+    ])
+  })
+
+  it("omits references when not set", async () => {
+    const { json } = await planJson(tsconfig())
+    expect("references" in json).toBe(false)
+  })
+
+  it("omits references when set to an empty array", async () => {
+    const { json } = await planJson(tsconfig({ references: [] }))
+    expect("references" in json).toBe(false)
+  })
+
+  it("leaves compilerOptions, include, and exclude unchanged", async () => {
+    const without = await planJson(tsconfig())
+    const withRefs = await planJson(tsconfig({ references: ["./packages/a"] }))
+    expect(withRefs.json.compilerOptions).toEqual(without.json.compilerOptions)
+    expect(withRefs.json.include).toEqual(without.json.include)
+    expect(withRefs.json.exclude).toEqual(without.json.exclude)
+  })
+})
+
 describe("tsconfig() — content shape", () => {
   it("emits valid JSON ending in a newline", async () => {
     const blueprint = tsconfig()
