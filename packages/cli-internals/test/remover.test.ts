@@ -1,8 +1,12 @@
+import { promises as fs } from "node:fs"
+import * as os from "node:os"
+import path from "node:path"
 import { Effect } from "effect"
 import type { Layer } from "effect"
-import { beforeEach, describe, expect, it } from "vitest"
+import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import { BlueprintFileSystem } from "@projitect/core"
 import { makeInMemoryLayer } from "@projitect/test-kit"
+import { makeProjectRootLayer } from "../src/filesystem-impl.js"
 import { applyRemovals } from "../src/remover.js"
 
 /**
@@ -178,54 +182,6 @@ describe("applyRemovals — owned", () => {
     expect(await exists("generated.ts")).toBe(false)
   })
 
-  it("prunes empty directories up to the owned dir, but not above it", async () => {
-    await fs.mkdir(path.join(cwd, "agents/skills/a/nested"), { recursive: true })
-    await writeFile("agents/skills/a/nested/x.md", "x")
-    await run(
-      applyRemovals({
-        projectRoot: cwd,
-        removals: [
-          {
-            _tag: "Owned",
-            path: "agents/skills/a/nested/x.md",
-            ownerId: "pjt:s",
-            ownedDir: "agents/skills/a",
-          },
-        ],
-      }),
-    )
-    expect(await exists("agents/skills/a")).toBe(false)
-    expect(await exists("agents/skills")).toBe(true)
-    expect(await exists("agents")).toBe(true)
-  })
-
-  it("keeps the owned dir while it still holds other files", async () => {
-    await fs.mkdir(path.join(cwd, "skills/c"), { recursive: true })
-    await writeFile("skills/c/keep.md", "k")
-    await writeFile("skills/c/gone.md", "g")
-    await run(
-      applyRemovals({
-        projectRoot: cwd,
-        removals: [
-          { _tag: "Owned", path: "skills/c/gone.md", ownerId: "pjt:s", ownedDir: "skills/c" },
-        ],
-      }),
-    )
-    expect(await exists("skills/c/keep.md")).toBe(true)
-  })
-
-  it("prunes nothing when the op names no owned dir", async () => {
-    await fs.mkdir(path.join(cwd, "pre/existing"), { recursive: true })
-    await writeFile("pre/existing/f.md", "f")
-    await run(
-      applyRemovals({
-        projectRoot: cwd,
-        removals: [{ _tag: "Owned", path: "pre/existing/f.md", ownerId: "pjt:s" }],
-      }),
-    )
-    expect(await exists("pre/existing")).toBe(true)
-  })
-
   it("is fine when the owned file is already missing", async () => {
     const touched = await run(
       applyRemovals({
@@ -264,5 +220,63 @@ describe("applyRemovals — touched-paths return value", () => {
     )
 
     expect(touched).toEqual([".gitignore"])
+  })
+})
+
+/**
+ * Directory pruning needs real directories (the in-memory layer has no directory entries), so
+ * these run against the project-root Node layer in a temp dir.
+ */
+describe("applyRemovals — owned dir pruning (disk)", () => {
+  let root: string
+
+  beforeEach(async () => {
+    root = await fs.mkdtemp(path.join(os.tmpdir(), "projitect-test-remover-"))
+  })
+
+  afterEach(async () => {
+    await fs.rm(root, { recursive: true, force: true })
+  })
+
+  const put = async (relative: string, content: string) => {
+    await fs.mkdir(path.dirname(path.join(root, relative)), { recursive: true })
+    await fs.writeFile(path.join(root, relative), content, "utf8")
+  }
+  const present = (relative: string) =>
+    fs.access(path.join(root, relative)).then(
+      () => true,
+      () => false,
+    )
+  const remove = (removals: Parameters<typeof applyRemovals>[0]["removals"]) =>
+    Effect.runPromise(Effect.provide(applyRemovals({ removals }), makeProjectRootLayer(root)))
+
+  it("prunes empty directories up to the owned dir, but not above it", async () => {
+    await put("agents/skills/a/nested/x.md", "x")
+    await remove([
+      {
+        _tag: "Owned",
+        path: "agents/skills/a/nested/x.md",
+        ownerId: "pjt:s",
+        ownedDir: "agents/skills/a",
+      },
+    ])
+    expect(await present("agents/skills/a")).toBe(false)
+    expect(await present("agents/skills")).toBe(true)
+    expect(await present("agents")).toBe(true)
+  })
+
+  it("keeps the owned dir while it still holds other files", async () => {
+    await put("skills/c/keep.md", "k")
+    await put("skills/c/gone.md", "g")
+    await remove([
+      { _tag: "Owned", path: "skills/c/gone.md", ownerId: "pjt:s", ownedDir: "skills/c" },
+    ])
+    expect(await present("skills/c/keep.md")).toBe(true)
+  })
+
+  it("prunes nothing when the op names no owned dir", async () => {
+    await put("pre/existing/f.md", "f")
+    await remove([{ _tag: "Owned", path: "pre/existing/f.md", ownerId: "pjt:s" }])
+    expect(await present("pre/existing")).toBe(true)
   })
 })

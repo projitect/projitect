@@ -120,7 +120,7 @@ const pruneEmptyDirs = (
     }
     const fs = yield* BlueprintFileSystem
     const entries = yield* fs.listDir(dir)
-    if (Array.isArrayNonEmpty(entries)) {
+    if (Array.isReadonlyArrayNonEmpty(entries)) {
       return
     }
     yield* fs.remove(dir)
