@@ -8,7 +8,7 @@
     "build": "NODE_OPTIONS=--no-experimental-strip-types astro build",
     "preview": "NODE_OPTIONS=--no-experimental-strip-types astro preview",
     "check:errors": "node ./scripts/check-errors.mjs",
-    "check:examples": "tsc --noEmit -p tsconfig.examples.json"
+    "check:examples": "tsc --noEmit -p tsconfig.examples.json && node ./scripts/check-workflows.mjs"
   },
   "dependencies": {
     "@astrojs/mdx": "5.0.6",

@@ -29,7 +29,8 @@ both are untouched and uncomplained-about.
 | Loader / config / plan error | 1         |
 | Internal CLI error           | 2         |
 
-Wire `pjt inspect` into CI and you get a binary signal per PR.
+Wire `pjt inspect` into CI and you get a binary signal per PR. When it exits 1, the output ends
+with the next command: `pjt remodel`.
 
 ## Output shape
 

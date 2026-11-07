@@ -72,24 +72,12 @@ to a CI-protected `.gitignore` in about five minutes.
 The whole point of `pjt inspect` is that it exits nonzero when your repo drifts. Add one step
 to your CI workflow:
 
-```yaml title=".github/workflows/check.yml"
-name: check
-on: [pull_request, push]
-jobs:
-  pjt-inspect:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm pjt inspect
+```yaml
+- run: pnpm pjt inspect
 ```
 
-Any PR that hand-edits a managed region without running `pjt remodel` will now fail this job.
+Any PR that hand-edits a managed region without running `pjt remodel` will now fail this job. The
+complete workflow is in the [ci-integration example](/examples/ci-integration/).
 
 ## What happened to my `.gitignore`?
 
@@ -125,8 +113,9 @@ pnpm pjt remodel                             # fences each snippet into AGENTS.m
 pnpm pjt inspect                             # exit 0 while the regions match
 ```
 
-Your own text in those files is never touched. See the
-[markdown-snippets example](/examples/markdown-snippets/) for the noninteractive recipe.
+Your own text in those files is never touched. See [Install guidance and skills](/docs/journey/)
+for the whole journey, including the noninteractive recipe for agents, and the
+[markdown-snippets example](/examples/markdown-snippets/).
 
 ## Next steps
 

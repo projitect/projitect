@@ -1,0 +1,21 @@
+# Fails the job when the project drifts from its blueprints. `pjt inspect` exits 1 on drift and
+# prints the drifted files; the fix is `pnpm pjt remodel`, then commit the result.
+name: pjt-inspect
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  pjt-inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm pjt inspect

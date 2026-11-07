@@ -132,7 +132,8 @@ Three additional checks run in CI but are also runnable locally. All three requi
 packages first — run `pnpm build` before any of them:
 
 - `pnpm --filter website check:examples` — every code snippet under `apps/website/examples/`
-  typechecks. Marketing copy is not allowed to lie.
+  typechecks, and every `.yml` workflow example there is a workflow that runs `pjt inspect`.
+  Marketing copy is not allowed to lie.
 - `pnpm --filter website check:errors` — every error id exported by `@projitect/core` has a
   matching MDX page under `apps/website/src/content/docs/errors/`.
 - `./scripts/check-packs.sh` — every packed tarball has `dist/` and a LICENSE equal to the root
@@ -140,7 +141,9 @@ packages first — run `pnpm build` before any of them:
 - `./scripts/smoke.sh` — end-to-end smoke in a throwaway `/tmp` project: exercises every CLI
   command (`init`, `remodel`, `inspect`, `explain`, `build --force`, `--completions`), validates
   lockfile-driven orphan removal, and validates the git safety nets (`init` refuses without git,
-  `build` refuses on a dirty tree). Heaviest gate; run when you've touched the CLI pipeline.
+  `build` refuses on a dirty tree), and runs the published-package journey against a local registry
+  serving packed tarballs: `add` (with and without `--section`, no terminal), `remodel`, upgrade, swap,
+  remove, `inspect --json` drift, a skills package, and a package without `projitect` metadata. Heaviest gate; run when you've touched the CLI pipeline.
 
 ## ESLint absorbs Prettier
 

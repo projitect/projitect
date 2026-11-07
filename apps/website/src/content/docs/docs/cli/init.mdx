@@ -30,7 +30,7 @@ Without `--yes`:
 - A `.git` directory (run `git init` first)
 - A `package.json` (run `npm init -y` first)
 
-Both are hard requirements in interactive mode — `pjt init` exits with a clear error id if either is missing.
+Both are hard requirements without `--yes` — `pjt init` exits 1 with an error id if either is missing, and the message names the fix: `git init` then `pjt init`, or `pjt init --yes`.
 
 ## What `.pjt.ts` looks like after init
 
