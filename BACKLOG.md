@@ -528,13 +528,13 @@ Sequencing: Not before: REL-6.
 
 ### SBX-1 — Worker-process sandbox
 
-_As a user, I want blueprints to run in an isolated worker process, so that a malicious or buggy blueprint can't touch the disk outside its declared permissions even by bypassing the soft Layer._
+_As a user, I want blueprints to run in an isolated worker process, so that a buggy blueprint or careless dependency can't touch the disk or spawn processes by accident. Accident prevention only — not hostile-code containment._
 
-- [ ] Blueprints' `plan` Effects execute in a worker with no ambient `node:fs`
-- [ ] `BlueprintFileSystem` calls marshalled across the worker boundary, still permission-gated
-- [ ] The interface to blueprint authors is unchanged (transparent swap from the soft sandbox)
-- [ ] The lint-time `node:*` ban remains as defense-in-depth
-  > Size: L · multi-PR
+- [x] Blueprints' `plan` Effects execute in a worker with no ambient `node:fs`
+- [x] `BlueprintFileSystem` calls marshalled across the worker boundary, still permission-gated
+- [x] The interface to blueprint authors is unchanged (transparent swap from the soft sandbox)
+- [x] The lint-time `node:*` ban remains as defense-in-depth
+  > Size: L · multi-PR · shipped
 
 ---
 
