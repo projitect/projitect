@@ -43,3 +43,21 @@ describe(".ampm/ci-evidence.json", () => {
     expect(configured()).toEqual(fromWorkflow())
   })
 })
+
+describe(".ampm sandbox image", () => {
+  const pnpm =
+    /^pnpm@(?<version>.+)$/u.exec(
+      Schema.decodeUnknownSync(Schema.Struct({ packageManager: Schema.String }))(
+        JSON.parse(read("package.json")),
+      ).packageManager,
+    )?.groups?.["version"] ?? ""
+  const node = read(".nvmrc").trim()
+
+  it("pins the pnpm and node versions the repo declares", () => {
+    expect(pnpm).not.toBe("")
+    const dockerfile = read(".ampm/Dockerfile")
+    expect(dockerfile).toContain(`pnpm@${pnpm}`)
+    expect(dockerfile).toContain(`node:${node}-`)
+    expect(read(".ampm/environment.json")).toContain(`\\"${pnpm}\\"`)
+  })
+})

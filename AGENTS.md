@@ -50,6 +50,9 @@ Short orientation pages that summarize and link back here:
 
 **pnpm only.** Never npm, never yarn, never bun in this repo. The lockfile is `pnpm-lock.yaml`.
 
+ampm agent sandboxes ship pnpm at the pinned `packageManager` version via `.ampm/Dockerfile`, so
+there the ladder below normally stops at step 1. It stays the fallback for every other environment.
+
 If `pnpm` is not found, escalate in this exact order — do not chain the steps:
 
 1. Run the command as-is. If it works, stop.
