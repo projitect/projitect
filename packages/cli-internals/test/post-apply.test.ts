@@ -13,11 +13,11 @@ import { inspect } from "../src/commands/inspect.js"
 import { remodel } from "../src/commands/remodel.js"
 import { applyPlan } from "../src/applier.js"
 import { diffPlan } from "../src/differ.js"
-import { buildPlan } from "../src/plan.js"
 import type { PlannedCommand } from "../src/plan.js"
 import { runPostApply } from "../src/post-apply.js"
 import { applyRemovals } from "../src/remover.js"
 import type { ProcessSpawner } from "../src/platform/process-runner.js"
+import { planTree } from "./support/plan-tree.js"
 
 /**
  * The final apply phase: `Exec` ops become `plan.commands`, and `remodel` / `build` run them only
@@ -160,13 +160,13 @@ describe("buildPlan with Exec ops", () => {
 
   it("splits Exec ops out of the file plan, in tree order then op order, with owner permissions", async () => {
     const { plan, byBlueprint } = await Effect.runPromise(
-      buildPlan({
-        tree: [
+      planTree(
+        [
           blueprint("a", [execOp("a", "first"), execOp("a", "second")], [exec("first")]),
           blueprint("b", [execOp("b", "third")]),
         ],
-        projectRoot: os.tmpdir(),
-      }),
+        os.tmpdir(),
+      ),
     )
     expect(plan.files).toEqual([])
     expect(plan.commands).toEqual([
@@ -179,10 +179,10 @@ describe("buildPlan with Exec ops", () => {
 
   it("lets two blueprints declare the same command without a plan conflict", async () => {
     const { plan } = await Effect.runPromise(
-      buildPlan({
-        tree: [blueprint("a", [execOp("a", "fmt")]), blueprint("b", [execOp("b", "fmt")])],
-        projectRoot: os.tmpdir(),
-      }),
+      planTree(
+        [blueprint("a", [execOp("a", "fmt")]), blueprint("b", [execOp("b", "fmt")])],
+        os.tmpdir(),
+      ),
     )
     expect(plan.commands.map((c) => c.ownerId)).toEqual(["a", "b"])
   })
@@ -191,7 +191,7 @@ describe("buildPlan with Exec ops", () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "projitect-test-exec-ops-"))
     try {
       const { plan } = await Effect.runPromise(
-        buildPlan({ tree: [blueprint("a", [execOp("a", "fmt")])], projectRoot: root }),
+        planTree([blueprint("a", [execOp("a", "fmt")])], root),
       )
       expect(await Effect.runPromise(applyPlan({ plan, projectRoot: root }))).toEqual([])
       const diff = await Effect.runPromise(diffPlan({ plan, projectRoot: root }))
@@ -216,13 +216,12 @@ describe("remodel / build / inspect with Exec ops", () => {
   })
 
   afterEach(async () => {
-    delete process.env["PJT_TEST_POST_APPLY"]
     await fs.rm(cwd, { recursive: true, force: true })
   })
 
   const config = () => ProjitectConfig.resolve({ projectRoot: cwd, blueprintFile: FIXTURE })
 
-  const declare = (
+  const declare = async (
     blueprints: readonly {
       id: string
       permissions?: readonly Permission.Permission[]
@@ -232,8 +231,9 @@ describe("remodel / build / inspect with Exec ops", () => {
       )[]
     }[],
   ) => {
-    process.env["PJT_TEST_POST_APPLY"] = JSON.stringify(
-      blueprints.map((b) => ({ permissions: [], ...b })),
+    await fs.writeFile(
+      path.join(cwd, "package.json"),
+      JSON.stringify({ pjtTestPostApply: blueprints.map((b) => ({ permissions: [], ...b })) }),
     )
   }
 
@@ -246,7 +246,7 @@ describe("remodel / build / inspect with Exec ops", () => {
   })
 
   it("remodel runs the commands after the files are written and reports them", async () => {
-    declare([
+    await declare([
       {
         id: "a",
         permissions: [exec("fmt"), exec("lint")],
@@ -269,7 +269,7 @@ describe("remodel / build / inspect with Exec ops", () => {
 
   it("remodel runs no command when a file operation fails", async () => {
     await fs.writeFile(path.join(cwd, ".gitignore"), "# pjt:a start\nold\n", "utf8")
-    declare([
+    await declare([
       {
         id: "pjt:a",
         permissions: [exec("fmt")],
@@ -283,7 +283,7 @@ describe("remodel / build / inspect with Exec ops", () => {
   })
 
   it("remodel surfaces a failing command as CommandFailed after the files were written", async () => {
-    declare([
+    await declare([
       { id: "a", permissions: [exec("fmt")], operations: [gitignore("a"), execOp("a", "fmt")] },
     ])
     const { spawner } = fakeSpawner({ fmt: 3 })
@@ -293,7 +293,7 @@ describe("remodel / build / inspect with Exec ops", () => {
   })
 
   it("remodel refuses a command outside the blueprint's exec permission and never starts it", async () => {
-    declare([{ id: "a", permissions: [exec("fmt")], operations: [execOp("a", "rm -rf /")] }])
+    await declare([{ id: "a", permissions: [exec("fmt")], operations: [execOp("a", "rm -rf /")] }])
     const { calls, spawner } = fakeSpawner()
     const exit = await Effect.runPromiseExit(remodel({ config: config(), spawner }))
     expect(failureOf(exit)).toMatchObject({
@@ -304,7 +304,7 @@ describe("remodel / build / inspect with Exec ops", () => {
   })
 
   it("remodel does not record Exec ops in the lockfile, so commands re-run each time", async () => {
-    declare([{ id: "a", permissions: [exec("fmt")], operations: [execOp("a", "fmt")] }])
+    await declare([{ id: "a", permissions: [exec("fmt")], operations: [execOp("a", "fmt")] }])
     const { calls, spawner } = fakeSpawner()
     await Effect.runPromise(remodel({ config: config(), spawner }))
     await Effect.runPromise(remodel({ config: config(), spawner }))
@@ -314,7 +314,7 @@ describe("remodel / build / inspect with Exec ops", () => {
   })
 
   it("build runs the commands after rebuilding the files", async () => {
-    declare([
+    await declare([
       { id: "a", permissions: [exec("fmt")], operations: [gitignore("a"), execOp("a", "fmt")] },
     ])
     execFileSync("git", ["init", "-q"], { cwd })
@@ -327,7 +327,7 @@ describe("remodel / build / inspect with Exec ops", () => {
   })
 
   it("build reports a command-only run as a success, not a cancellation", async () => {
-    declare([{ id: "a", permissions: [exec("fmt")], operations: [execOp("a", "fmt")] }])
+    await declare([{ id: "a", permissions: [exec("fmt")], operations: [execOp("a", "fmt")] }])
     execFileSync("git", ["init", "-q"], { cwd })
     const { calls, spawner } = fakeSpawner()
     const result = await Effect.runPromise(
@@ -350,7 +350,7 @@ describe("remodel / build / inspect with Exec ops", () => {
   })
 
   it("inspect fails closed with the unsupported-operation error instead of reporting clean", async () => {
-    declare([{ id: "a", permissions: [exec("fmt")], operations: [execOp("a", "fmt")] }])
+    await declare([{ id: "a", permissions: [exec("fmt")], operations: [execOp("a", "fmt")] }])
     const exit = await Effect.runPromiseExit(inspect({ config: config() }))
     const error = failureOf(exit)
     expect(error).toBeInstanceOf(Errors.OperationUnsupportedOnInspect)
@@ -361,7 +361,7 @@ describe("remodel / build / inspect with Exec ops", () => {
   })
 
   it("inspect is unaffected when no blueprint declares a command", async () => {
-    declare([{ id: "a", operations: [gitignore("a")] }])
+    await declare([{ id: "a", operations: [gitignore("a")] }])
     const result = await Effect.runPromise(inspect({ config: config() }))
     expect(result.hasDrift).toBe(true)
   })
