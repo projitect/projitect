@@ -2,16 +2,52 @@ import { Array } from "effect"
 import type { Permission } from "@projitect/core"
 
 /**
- * Minimal glob matcher for permission globs. Supports asterisk (any non-slash chars) and double
- * asterisk (any chars including slashes). No brace expansion, no character classes — that's v1.
- *
- * Examples that match `src/(double-star)/*.ts`: `src/a.ts`, `src/foo/b.ts`, `src/x/y/z.ts`.
+ * Finds the `}` closing the group opened at `open`, and the top-level comma positions between them.
+ * Returns `undefined` when the group is unbalanced or has no top-level comma (so `{a}` stays literal).
  */
-const globToRegex = (glob: string): RegExp => {
+const parseBraceGroup = (
+  glob: string,
+  open: number,
+): { readonly close: number; readonly commas: readonly number[] } | undefined => {
+  const commas: number[] = []
+  let depth = 0
+  for (let index = open; index < glob.length; index++) {
+    const ch = glob.charAt(index)
+    if (ch === "{") {
+      depth++
+    } else if (ch === "}") {
+      depth--
+      if (depth === 0) {
+        return Array.isArrayNonEmpty(commas) ? { close: index, commas } : undefined
+      }
+    } else if (ch === "," && depth === 1) {
+      commas.push(index)
+    }
+  }
+  return undefined
+}
+
+/**
+ * Minimal glob matcher for permission globs. Supports asterisk (any non-slash chars), double
+ * asterisk (any chars including slashes) and `{a,b}` alternation (alternatives may be empty or
+ * nested). A brace group needs a closing brace and at least one top-level comma; otherwise the
+ * braces and commas match literally. No character classes, `?`, negation or extglobs.
+ *
+ * Examples that match `src/(double-star)/*.{ts,tsx}`: `src/a.ts`, `src/foo/b.tsx`.
+ */
+const globToPattern = (glob: string): string => {
   let pattern = ""
   for (let index = 0; index < glob.length; index++) {
     const ch = glob.charAt(index)
-    if (ch === "*" && glob.charAt(index + 1) === "*") {
+    const group = ch === "{" ? parseBraceGroup(glob, index) : undefined
+    if (group !== undefined) {
+      const bounds = [index, ...group.commas, group.close]
+      const alternatives = Array.zipWith(bounds, bounds.slice(1), (start, end) =>
+        globToPattern(glob.slice(start + 1, end)),
+      )
+      pattern = `${pattern}(?:${alternatives.join("|")})`
+      index = group.close
+    } else if (ch === "*" && glob.charAt(index + 1) === "*") {
       pattern = `${pattern}.*`
       index++
     } else if (ch === "*") {
@@ -22,8 +58,10 @@ const globToRegex = (glob: string): RegExp => {
       pattern = pattern + ch
     }
   }
-  return new RegExp(`^${pattern}$`, "u")
+  return pattern
 }
+
+const globToRegex = (glob: string): RegExp => new RegExp(`^${globToPattern(glob)}$`, "u")
 
 const matchesGlob = (path: string, glob: string): boolean => globToRegex(glob).test(path)
 
