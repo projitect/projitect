@@ -47,7 +47,7 @@ Automated enforcement at the factory's admit step is factory-side tooling, not c
 
 ## Epic: Agent guidance & skills
 
-Sequencing: priority after consumer Markdown/skills onboarding; ahead of nothing else by default — contributor guidance does not gate other epics or bonus catalog work.
+Sequencing: priority after consumer Markdown/skills onboarding; does not gate other epics or bonus catalog work.
 
 Bring projitect's `AGENTS.md` and `.claude/skills/` up to the depth of the sibling StoryCut repo
 (`/Users/kapil/Github/StoryCut/StoryCut`), which has a 61 KB `AGENTS.md` and 15 skills vs

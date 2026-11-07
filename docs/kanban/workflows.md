@@ -202,8 +202,9 @@ real concern. Read the comment trail and pick the appropriate roll-back option.
 ## Promoting BACKLOG stories to cards
 
 When a card comes from a story in [BACKLOG.md](../../BACKLOG.md), follow its
-[Ordering convention](../../BACKLOG.md#ordering-convention): BACKLOG.md owns story ids, `Depends on:`
-edges and shipped status; the board never overrides an edge. Triage (§5), refine (§7) and run (§8)
+[Ordering convention](../../BACKLOG.md#ordering-convention): BACKLOG.md owns scope, acceptance
+criteria, story ids and the `Depends on:` design; the board (ampm) is authoritative for live
+execution status and decides only when a story is worked, never overriding an edge. Triage (§5), refine (§7) and run (§8)
 copy the story id and the `Depends on:` line verbatim into the card and link prerequisite cards
 already on the board. Admission and refinement proceed regardless; hold the card at planning or
 build when an unmet code dependency (not yet verified merged) is actually needed.
