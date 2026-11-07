@@ -25,7 +25,7 @@ FAILED=0
 pass() { echo "  ✓ $1"; }
 fail() { echo "  ✗ $1"; FAILED=1; }
 
-cleanup() { [ -n "${REG_PID:-}" ] && kill "$REG_PID" 2>/dev/null; [ -n "${REACT_REG_PID:-}" ] && kill "$REACT_REG_PID" 2>/dev/null; rm -rf "$SMOKE" "${SMOKE}-tools" "${REG:-}" "${E2E:-}" "${REACTDIR:-}" "${REACTREG:-}"; }
+cleanup() { [ -n "${REG_PID:-}" ] && kill "$REG_PID" 2>/dev/null; [ -n "${REACT_REG_PID:-}" ] && kill "$REACT_REG_PID" 2>/dev/null; rm -rf "$SMOKE" "${SMOKE}-tools" "${REG:-}" "${E2E:-}" "${REACTDIR:-}" "${NEXTDIR:-}" "${REACTREG:-}"; }
 trap cleanup EXIT
 
 cd "$SMOKE"
@@ -1022,6 +1022,92 @@ $REACT_BIN remodel > /dev/null 2>&1
 [ -f src/App.tsx ] && [ -f src/main.tsx ] && [ -f index.html ] && pass "removal keeps the seeded source" || fail "seeded source lost on removal"
 grep -q '"lint": "echo lint"' package.json && pass "removal keeps the user's own package.json keys" || fail "user key lost on removal"
 grep -q '"vite"' package.json && fail "managed devDependency survived removal" || pass "removal drops the managed package.json keys"
+echo "=== 11. next blueprint from packed tarballs: add, build, install, next build, lint, test, drift, remove ==="
+# Same registry as section 10, which already serves the packed `@projitect/blueprint-next`; the app's
+# Next.js, React, ESLint and Vitest dependencies come from the public registry (network needed).
+NEXTDIR="$(mktemp -d -t pjt-next.XXXXXX)"
+cd "$NEXTDIR"
+git init -q
+git config user.email t@t
+git config user.name t
+echo "{\"name\":\"smoke-next\",\"version\":\"0.0.0\",\"private\":true,\"type\":\"module\",\"packageManager\":\"${PNPM_SPEC}\",\"devDependencies\":{\"projitect\":\"^${BASE_VERSION}\"},\"pnpm\":{\"overrides\":{\"projitect\":\"file:${REACTREG}/projitect-${BASE_VERSION}.tgz\"}}}" > package.json
+printf 'node_modules/\n' > .gitignore
+write_npmrc
+pnpm add -D "effect@${EFFECT_VERSION}" tsx > /tmp/next-cli-install.out 2>&1 || fail "installing the packed CLI failed: $(tail -5 /tmp/next-cli-install.out)"
+NEXT_BIN=node_modules/projitect/bin/pjt.mjs
+cat > .pjt.ts <<'PJT'
+// pjt:projitect:imports start
+import { pjt } from "projitect/cli"
+// pjt:projitect:imports end
+
+// pjt:imports start
+// pjt:imports end
+
+export default pjt({
+  blueprints: [
+    // pjt:blueprints start
+    // pjt:blueprints end
+  ],
+})
+PJT
+$NEXT_BIN add @projitect/blueprint-next < /dev/null > /tmp/next-add.out 2>&1
+[ $? -eq 0 ] && pass "pjt add @projitect/blueprint-next installs the packed package and its peers" || fail "pjt add failed: $(tail -5 /tmp/next-add.out)"
+grep -q "next()," .pjt.ts && pass "pjt add spliced next() into .pjt.ts" || fail "next() not spliced"
+git add -A
+git commit -qm "baseline"
+
+$NEXT_BIN build --force --yes > /tmp/next-build.out 2>&1
+[ $? -eq 0 ] && pass "pjt build exits 0" || fail "pjt build failed: $(tail -5 /tmp/next-build.out)"
+write_npmrc # `build` wipes everything but .pjt.ts, package.json and node_modules
+for f in src/app/layout.tsx src/app/page.tsx src/app/globals.css src/app/page.test.tsx eslint.config.mjs next.config.ts vitest.config.ts tsconfig.json; do
+  [ -f "$f" ] && pass "$f created" || fail "$f missing"
+done
+grep -q "^\.next/" .gitignore && pass ".gitignore ignores .next/" || fail ".next/ not ignored"
+$NEXT_BIN inspect > /dev/null 2>&1 && pass "inspect clean after build" || fail "next build left drift"
+
+pnpm install --no-frozen-lockfile > /tmp/next-install.out 2>&1
+[ $? -eq 0 ] && pass "pnpm install of the generated dependencies succeeds" || fail "pnpm install failed: $(tail -3 /tmp/next-install.out)"
+pnpm run build > /tmp/next-prod-build.out 2>&1
+[ $? -eq 0 ] && [ -f .next/BUILD_ID ] && pass "pnpm run build (the production next build) succeeds" || fail "next build failed: $(tail -8 /tmp/next-prod-build.out)"
+$NEXT_BIN inspect > /dev/null 2>&1 && pass "next build leaves the managed files untouched (inspect clean)" || fail "next build rewrote a managed file"
+pnpm run lint > /tmp/next-lint.out 2>&1
+[ $? -eq 0 ] && pass "pnpm run lint passes with the seeded Next.js ESLint config" || fail "lint failed: $(tail -8 /tmp/next-lint.out)"
+pnpm test > /tmp/next-test.out 2>&1
+[ $? -eq 0 ] && grep -q "1 passed" /tmp/next-test.out && pass "generated test passes under vitest" || fail "generated test failed: $(tail -8 /tmp/next-test.out)"
+
+# The starter source is the user's: editing it is never drift.
+echo '// my edit' >> src/app/page.tsx
+$NEXT_BIN inspect > /dev/null 2>&1 && pass "editing starter source leaves inspect clean" || fail "starter edit reported as drift"
+$NEXT_BIN remodel > /dev/null 2>&1
+grep -q "// my edit" src/app/page.tsx && pass "remodel leaves edited starter source untouched" || fail "remodel overwrote src/app/page.tsx"
+
+# A managed value drifts: inspect fails, remodel restores it and keeps the user's own keys.
+npm pkg set scripts.release="echo release" > /dev/null
+sed -i.bak 's/"dev": "next dev"/"dev": "next dev --turbopack"/' package.json && rm package.json.bak
+$NEXT_BIN inspect > /dev/null 2>&1
+[ $? -eq 1 ] && pass "managed package.json value drift detected (exit 1)" || fail "managed drift NOT detected"
+$NEXT_BIN remodel > /dev/null 2>&1
+grep -q '"dev": "next dev"' package.json && pass "remodel restores the managed script" || fail "managed script not restored"
+grep -q '"release": "echo release"' package.json && pass "remodel keeps the user's own script" || fail "user script lost"
+$NEXT_BIN inspect > /dev/null 2>&1 && pass "clean after remodel restores the managed value" || fail "still dirty after restore"
+
+# An owned file drifts: restored in full.
+echo '// tampered' >> next.config.ts
+$NEXT_BIN inspect > /dev/null 2>&1
+[ $? -eq 1 ] && pass "owned next.config.ts drift detected (exit 1)" || fail "owned drift NOT detected"
+$NEXT_BIN remodel > /dev/null 2>&1
+grep -q "tampered" next.config.ts && fail "next.config.ts not restored" || pass "remodel restores next.config.ts"
+
+# Removing the blueprint deletes the maintained scaffolding, not the seeded source or user keys.
+sed -i.bak '/next(),/d' .pjt.ts && rm .pjt.ts.bak
+$NEXT_BIN remodel > /dev/null 2>&1
+[ ! -f next.config.ts ] && [ ! -f vitest.config.ts ] && [ ! -f tsconfig.json ] && pass "removal deletes the owned scaffolding" || fail "owned files survived removal"
+[ -f src/app/page.tsx ] && [ -f src/app/layout.tsx ] && [ -f eslint.config.mjs ] && pass "removal keeps the seeded source" || fail "seeded source lost on removal"
+grep -q '"release": "echo release"' package.json && pass "removal keeps the user's own package.json keys" || fail "user key lost on removal"
+grep -q '"next"' package.json && fail "managed dependency survived removal" || pass "removal drops the managed package.json keys"
+cd "$SMOKE"
+rm -rf "$NEXTDIR"
+
 kill "$REACT_REG_PID" 2>/dev/null
 cd "$SMOKE"
 rm -rf "$REACTDIR" "$REACTREG"

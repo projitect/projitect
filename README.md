@@ -30,6 +30,7 @@ the per-error code lookup pages. The published packages are:
 | `@projitect/blueprint-husky-lint-staged` | Managed husky pre-commit hook and lint-staged config blueprint.                                              |
 | `@projitect/blueprint-markdown`          | Composable `AGENTS.md` / `README.md` snippets with stable owner ids.                                         |
 | `@projitect/blueprint-react`             | React + Vite + TypeScript app blueprint; composes tsconfig, gitignore and vitest.                            |
+| `@projitect/blueprint-next`              | Next.js App Router + TypeScript app blueprint; composes tsconfig, gitignore and vitest.                      |
 | `@projitect/blueprint-skills`            | Versioned agent skills blueprint.                                                                            |
 
 Plus `apps/website` (Astro Starlight; not published).
