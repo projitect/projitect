@@ -1,7 +1,9 @@
 import { Effect, Match, Option, Terminal } from "effect"
-import { Argument, Command, Flag, Prompt } from "effect/unstable/cli"
+import type { Prompt } from "effect/unstable/cli"
+import { Argument, Command, Flag } from "effect/unstable/cli"
 import type { Errors, ProjitectConfig } from "@projitect/core"
-import type { ProjitectPackageMetadata } from "../pm.js"
+import { chooseSectionsInteractive } from "@projitect/blueprint"
+import type { SectionStrategy } from "@projitect/blueprint"
 import { parseEnv, resolveConfig } from "../config-cascade.js"
 import { inspect, renderInspectJson } from "./inspect.js"
 import { remodel } from "./remodel.js"
@@ -9,7 +11,6 @@ import { build } from "./build.js"
 import { init } from "./init.js"
 import { explain } from "./explain.js"
 import { add } from "./add.js"
-import type { SectionStrategy } from "./add.js"
 
 /**
  * Per-handler error renderer. Catches our typed `ProjitectError` union and writes a
@@ -38,26 +39,6 @@ const configFromEnv = (): ProjitectConfig.ProjitectConfig =>
     env: parseEnv(process.env),
     cliArgs: { projectRoot: process.cwd() },
   })
-
-/**
- * Interactive section picker for `pjt add` against a `type: "blueprint-set"` package. The
- * dispatcher passes this as the `ask` callback so the command logic stays Prompt-free.
- *
- * Returns the package's full section list if no sections are declared (defensive default —
- * shouldn't happen for well-formed metadata, but we don't want to crash on a malformed package).
- */
-const chooseSectionsInteractive = (
-  metadata: ProjitectPackageMetadata,
-): Effect.Effect<readonly string[], never, Prompt.Environment> => {
-  const sections = metadata.sections ?? []
-  if (sections.length === 0) {
-    return Effect.succeed([])
-  }
-  return Prompt.multiSelect({
-    message: "Pick sections to add (space to toggle, enter to confirm):",
-    choices: sections.map((name) => ({ title: name, value: name })),
-  }).pipe(Effect.catchTag("QuitError", () => Effect.succeed([] as readonly string[])))
-}
 
 // ---------------------------------------------------------------------------
 // pjt init

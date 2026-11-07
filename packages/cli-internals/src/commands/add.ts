@@ -1,7 +1,8 @@
-import { Effect, Match } from "effect"
+import { Effect } from "effect"
 import type { Errors, ProjitectConfig } from "@projitect/core"
+import { computeSplice, resolveSections } from "@projitect/blueprint"
+import type { ProjitectPackageMetadata, SectionStrategy } from "@projitect/blueprint"
 import { detect, installDev as installDevelopment, readProjitectMetadata } from "../pm.js"
-import type { ProjitectPackageMetadata } from "../pm.js"
 import { splice } from "../edit-pjt.js"
 
 export interface AddResult {
@@ -11,30 +12,6 @@ export interface AddResult {
   readonly sectionsAdded: readonly string[]
   readonly splicedIntoBlueprintFile: boolean
 }
-
-/**
- * Strategy for picking which sections of a `blueprint-set` package to splice.
- *
- *   - `"all"` — silent default; pick every section the package declares. Used when the caller
- *     wants the legacy "no --section means everything" behavior.
- *   - `{ kind: "explicit", sections }` — caller already knows. `--section macOs,node` lands here.
- *   - `{ kind: "ask", choose }` — interactive: defer to the supplied callback (typically a
- *     `Prompt.multiSelect` from the dispatcher). The callback runs only when the installed
- *     package's metadata says `type: "blueprint-set"` and exposes sections.
- *
- * `R` parametrizes the callback's requirement channel so the dispatcher can hand us an Effect
- * that needs `Prompt.Environment` (FileSystem | Path | Terminal); the requirement propagates
- * out to the top of `add` and is satisfied by the bin shim's `NodePlatformLive`.
- */
-export type SectionStrategy<R = never> =
-  | { readonly _tag: "All" }
-  | { readonly _tag: "Explicit"; readonly sections: readonly string[] }
-  | {
-      readonly _tag: "Ask"
-      readonly choose: (
-        metadata: ProjitectPackageMetadata,
-      ) => Effect.Effect<readonly string[], Errors.ProjitectError, R>
-    }
 
 /**
  * `pjt add <package>` — install a blueprint package and splice it into `.pjt.ts`.
@@ -96,52 +73,3 @@ export const add = <R = never>(params: {
       splicedIntoBlueprintFile: true,
     }
   })
-
-const resolveSections = <R>(params: {
-  readonly metadata: ProjitectPackageMetadata
-  readonly strategy: SectionStrategy<R>
-}): Effect.Effect<readonly string[], Errors.ProjitectError, R> => {
-  const { metadata, strategy } = params
-  // Section strategy only matters for blueprint-sets. For `type: "blueprint"`, return empty —
-  // `computeSplice` will emit a single non-templated call line.
-  if (metadata.type === "blueprint") {
-    return Effect.succeed([])
-  }
-  return Match.valueTags(strategy, {
-    All: () => Effect.succeed<readonly string[]>([]),
-    Explicit: (explicit) => Effect.succeed(explicit.sections),
-    Ask: (ask) => ask.choose(metadata),
-  })
-}
-
-const computeSplice = (params: {
-  readonly metadata: ProjitectPackageMetadata
-  readonly requestedSections: readonly string[]
-}): {
-  readonly importLine: string
-  readonly callLines: readonly string[]
-  readonly sectionsAdded: readonly string[]
-} => {
-  const { metadata, requestedSections } = params
-  if (metadata.type === "blueprint") {
-    const call =
-      metadata.call ?? "/* TODO: replace with the blueprint call from the package's README */"
-    return {
-      importLine: metadata.import,
-      callLines: [`${call},`],
-      sectionsAdded: [],
-    }
-  }
-  // Blueprint-set
-  const allSections = metadata.sections ?? []
-  const chosen =
-    requestedSections.length > 0
-      ? requestedSections.filter((s) => allSections.includes(s))
-      : allSections
-  const template = metadata.callTemplate ?? "{section}()"
-  return {
-    importLine: metadata.import,
-    callLines: chosen.map((s) => `${template.replace("{section}", s)},`),
-    sectionsAdded: chosen,
-  }
-}

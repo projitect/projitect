@@ -4,6 +4,7 @@ import { spawn } from "node:child_process"
 import { Array, Effect, Match, Option, Predicate } from "effect"
 import { PredicateX, StructX } from "@nunofyobiz/effect-extras"
 import { Errors } from "@projitect/core"
+import type { ProjitectPackageMetadata } from "@projitect/blueprint"
 
 export type PackageManager = "pnpm" | "npm" | "yarn" | "bun"
 
@@ -81,26 +82,6 @@ const installArgs = (pm: PackageManager, pkg: string): readonly string[] =>
     Match.when("npm", () => ["install", "-D", pkg]),
     Match.exhaustive,
   )
-
-/**
- * The shape of the `"projitect"` field in a blueprint package's `package.json`. Defines how
- * `pjt add <pkg>` should splice into the user's `.pjt.ts`.
- */
-export interface ProjitectPackageMetadata {
-  /**
-   * `"blueprint"` for single-call packages (e.g. one default export). `"blueprint-set"` for
-   * packages that expose multiple sections (e.g. `gitignores.macOs()`, `gitignores.node()`).
-   */
-  readonly type: "blueprint" | "blueprint-set"
-  /** The import statement to splice into `// pjt:imports`, e.g. `import { foo } from "foo"`. */
-  readonly import: string
-  /** For `type: "blueprint"` only — the call template, e.g. `myBlueprint()`. */
-  readonly call?: string
-  /** For `type: "blueprint-set"` only — substitute `{section}` with each chosen name. */
-  readonly callTemplate?: string
-  /** For `type: "blueprint-set"` only — the list of available section names. */
-  readonly sections?: readonly string[]
-}
 
 /**
  * Read the installed package's `package.json` and return its `"projitect"` metadata, if any.
