@@ -43,6 +43,7 @@ npm install --no-package-lock --silent \
   "file:${PKG}/blueprint-gitignore" \
   "file:${PKG}/blueprint-vitest" \
   "file:${PKG}/blueprint-changesets" \
+  "file:${PKG}/blueprint-markdown" \
   "file:${PKG}/blueprint-tsconfig" \
   "effect@rc" "tsx" 2>&1 | tail -1
 
@@ -180,6 +181,55 @@ $BIN inspect > /dev/null 2>&1
 [ $? -eq 1 ] && pass "markdown region drift detected" || fail "markdown drift NOT detected"
 $BIN remodel > /dev/null
 $BIN inspect > /dev/null 2>&1 && pass "clean after markdown re-remodel" || fail "markdown still dirty"
+
+echo "=== 5b4. markdown snippets share AGENTS.md / README.md and survive the full lifecycle ==="
+cat > AGENTS.md <<'EOF'
+# Agent guide
+
+Hand-written intro.
+EOF
+cat > splice-snippets.mjs <<'EOF'
+import { Effect } from "effect"
+import { splice } from "@projitect/cli-internals"
+await Effect.runPromise(splice({
+  projectRoot: process.cwd(),
+  blueprintFile: ".pjt.ts",
+  importLine: 'import { markdownSnippets } from "@projitect/blueprint-markdown"',
+  callLines: [
+    "markdownSnippets.agentsVerification(),",
+    "markdownSnippets.agentsCommits(),",
+    "markdownSnippets.readmeLicense(),",
+  ],
+}))
+EOF
+node --experimental-strip-types splice-snippets.mjs > /dev/null 2>&1
+$BIN remodel > /dev/null
+$BIN inspect > /dev/null 2>&1 && pass "clean after snippets remodel" || fail "snippets left drift"
+grep -q "<!-- pjt:markdown:agents:verification start -->" AGENTS.md && pass "verification region in AGENTS.md" || fail "verification region missing"
+grep -q "<!-- pjt:markdown:agents:commits start -->"      AGENTS.md && pass "commits region in AGENTS.md"      || fail "commits region missing"
+grep -q "<!-- pjt:markdown:readme:license start -->"      README.md && pass "license region in README.md"      || fail "license region missing"
+grep -q "Hand-written intro."                             AGENTS.md && pass "AGENTS.md user text preserved"    || fail "AGENTS.md user text lost"
+grep -q "Some prose written by the user"                  README.md && pass "README.md user text preserved"    || fail "README.md user text lost"
+
+cp AGENTS.md AGENTS.before && cp README.md README.before && cp .pjt.lock lock.before
+$BIN remodel > /dev/null
+cmp -s AGENTS.md AGENTS.before && cmp -s README.md README.before && cmp -s .pjt.lock lock.before && pass "second remodel changes no bytes" || fail "second remodel changed files"
+rm AGENTS.before README.before lock.before
+
+sed -i.bak 's/Write conventional commit subjects/Write sloppy commit subjects/' AGENTS.md && rm AGENTS.md.bak
+DRIFT_OUT=$($BIN inspect 2>&1) && fail "snippet hand-edit NOT detected" || pass "snippet hand-edit detected (nonzero exit)"
+echo "$DRIFT_OUT" | grep -q "AGENTS.md" && pass "inspect names AGENTS.md" || fail "inspect did not name AGENTS.md"
+$BIN remodel > /dev/null
+$BIN inspect > /dev/null 2>&1 && pass "clean after snippet restore" || fail "snippet still dirty"
+grep -q "Write conventional commit subjects" AGENTS.md && pass "snippet region restored" || fail "snippet region not restored"
+
+sed -i.bak '/markdownSnippets\.agentsCommits(),/d' .pjt.ts && rm .pjt.ts.bak
+$BIN inspect 2>&1 | grep -q "remove pjt:markdown:agents:commits" && pass "inspect reports snippet removal" || fail "no snippet removal in inspect"
+$BIN remodel > /dev/null
+$BIN inspect > /dev/null 2>&1 && pass "clean after snippet removal" || fail "dirty after snippet removal"
+grep -q "markdown:agents:commits" AGENTS.md && fail "commits region still present" || pass "commits region removed"
+grep -q "markdown:agents:verification" AGENTS.md && pass "verification region kept" || fail "verification region lost"
+grep -q "Hand-written intro." AGENTS.md && pass "AGENTS.md user text survives removal" || fail "user text lost on removal"
 
 echo "=== 5c. tsconfig blueprint writes tsconfig.json with strict defaults ==="
 cat > splice-tsconfig.mjs <<'EOF'
