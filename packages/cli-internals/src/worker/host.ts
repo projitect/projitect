@@ -107,7 +107,18 @@ const runWorker = (params: {
               handle(message)
             }),
           ),
-          Effect.ignore,
+          Effect.catch((error) =>
+            Effect.sync(() => {
+              settle(
+                Effect.fail(
+                  new Errors.WorkerCrashed({
+                    id: "pjt.worker.crashed",
+                    message: `The blueprint worker sent a message the CLI could not read while planning ${blueprintFile}: ${error.message}`,
+                  }),
+                ),
+              )
+            }),
+          ),
         ),
       )
     })
