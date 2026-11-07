@@ -1,0 +1,17 @@
+{
+  "checks": [
+    { "name": "typecheck (node 22)", "app": "github-actions" },
+    { "name": "typecheck (node 24)", "app": "github-actions" },
+    { "name": "lint", "app": "github-actions" },
+    { "name": "test (node 22)", "app": "github-actions" },
+    { "name": "test (node 24)", "app": "github-actions" },
+    { "name": "knip", "app": "github-actions" },
+    { "name": "build-packages", "app": "github-actions" },
+    { "name": "build-website", "app": "github-actions" },
+    { "name": "check-errors", "app": "github-actions" },
+    { "name": "check-examples", "app": "github-actions" },
+    { "name": "smoke (node 22)", "app": "github-actions" },
+    { "name": "smoke (node 24)", "app": "github-actions" },
+    { "name": "publish-dry-run", "app": "github-actions" }
+  ]
+}
