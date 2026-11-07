@@ -1,0 +1,54 @@
+{
+  "name": "@projitect/blueprint-react",
+  "version": "0.0.0",
+  "description": "React + Vite + TypeScript app blueprint for projitect — composes tsconfig, gitignore and vitest, owns vite.config.ts and the package.json scaffolding, seeds the starter source.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/projitect/projitect.git",
+    "directory": "packages/blueprint-react"
+  },
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "!**/*.tsbuildinfo"
+  ],
+  "scripts": {
+    "build": "tsc --build",
+    "build:clean": "tsc --build --clean",
+    "tc": "tsc --build"
+  },
+  "devDependencies": {
+    "@projitect/blueprint": "workspace:*",
+    "@projitect/blueprint-gitignore": "workspace:*",
+    "@projitect/blueprint-tsconfig": "workspace:*",
+    "@projitect/blueprint-vitest": "workspace:*",
+    "@projitect/core": "workspace:*",
+    "@projitect/test-kit": "workspace:*",
+    "effect": "4.0.0-rc.111",
+    "typescript": "5.9.3"
+  },
+  "peerDependencies": {
+    "@projitect/blueprint": "workspace:*",
+    "@projitect/blueprint-gitignore": "workspace:*",
+    "@projitect/blueprint-tsconfig": "workspace:*",
+    "@projitect/blueprint-vitest": "workspace:*",
+    "@projitect/core": "workspace:*",
+    "effect": "4.0.0-rc.111"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "projitect": {
+    "type": "blueprint",
+    "import": "import { react } from \"@projitect/blueprint-react\"",
+    "call": "react()"
+  }
+}
