@@ -40,12 +40,16 @@ export const PlannedBlueprint = Schema.Struct({
 })
 export type PlannedBlueprint = typeof PlannedBlueprint.Type
 
-/** Child → parent. `Open` announces a blueprint's id and permissions before its first `Fs` frame. */
+/**
+ * Child → parent. `Open` announces a blueprint's id, permissions and `directory()` prefix before its
+ * first `Fs` frame; the parent roots that blueprint's gate at the prefix.
+ */
 export const FromChild = Schema.Union([
   Schema.TaggedStruct("Open", {
     scope: Schema.Number,
     blueprintId: Schema.String,
     permissions: Schema.Array(Permission.Permission),
+    directoryPrefix: Schema.String,
   }),
   Schema.TaggedStruct("Fs", { scope: Schema.Number, frame: Schema.Unknown }),
   Schema.TaggedStruct("Planned", { blueprints: Schema.Array(PlannedBlueprint) }),
