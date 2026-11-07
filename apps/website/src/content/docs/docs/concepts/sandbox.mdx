@@ -33,6 +33,8 @@ It is **not** a security boundary:
 2. The CLI computes the worker's **read allowlist**: its own code, the `.pjt.ts`, the dependency
    closure of `effect`, `@projitect/core`, `@projitect/blueprint` and every package your `.pjt.ts`
    imports, and the Node installation. Your project tree and your home directory are never on it.
+   The closure follows each package's `dependencies` and `peerDependencies`, so a blueprint package
+   must declare every package it imports.
 3. The CLI starts the worker with the permission flag and one `--allow-fs-read` per allowlist
    entry. No write, child-process or worker-thread permission is granted, and the worker gets an
    empty environment.
