@@ -52,4 +52,4 @@ pnpm --filter website dev   # the docs site, http://localhost:4321
 
 ## License
 
-MIT.
+MIT — see [LICENSE](./LICENSE).
