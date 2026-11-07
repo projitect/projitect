@@ -6,7 +6,7 @@ description: What a blueprint is, the two shapes of .pjt.ts, and how the plan ge
 A **blueprint** is one unit of project scaffolding. It declares:
 
 - An **id** (kebab-case namespaced string, e.g. `pjt:gitignore:macos`)
-- A **version** (semver — used for cross-blueprint compatibility once `pjt add` and upgrades land)
+- A **version** (semver — recorded in `.pjt.lock`, so `pjt inspect` can report `↑ upgrade <id> 1.0.0 → 1.1.0` after a package upgrade; first-party blueprints report their installed package's version)
 - A list of **permissions** (`read:<glob>`, `write:<glob>`, `exec:<command>`)
 - A **plan** Effect that produces a `ChangeSet`
 

@@ -698,6 +698,19 @@ This is our soft sandbox: blueprints declare what they need (`{ kind: "write", g
 and `cli-internals` enforces the bounds at the Effect layer. A worker-process sandbox is a
 tracked follow-up; the interface is designed to swap transparently when we ship it.
 
+**Versions come from the manifest.** A first-party blueprint reports its own installed package
+version: `import manifest from "../package.json" with { type: "json" }` and
+`const PACKAGE_VERSION = manifest.version`, with `rootDir` `"."` and `package.json` in the
+package's `tsconfig.json` `include`, so the build emits `dist/package.json` next to `dist/src/`
+and `exports` point at `dist/src/index.js`. Changesets only bumps `package.json`, so a literal
+version would stay `0.0.0` across upgrades and `pjt inspect` could never report the upgrade.
+Explicit `version` options stay (an author-supplied `version` option wins), and
+`@projitect/blueprint-skills` takes its author's version by contract. ESLint enforces this: a
+`no-restricted-syntax` block over `packages/blueprint-*/src/**` (selectors in
+`scripts/first-party-version-selectors.json`, proven by `scripts/test/first-party-version-lint.test.ts`)
+rejects a literal `PACKAGE_VERSION` and a literal `version: "0.0.0"`. The smoke script's section 5e
+installs two packed versions of the five blueprints and checks the upgrade end to end.
+
 ## Where the `pjt add` CLI code lives
 
 Blueprint args are in scope, and the interactive `pjt add` CLI (BACKLOG.md ARG and NPX epics)
