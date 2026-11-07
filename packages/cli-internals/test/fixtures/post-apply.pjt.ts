@@ -1,10 +1,11 @@
 import { Effect, Schema } from "effect"
-import { ChangeSet, Permission } from "@projitect/core"
+import { BlueprintFileSystem, ChangeSet, Permission } from "@projitect/core"
 import { pjt } from "../../src/loader.js"
 
 /**
- * Blueprints for the post-apply tests, described as JSON in `PJT_TEST_POST_APPLY` and decoded when
- * the tree is evaluated, so one static fixture serves every scenario.
+ * Blueprints for the post-apply tests, described as JSON under the `pjtTestPostApply` key of the
+ * project's `package.json` (the confined worker has an empty environment, and `package.json`
+ * survives `pjt build --force`), so one static fixture serves every scenario.
  */
 const Spec = Schema.Array(
   Schema.Struct({
@@ -14,16 +15,19 @@ const Spec = Schema.Array(
   }),
 )
 
+const Manifest = Schema.Struct({ pjtTestPostApply: Spec })
+
 export default pjt({
-  // An Effect tree is evaluated on every load, so each test's env is read fresh despite module caching.
-  blueprints: Effect.sync(() =>
-    Schema.decodeUnknownSync(Spec)(JSON.parse(process.env["PJT_TEST_POST_APPLY"] ?? "[]")).map(
-      (spec) => ({
-        id: spec.id,
-        version: "1.0.0",
-        permissions: spec.permissions,
-        plan: Effect.succeed({ operations: spec.operations }),
-      }),
-    ),
-  ),
+  blueprints: Effect.gen(function* () {
+    const fs = yield* BlueprintFileSystem
+    const manifest = Schema.decodeUnknownSync(Manifest)(
+      JSON.parse(yield* fs.readFile("package.json")),
+    )
+    return manifest.pjtTestPostApply.map((spec) => ({
+      id: spec.id,
+      version: "1.0.0",
+      permissions: spec.permissions,
+      plan: Effect.succeed({ operations: spec.operations }),
+    }))
+  }),
 })
