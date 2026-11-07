@@ -1,8 +1,8 @@
-import { promises as fs } from "node:fs"
-import * as os from "node:os"
-import path from "node:path"
 import { Effect } from "effect"
-import { afterEach, beforeEach, describe, expect, it } from "vitest"
+import type { Layer } from "effect"
+import { beforeEach, describe, expect, it } from "vitest"
+import { BlueprintFileSystem } from "@projitect/core"
+import { makeInMemoryLayer } from "@projitect/test-kit"
 import { applyRemovals } from "../src/remover.js"
 
 /**
@@ -21,30 +21,23 @@ import { applyRemovals } from "../src/remover.js"
  *  - touched-paths return value lists exactly the paths actually mutated
  */
 
-const ROOT = path.join(os.tmpdir(), "projitect-test-remover")
+let layer: Layer.Layer<BlueprintFileSystem>
 
-let cwd: string
-
-beforeEach(async () => {
-  cwd = await fs.mkdtemp(`${ROOT}-`)
+beforeEach(() => {
+  layer = makeInMemoryLayer()
 })
 
-afterEach(async () => {
-  await fs.rm(cwd, { recursive: true, force: true })
-})
+const run = <A, E>(effect: Effect.Effect<A, E, BlueprintFileSystem>): Promise<A> =>
+  Effect.runPromise(Effect.provide(effect, layer))
 
-const writeFile = (relative: string, content: string) =>
-  fs.writeFile(path.join(cwd, relative), content, "utf8")
+const writeFile = (relative: string, content: string): Promise<void> =>
+  run(Effect.flatMap(BlueprintFileSystem, (fs) => fs.writeFile(relative, content)))
 
-const readFile = (relative: string) => fs.readFile(path.join(cwd, relative), "utf8")
+const readFile = (relative: string): Promise<string> =>
+  run(Effect.flatMap(BlueprintFileSystem, (fs) => fs.readFile(relative)))
 
-const exists = (relative: string) =>
-  fs.access(path.join(cwd, relative)).then(
-    () => true,
-    () => false,
-  )
-
-const run = <A>(effect: Effect.Effect<A>): Promise<A> => Effect.runPromise(effect)
+const exists = (relative: string): Promise<boolean> =>
+  run(Effect.flatMap(BlueprintFileSystem, (fs) => fs.exists(relative)))
 
 describe("applyRemovals — region", () => {
   it("removes the marker pair + body, preserving surrounding content", async () => {
@@ -63,7 +56,6 @@ describe("applyRemovals — region", () => {
 
     const touched = await run(
       applyRemovals({
-        projectRoot: cwd,
         removals: [
           {
             _tag: "Region",
@@ -82,7 +74,6 @@ describe("applyRemovals — region", () => {
   it("is silent when the file doesn't exist (already cleaned up)", async () => {
     const touched = await run(
       applyRemovals({
-        projectRoot: cwd,
         removals: [{ _tag: "Region", path: "nope.txt", ownerId: "pjt:x", commentPrefix: "#" }],
       }),
     )
@@ -93,7 +84,6 @@ describe("applyRemovals — region", () => {
     await writeFile(".gitignore", "user-written\n.env\n")
     const touched = await run(
       applyRemovals({
-        projectRoot: cwd,
         removals: [{ _tag: "Region", path: ".gitignore", ownerId: "pjt:gone", commentPrefix: "#" }],
       }),
     )
@@ -119,7 +109,6 @@ describe("applyRemovals — merge", () => {
 
     const touched = await run(
       applyRemovals({
-        projectRoot: cwd,
         removals: [
           {
             _tag: "Merge",
@@ -147,7 +136,6 @@ describe("applyRemovals — merge", () => {
 
     await run(
       applyRemovals({
-        projectRoot: cwd,
         removals: [{ _tag: "Merge", path: "package.json", ownedKeys: ["scripts.pjt"] }],
       }),
     )
@@ -160,7 +148,6 @@ describe("applyRemovals — merge", () => {
     await writeFile("package.json", `${JSON.stringify({ name: "x" }, null, 2)}\n`)
     const touched = await run(
       applyRemovals({
-        projectRoot: cwd,
         removals: [{ _tag: "Merge", path: "package.json", ownedKeys: ["scripts.pjt"] }],
       }),
     )
@@ -171,7 +158,6 @@ describe("applyRemovals — merge", () => {
     await writeFile("package.json", "{not json")
     const touched = await run(
       applyRemovals({
-        projectRoot: cwd,
         removals: [{ _tag: "Merge", path: "package.json", ownedKeys: ["scripts.pjt"] }],
       }),
     )
@@ -185,7 +171,6 @@ describe("applyRemovals — owned", () => {
     await writeFile("generated.ts", "// generated\n")
     const touched = await run(
       applyRemovals({
-        projectRoot: cwd,
         removals: [{ _tag: "Owned", path: "generated.ts", ownerId: "pjt:gen" }],
       }),
     )
@@ -244,7 +229,6 @@ describe("applyRemovals — owned", () => {
   it("is fine when the owned file is already missing", async () => {
     const touched = await run(
       applyRemovals({
-        projectRoot: cwd,
         removals: [{ _tag: "Owned", path: "already-gone.ts", ownerId: "pjt:gen" }],
       }),
     )
@@ -257,7 +241,6 @@ describe("applyRemovals — seed", () => {
     await writeFile(".pjt.ts", "export default pjt({ blueprints: [] })\n")
     const touched = await run(
       applyRemovals({
-        projectRoot: cwd,
         removals: [{ _tag: "Seed", path: ".pjt.ts", ownerId: "pjt:projitect:seed" }],
       }),
     )
@@ -273,7 +256,6 @@ describe("applyRemovals — touched-paths return value", () => {
 
     const touched = await run(
       applyRemovals({
-        projectRoot: cwd,
         removals: [
           { _tag: "Region", path: ".gitignore", ownerId: "pjt:a", commentPrefix: "#" },
           { _tag: "Merge", path: "package.json", ownedKeys: ["scripts.x"] },

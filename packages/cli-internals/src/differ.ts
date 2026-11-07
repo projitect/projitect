@@ -1,8 +1,7 @@
-import { promises as fs } from "node:fs"
-import path from "node:path"
 import { Array, Effect, Match } from "effect"
-import type { PjtLock, Errors } from "@projitect/core"
+import type { BlueprintFileSystem, PjtLock, Errors } from "@projitect/core"
 import { RecordX } from "@nunofyobiz/effect-extras"
+import { readIfExists } from "./project-file.js"
 import { findRegion } from "./region.js"
 import type {
   FilePlan,
@@ -26,26 +25,21 @@ export interface PlanDiff {
   readonly hasDrift: boolean
 }
 
-const readIfExists = (full: string): Promise<string | null> =>
-  fs.readFile(full, "utf8").then(
-    (s) => s,
-    () => null,
-  )
-
 /**
- * Compare each file in the plan against disk. Returns a structured diff suitable for either
+ * Compare each file in the plan against the project filesystem. Returns a structured diff suitable for either
  * human rendering (`renderPlanDiff`) or machine consumption (`--json`).
  */
 export const diffPlan = (params: {
   readonly plan: ProjectPlan
-  readonly projectRoot: string
-}): Effect.Effect<PlanDiff, Errors.RegionMissingEnd | Errors.RegionDuplicate> => {
-  const { plan, projectRoot } = params
+}): Effect.Effect<
+  PlanDiff,
+  Errors.RegionMissingEnd | Errors.RegionDuplicate,
+  BlueprintFileSystem
+> => {
+  const { plan } = params
   return Effect.gen(function* () {
     const files = yield* Effect.forEach(plan.files, (file) =>
-      Effect.promise(() => readIfExists(path.resolve(projectRoot, file.path))).pipe(
-        Effect.flatMap((current) => diffFile({ file, current })),
-      ),
+      readIfExists(file.path).pipe(Effect.flatMap((current) => diffFile({ file, current }))),
     )
     const hasDrift = Array.some(files, (file) => file.status !== "ok")
     return { files, hasDrift }

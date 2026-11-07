@@ -20,8 +20,27 @@ export const makeRealLayer = (config: {
   readonly blueprintId: string
   readonly permissions: readonly Permission.Permission[]
   readonly projectRoot: string
+}): Layer.Layer<BlueprintFileSystem> =>
+  makeDiskLayer({
+    blueprintId: config.blueprintId,
+    projectRoot: config.projectRoot,
+    isAllowed: (op, p) => isPermitted(config.permissions, op, p),
+  })
+
+/**
+ * The ungated project-root `BlueprintFileSystem` the engine itself uses to read and write the
+ * lockfile, diff the plan and apply changes. Same disk implementation as `makeRealLayer` with no
+ * permission check; paths that are absolute or escape `projectRoot` are still rejected.
+ */
+export const makeProjectRootLayer = (projectRoot: string): Layer.Layer<BlueprintFileSystem> =>
+  makeDiskLayer({ blueprintId: "pjt:engine", projectRoot, isAllowed: () => true })
+
+const makeDiskLayer = (config: {
+  readonly blueprintId: string
+  readonly projectRoot: string
+  readonly isAllowed: (op: FsOp, p: string) => boolean
 }): Layer.Layer<BlueprintFileSystem> => {
-  const { blueprintId, permissions, projectRoot } = config
+  const { blueprintId, projectRoot, isAllowed } = config
   const resolved = path.resolve(projectRoot)
 
   const denied = (p: string, op: FsOp, message: string) =>
@@ -66,7 +85,7 @@ export const makeRealLayer = (config: {
       if (!full.startsWith(`${resolved}${path.sep}`) && full !== resolved) {
         return yield* denied(p, op, `Path escapes project root: ${p}`)
       }
-      if (!isPermitted(permissions, op, p)) {
+      if (!isAllowed(op, p)) {
         return yield* denied(
           p,
           op,
@@ -84,7 +103,7 @@ export const makeRealLayer = (config: {
       ) {
         return yield* denied(p, op, `Path resolves outside project root via symlink: ${p}`)
       }
-      if (!isPermitted(permissions, op, realRelative)) {
+      if (!isAllowed(op, realRelative)) {
         return yield* denied(
           p,
           op,
