@@ -59,6 +59,11 @@ export const ExecOp = Schema.TaggedStruct("Exec", {
   ownerId: Schema.String,
   /** The command line to run from the project root; it must be covered by an `exec` permission. */
   command: Schema.String,
+  /**
+   * The command that reports whether `command` still has work to do. Carried in the plan for
+   * `pjt inspect`; build and remodel run only `command`.
+   */
+  check: Schema.optional(Schema.String),
 })
 
 export const Operation = Schema.Union([RegionOp, MergeOp, OwnedOp, SeedOp, ExecOp])

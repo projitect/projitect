@@ -1,4 +1,4 @@
-import { Effect } from "effect"
+import { Array, Effect } from "effect"
 import { StructX } from "@nunofyobiz/effect-extras"
 import type { Blueprint, Permission, Errors, BlueprintFileSystem } from "@projitect/core"
 import { ChangeSet } from "@projitect/core"
@@ -149,6 +149,35 @@ export const seedFile = (spec: SeedFileSpec): Blueprint.Blueprint => ({
         content: spec.content,
       }),
     ),
+  ),
+})
+
+/**
+ * Spec for a post-apply command: after every file operation has succeeded, `pjt build` and
+ * `pjt remodel` run `fix` from the project root. `check` is the command that reports whether the
+ * fix is needed. The blueprint declares an `exec` permission for each of the two command lines.
+ */
+export interface ExecSpec {
+  readonly id: string
+  readonly version: string
+  readonly description?: string
+  readonly check: string
+  readonly fix: string
+  readonly extraPermissions?: readonly Permission.Permission[]
+}
+
+export const exec = (spec: ExecSpec): Blueprint.Blueprint => ({
+  id: spec.id,
+  version: spec.version,
+  ...StructX.defined("description", spec.description),
+  permissions: [
+    ...Array.dedupe([spec.fix, spec.check]).map(
+      (command): Permission.Permission => ({ kind: "exec", command }),
+    ),
+    ...(spec.extraPermissions ?? []),
+  ],
+  plan: Effect.succeed(
+    ChangeSet.of(ChangeSet.ExecOp.make({ ownerId: spec.id, command: spec.fix, check: spec.check })),
   ),
 })
 
