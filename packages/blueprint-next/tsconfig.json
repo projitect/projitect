@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": ".",
+    "tsBuildInfoFile": "./.tsbuildinfo"
+  },
+  "include": ["src/**/*", "package.json"],
+  "exclude": ["dist", "node_modules"],
+  "references": [
+    { "path": "../core" },
+    { "path": "../blueprint" },
+    { "path": "../blueprint-gitignore" },
+    { "path": "../blueprint-tsconfig" },
+    { "path": "../blueprint-vitest" }
+  ]
+}

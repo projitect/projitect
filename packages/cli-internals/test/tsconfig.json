@@ -15,6 +15,7 @@
     { "path": "../../core" },
     { "path": "../../blueprint" },
     { "path": "../../blueprint-markdown" },
+    { "path": "../../blueprint-next" },
     { "path": "../../blueprint-react" },
     { "path": "../../test-kit" }
   ]
