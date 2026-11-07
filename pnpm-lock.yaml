@@ -99,6 +99,9 @@ importers:
       '@projitect/blueprint-gitignore':
         specifier: workspace:*
         version: link:../../packages/blueprint-gitignore
+      '@projitect/blueprint-husky-lint-staged':
+        specifier: workspace:*
+        version: link:../../packages/blueprint-husky-lint-staged
       '@projitect/blueprint-markdown':
         specifier: workspace:*
         version: link:../../packages/blueprint-markdown
@@ -172,6 +175,24 @@ importers:
       '@projitect/core':
         specifier: workspace:*
         version: link:../core
+      effect:
+        specifier: 4.0.0-rc.111
+        version: 4.0.0-rc.111
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+
+  packages/blueprint-husky-lint-staged:
+    devDependencies:
+      '@projitect/blueprint':
+        specifier: workspace:*
+        version: link:../blueprint
+      '@projitect/core':
+        specifier: workspace:*
+        version: link:../core
+      '@projitect/test-kit':
+        specifier: workspace:*
+        version: link:../test-kit
       effect:
         specifier: 4.0.0-rc.111
         version: 4.0.0-rc.111

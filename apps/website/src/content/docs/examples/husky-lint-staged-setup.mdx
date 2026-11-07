@@ -1,0 +1,57 @@
+---
+title: husky-lint-staged-setup
+description: Add commit-time linting and formatting to a project — hook, config, script, and devDeps in one line.
+sidebar:
+  label: husky-lint-staged-setup
+  order: 6
+---
+
+import code from "../../../../examples/husky-lint-staged-setup/example.ts?raw"
+import { Code } from "@astrojs/starlight/components"
+
+Drop `huskyLintStaged()` into your `.pjt.ts`. One line buys you four things in lockstep:
+
+- A `.husky/pre-commit` hook that runs `lint-staged` (owned mode — projitect rewrites this file on
+  every `pjt remodel`)
+- A `lint-staged` field in `package.json` (merge mode)
+- A `prepare` script set to `husky` (merge mode)
+- `husky` and `lint-staged` in `devDependencies` (merge mode)
+
+<Code code={code} lang="ts" title=".pjt.ts" />
+
+Run:
+
+```bash
+pnpm pjt remodel    # writes .husky/pre-commit, merges package.json
+pnpm install        # installs husky and lint-staged, then runs `prepare`
+```
+
+## Why this exists
+
+The hook, the lint-staged config, the `prepare` script, and the devDependencies drift independently
+when copied by hand. With `huskyLintStaged()`, `pjt inspect` fails the moment any of them drifts
+from what the blueprint declares.
+
+## Options
+
+```ts
+huskyLintStaged({
+  config: { "*.ts": ["eslint --fix", "prettier --write"] }, // default: see below
+})
+```
+
+The default `lint-staged` config runs `eslint --fix` on `*.{js,jsx,ts,tsx,mjs,cjs}` and
+`prettier --write` on `*.{json,md,mdx,yml,yaml,css}`. A `config` you pass **replaces** the default
+entirely; the two are never merged. The `lint-staged` field is owned by the blueprint, so remove
+globs you no longer want from `package.json` by hand.
+
+## Things to know
+
+- **`scripts.prepare` is owned.** An existing `prepare` script is overwritten with `husky`. Chain
+  any other setup step into a different script.
+- **No executable bit.** The hook is written without one. Husky 9 runs `.husky/pre-commit` through
+  `sh`, so it does not need one (the smoke test commits through the installed hook to prove it), and
+  the file has no `husky.sh` bootstrap line.
+- **Tools are yours to supply.** The blueprint declares the commands only. It does not run
+  `husky init`, install husky or lint-staged for you (it only declares them as devDependencies),
+  or configure ESLint or Prettier; your project provides them.

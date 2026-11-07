@@ -21,6 +21,7 @@
     "@projitect/blueprint-changesets": "workspace:*",
     "@projitect/blueprint-gitignore": "workspace:*",
     "@projitect/blueprint-markdown": "workspace:*",
+    "@projitect/blueprint-husky-lint-staged": "workspace:*",
     "@projitect/blueprint-skills": "workspace:*",
     "@projitect/blueprint-tsconfig": "workspace:*",
     "@projitect/blueprint-vitest": "workspace:*",

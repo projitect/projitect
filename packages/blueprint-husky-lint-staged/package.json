@@ -1,0 +1,48 @@
+{
+  "name": "@projitect/blueprint-husky-lint-staged",
+  "version": "0.0.0",
+  "description": "Husky and lint-staged blueprint for projitect — owns .husky/pre-commit and the package.json lint-staged field, prepare script and husky and lint-staged devDependencies.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/projitect/projitect.git",
+    "directory": "packages/blueprint-husky-lint-staged"
+  },
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "!**/*.tsbuildinfo"
+  ],
+  "scripts": {
+    "build": "tsc --build",
+    "build:clean": "tsc --build --clean",
+    "tc": "tsc --build"
+  },
+  "devDependencies": {
+    "@projitect/blueprint": "workspace:*",
+    "@projitect/core": "workspace:*",
+    "@projitect/test-kit": "workspace:*",
+    "effect": "4.0.0-rc.111",
+    "typescript": "5.9.3"
+  },
+  "peerDependencies": {
+    "@projitect/blueprint": "workspace:*",
+    "@projitect/core": "workspace:*",
+    "effect": "4.0.0-rc.111"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "projitect": {
+    "type": "blueprint",
+    "import": "import { huskyLintStaged } from \"@projitect/blueprint-husky-lint-staged\"",
+    "call": "huskyLintStaged()"
+  }
+}
