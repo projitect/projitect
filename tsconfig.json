@@ -13,6 +13,7 @@
     { "path": "./packages/blueprint-markdown" },
     { "path": "./packages/blueprint-skills" },
     { "path": "./packages/blueprint-husky-lint-staged" },
-    { "path": "./packages/blueprint-tsconfig" }
+    { "path": "./packages/blueprint-tsconfig" },
+    { "path": "./scripts" }
   ]
 }

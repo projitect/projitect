@@ -1019,6 +1019,13 @@ PR triggers the same workflow again, which runs `pnpm release` — `pnpm build` 
 `changeset publish` — publishing every package in the `fixed` group with npm provenance
 (`NPM_CONFIG_PROVENANCE=true`).
 
+When the publish succeeds (`published == 'true'`), a follow-up step runs
+[`scripts/comment-released.ts`](./scripts/comment-released.ts): it comments "Shipped in projitect
+vX.Y.Z" on each PR in the release (the commits since the previous `projitect@*` tag) and on the
+issues those PRs close. A hidden `<!-- pjt-release:vX.Y.Z -->` marker makes re-runs skip anything
+already commented, and a failed comment is logged without failing the job. Preview with
+`pnpm release:comment --dry-run` (needs `GITHUB_TOKEN`, `GITHUB_REPOSITORY`, `PUBLISHED_PACKAGES`).
+
 Agents never publish directly: there's no interactive `changeset publish` step to run by hand,
 only the changeset file (see [Commits and PRs](#commits-and-prs)) that feeds the gated workflow
 above. Use the `release-bump` skill to walk through cutting a release.

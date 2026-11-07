@@ -1,4 +1,4 @@
-import { defineConfig } from "vitest/config"
+import { configDefaults, defineConfig } from "vitest/config"
 
 /**
  * Workspace vitest config.
@@ -10,6 +10,8 @@ import { defineConfig } from "vitest/config"
 export default defineConfig({
   test: {
     passWithNoTests: true,
+    // `scripts/` compiles its tests next to its sources, so skip the emitted copies.
+    exclude: [...configDefaults.exclude, "**/dist/**"],
     coverage: {
       provider: "v8",
       reporter: ["text", "html"],

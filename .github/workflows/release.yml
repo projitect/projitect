@@ -13,6 +13,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      issues: write
       id-token: write
     steps:
       - uses: actions/checkout@v4
@@ -29,7 +30,8 @@ jobs:
       - run: npm --version
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
-      - uses: changesets/action@v1
+      - id: changesets
+        uses: changesets/action@v1
         with:
           publish: pnpm release
           version: pnpm version-packages
@@ -38,3 +40,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_CONFIG_PROVENANCE: "true"
+      # Best-effort: a comment failure must never fail the publish job.
+      - if: steps.changesets.outputs.published == 'true'
+        continue-on-error: true
+        run: pnpm release:comment
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PUBLISHED_PACKAGES: ${{ steps.changesets.outputs.publishedPackages }}
