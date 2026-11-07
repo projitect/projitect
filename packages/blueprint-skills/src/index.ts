@@ -1,0 +1,134 @@
+/**
+ * @projitect/blueprint-skills
+ *
+ * Installs agent skills — a `SKILL.md` plus any referenced scripts and assets — into a repo-local
+ * skills directory. Each file is written in owned mode, so projitect rewrites it on `remodel`,
+ * flags edits as drift in `inspect`, and removes files a newer package version stops shipping.
+ *
+ * Layout: `<target>/<skill-name>/<relative path>`, with `target` defaulting to `.claude/skills`.
+ * Writes are permission-scoped to `<target>/**`; sibling skills and user files are never touched.
+ */
+
+import { Array, Effect, Predicate, String } from "effect"
+import { ownFile } from "@projitect/blueprint"
+import type { Blueprint } from "@projitect/core"
+import { ChangeSet as CS, Errors } from "@projitect/core"
+
+const DEFAULT_ID = "pjt:skills"
+const DEFAULT_VERSION = "0.0.0"
+const DEFAULT_TARGET = ".claude/skills"
+const SKILL_FILE = "SKILL.md"
+
+/** One skill: a single-segment `name` and its files, keyed by `/`-separated relative path. */
+export interface Skill {
+  readonly name: string
+  /** Must contain `SKILL.md`. Other keys may be nested, e.g. `scripts/run.sh`. */
+  readonly files: Readonly<Record<string, string>>
+}
+
+export interface SkillsOptions {
+  readonly skills: readonly Skill[]
+  /** Skills root, relative to the project. Defaults to `".claude/skills"`. */
+  readonly target?: string
+  /**
+   * Owner id. Defaults to `"pjt:skills"`; two skill packages in one project need distinct ids.
+   */
+  readonly id?: string
+  /** Version recorded in the lockfile. Pass the skill package's own version. Defaults to `"0.0.0"`. */
+  readonly version?: string
+}
+
+/** Why a single path segment is unusable, or `undefined` when it is fine. */
+const segmentProblem = (segment: string): string | undefined => {
+  if (!String.isNonEmpty(segment)) {
+    return "must not be empty"
+  }
+  if (segment === "." || segment === "..") {
+    return "must not be a `.` or `..` segment"
+  }
+  if (segment.includes("\\")) {
+    return "must not contain a backslash"
+  }
+  if (segment.includes("\0")) {
+    return "must not contain a NUL character"
+  }
+  if (/^[A-Za-z]:/u.test(segment)) {
+    return "must not start with a drive letter"
+  }
+  return undefined
+}
+
+/** A skill name is exactly one segment, so it additionally must not contain a separator. */
+const nameProblem = (name: string): string | undefined =>
+  name.includes("/") ? "must not contain a path separator" : segmentProblem(name)
+
+/** First problem across the `/`-separated segments of a relative path, or `undefined`. */
+const pathProblem = (value: string): string | undefined =>
+  Array.findFirst(String.split(value, "/"), (segment) =>
+    Predicate.isNotUndefined(segmentProblem(segment)),
+  ).pipe((found) => (found._tag === "Some" ? segmentProblem(found.value) : undefined))
+
+const invalid = (field: "target" | "name" | "path" | "skill", value: string, problem: string) =>
+  new Errors.SkillInvalid({
+    id: "pjt.skills.invalid-path",
+    field,
+    value,
+    message: `Invalid skill ${field} ${JSON.stringify(value)}: ${problem}.`,
+  })
+
+const validate = (options: SkillsOptions, target: string) => {
+  const names = Array.map(options.skills, (skill) => skill.name)
+  const failures = [
+    ...Array.fromNullishOr(pathProblem(target)).map((p) => invalid("target", target, p)),
+    ...Array.flatMap(options.skills, (skill) => [
+      ...Array.fromNullishOr(nameProblem(skill.name)).map((p) => invalid("name", skill.name, p)),
+      ...(Object.hasOwn(skill.files, SKILL_FILE)
+        ? []
+        : [invalid("skill", skill.name, `must include a ${SKILL_FILE} file`)]),
+      ...Array.flatMap(Object.keys(skill.files), (path) =>
+        Array.fromNullishOr(pathProblem(path)).map((p) => invalid("path", path, p)),
+      ),
+    ]),
+    ...Array.flatMap(Array.dedupe(names), (name) =>
+      Array.filter(names, (n) => n === name).length > 1
+        ? [invalid("skill", name, "is declared more than once in this package")]
+        : [],
+    ),
+  ]
+  return Array.head(failures)
+}
+
+/**
+ * Build the skills blueprint. Emits one owned-file operation per skill file, all attributed to
+ * the blueprint `id`.
+ */
+export const skills = (options: SkillsOptions): Blueprint.Blueprint => {
+  const id = options.id ?? DEFAULT_ID
+  const version = options.version ?? DEFAULT_VERSION
+  const target = options.target ?? DEFAULT_TARGET
+
+  return {
+    id,
+    version,
+    description: `agent skills in ${target}`,
+    permissions: [{ kind: "write", glob: `${target}/**` }],
+    plan: Effect.gen(function* () {
+      const failure = validate(options, target)
+      if (failure._tag === "Some") {
+        return yield* failure.value
+      }
+      const files = Array.flatMap(options.skills, (skill) =>
+        Array.map(Object.entries(skill.files), ([path, content]) =>
+          ownFile({
+            id,
+            version,
+            path: `${target}/${skill.name}/${path}`,
+            content,
+          }),
+        ),
+      )
+      const changeSets = yield* Effect.forEach(files, (b) => b.plan)
+      return CS.Reducer.combineAll(changeSets)
+    }),
+  }
+}

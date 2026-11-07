@@ -1,0 +1,25 @@
+---
+title: skills-package
+description: Package agent skills as a versioned blueprint and install them into a repo-local skills directory.
+sidebar:
+  label: skills-package
+  order: 6
+---
+
+import code from "../../../../examples/skills-package/example.ts?raw"
+import { Code } from "@astrojs/starlight/components"
+
+`skills()` turns a set of agent skills into a blueprint. Each skill is a name plus its files —
+`SKILL.md` and any referenced scripts or assets, nested as deeply as you like.
+
+<Code code={code} lang="ts" title=".pjt.ts" />
+
+Run:
+
+```bash
+pnpm pjt remodel    # writes .claude/skills/release-notes/**
+pnpm pjt inspect    # exits 1 if any installed skill file was edited
+```
+
+See [Agent skills](/docs/skills/) for the layout convention, the `target` option, and how update,
+swap and remove work.

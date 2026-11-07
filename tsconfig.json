@@ -11,6 +11,7 @@
     { "path": "./packages/blueprint-vitest" },
     { "path": "./packages/blueprint-changesets" },
     { "path": "./packages/blueprint-markdown" },
+    { "path": "./packages/blueprint-skills" },
     { "path": "./packages/blueprint-tsconfig" }
   ]
 }

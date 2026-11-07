@@ -28,6 +28,7 @@ This is a **pnpm monorepo**. `packages/*` and `apps/*` are the workspaces:
 | `@projitect/blueprint-vitest`     | First-party blueprint: managed Vitest config.                                                         |
 | `@projitect/blueprint-changesets` | First-party blueprint: managed Changesets config, scripts and devDependency.                          |
 | `@projitect/blueprint-markdown`   | First-party blueprint: composable `AGENTS.md` / `README.md` snippets.                                 |
+| `@projitect/blueprint-skills`     | First-party blueprint: versioned agent skills installed into a skills directory.                      |
 | `@projitect/cli-internals`        | The engine — loader, planner, differ, applier, remover, commands, Node platform layer.                |
 | `projitect`                       | Ships the `pjt` binary and `.pjt.ts` handling.                                                        |
 | `@projitect/test-kit`             | In-memory `BlueprintFileSystem` for unit tests.                                                       |
