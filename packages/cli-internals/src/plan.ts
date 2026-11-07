@@ -84,7 +84,16 @@ const rebaseOp = (prefix: string, op: ChangeSet.Operation): ChangeSet.Operation 
   if (!prefix) {
     return op
   }
-  return { ...op, path: rebasePath(prefix, op.path) }
+  return {
+    ...op,
+    path: rebasePath(prefix, op.path),
+    ...(op._tag === "Owned"
+      ? StructX.defined(
+          "ownedDir",
+          op.ownedDir === undefined ? undefined : rebasePath(prefix, op.ownedDir),
+        )
+      : {}),
+  }
 }
 
 interface AttributedOp {
@@ -160,11 +169,20 @@ export const diffLockfile = (params: {
     }),
     whenNotNullable: (lock) => {
       const entries = Record.toEntries(lock.blueprints)
-      const removals = Array.flatMap(entries, ([id, prior]) =>
-        Option.match(Record.get(current, id), {
-          onNone: () => prior.operations,
-          onSome: (live) => droppedOwnedOps(prior, live),
-        }),
+      const livePaths = new Set(
+        Array.flatMap(Record.values(current), (live) =>
+          Array.map(live.operations, (op) => op.path),
+        ),
+      )
+      const removals = Array.filter(
+        Array.flatMap(entries, ([id, prior]) =>
+          Option.match(Record.get(current, id), {
+            onNone: () => prior.operations,
+            onSome: (live) => droppedOwnedOps(prior, live),
+          }),
+        ),
+        // A path some blueprint still plans (e.g. reassigned to another owner) is not an orphan.
+        (op) => op._tag !== "Owned" || !livePaths.has(op.path),
       )
       const upgrades = Array.flatMap(entries, ([id, prior]) =>
         Record.get(current, id).pipe(
@@ -211,7 +229,12 @@ const toLockOp = (op: ChangeSet.Operation): PjtLock.LockOperation =>
         ),
       }),
     Merge: (merge) => PjtLock.LockMergeOp.make({ path: merge.path, ownedKeys: merge.ownedKeys }),
-    Owned: (owned) => PjtLock.LockOwnedOp.make({ path: owned.path, ownerId: owned.ownerId }),
+    Owned: (owned) =>
+      PjtLock.LockOwnedOp.make({
+        path: owned.path,
+        ownerId: owned.ownerId,
+        ...StructX.defined("ownedDir", owned.ownedDir),
+      }),
     Seed: (seed) => PjtLock.LockSeedOp.make({ path: seed.path, ownerId: seed.ownerId }),
   })
 

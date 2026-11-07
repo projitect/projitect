@@ -39,6 +39,11 @@ export const OwnedOp = Schema.TaggedStruct("Owned", {
   ownerId: Schema.String,
   path: Schema.String,
   content: Schema.String,
+  /**
+   * Directory this owner manages. When the file is removed, empty directories are pruned from the
+   * file's parent up to and including this one — never above it. Absent: no pruning.
+   */
+  ownedDir: Schema.optional(Schema.String),
 })
 
 export const SeedOp = Schema.TaggedStruct("Seed", {

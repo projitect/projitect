@@ -7,6 +7,7 @@
  *
  * Layout: `<target>/<skill-name>/<relative path>`, with `target` defaulting to `.claude/skills`.
  * Writes are permission-scoped to `<target>/**`; sibling skills and user files are never touched.
+ * Removing a skill prunes only that skill's own directory tree, never `<target>` or its ancestors.
  */
 
 import { Array, Effect, Predicate, String } from "effect"
@@ -14,8 +15,6 @@ import { ownFile } from "@projitect/blueprint"
 import type { Blueprint } from "@projitect/core"
 import { ChangeSet as CS, Errors } from "@projitect/core"
 
-const DEFAULT_ID = "pjt:skills"
-const DEFAULT_VERSION = "0.0.0"
 const DEFAULT_TARGET = ".claude/skills"
 const SKILL_FILE = "SKILL.md"
 
@@ -30,12 +29,10 @@ export interface SkillsOptions {
   readonly skills: readonly Skill[]
   /** Skills root, relative to the project. Defaults to `".claude/skills"`. */
   readonly target?: string
-  /**
-   * Owner id. Defaults to `"pjt:skills"`; two skill packages in one project need distinct ids.
-   */
-  readonly id?: string
-  /** Version recorded in the lockfile. Pass the skill package's own version. Defaults to `"0.0.0"`. */
-  readonly version?: string
+  /** Stable, namespaced owner id such as `"acme:skills"`. Every skill package needs its own. */
+  readonly id: string
+  /** The skill package's own version; recorded in the lockfile so upgrades are tracked. */
+  readonly version: string
 }
 
 /** Why a single path segment is unusable, or `undefined` when it is fine. */
@@ -62,13 +59,25 @@ const segmentProblem = (segment: string): string | undefined => {
 const nameProblem = (name: string): string | undefined =>
   name.includes("/") ? "must not contain a path separator" : segmentProblem(name)
 
+const GLOB_METACHARACTERS = /[*?[\]{}()!]/u
+
+/** A target is a path whose segments are literal: glob metacharacters would widen `<target>/**`. */
+const targetProblem = (target: string): string | undefined =>
+  GLOB_METACHARACTERS.test(target)
+    ? "must not contain glob metacharacters (* ? [ ] { } ( ) !)"
+    : pathProblem(target)
+
 /** First problem across the `/`-separated segments of a relative path, or `undefined`. */
 const pathProblem = (value: string): string | undefined =>
   Array.findFirst(String.split(value, "/"), (segment) =>
     Predicate.isNotUndefined(segmentProblem(segment)),
   ).pipe((found) => (found._tag === "Some" ? segmentProblem(found.value) : undefined))
 
-const invalid = (field: "target" | "name" | "path" | "skill", value: string, problem: string) =>
+const invalid = (
+  field: "target" | "name" | "path" | "skill" | "id" | "version",
+  value: string,
+  problem: string,
+) =>
   new Errors.SkillInvalid({
     id: "pjt.skills.invalid-path",
     field,
@@ -79,7 +88,13 @@ const invalid = (field: "target" | "name" | "path" | "skill", value: string, pro
 const validate = (options: SkillsOptions, target: string) => {
   const names = Array.map(options.skills, (skill) => skill.name)
   const failures = [
-    ...Array.fromNullishOr(pathProblem(target)).map((p) => invalid("target", target, p)),
+    ...(options.id.includes(":") && String.isNonEmpty(options.id.replaceAll(":", ""))
+      ? []
+      : [invalid("id", options.id, "must be a namespaced id such as `acme:skills`")]),
+    ...(String.isNonEmpty(options.version)
+      ? []
+      : [invalid("version", options.version, "must be the skill package's version")]),
+    ...Array.fromNullishOr(targetProblem(target)).map((p) => invalid("target", target, p)),
     ...Array.flatMap(options.skills, (skill) => [
       ...Array.fromNullishOr(nameProblem(skill.name)).map((p) => invalid("name", skill.name, p)),
       ...(Object.hasOwn(skill.files, SKILL_FILE)
@@ -103,8 +118,7 @@ const validate = (options: SkillsOptions, target: string) => {
  * the blueprint `id`.
  */
 export const skills = (options: SkillsOptions): Blueprint.Blueprint => {
-  const id = options.id ?? DEFAULT_ID
-  const version = options.version ?? DEFAULT_VERSION
+  const { id, version } = options
   const target = options.target ?? DEFAULT_TARGET
 
   return {
@@ -124,6 +138,7 @@ export const skills = (options: SkillsOptions): Blueprint.Blueprint => {
             version,
             path: `${target}/${skill.name}/${path}`,
             content,
+            ownedDir: `${target}/${skill.name}`,
           }),
         ),
       )

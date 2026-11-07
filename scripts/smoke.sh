@@ -146,50 +146,92 @@ grep -q '"changeset": "changeset"' package.json && pass "changeset script merged
 grep -q '"version-packages": "changeset version"' package.json && pass "version-packages script merged" || fail "version-packages script missing"
 grep -q '"@changesets/cli"' package.json && pass "@changesets/cli devDep merged into package.json" || fail "@changesets/cli devDep not merged"
 
-echo "=== 5b4. skills blueprint: add, update, remove, drift ==="
+echo "=== 5b4. skills package: add, upgrade (separate processes), drift, remove ==="
+# Two versions of a skill package, each packed into a real tarball with `npm pack`.
+make_skills_pkg() {
+  local version="$1" dir="$SMOKE/pkgsrc-$1"
+  mkdir -p "$dir"
+  cat > "$dir/package.json" <<EOF
+{ "name": "acme-skills", "version": "$version", "type": "module", "main": "index.mjs" }
+EOF
+  local skill_md run_sh extra
+  if [ "$version" = "1.0.0" ]; then
+    skill_md='# v1\n'; extra='"assets/img/old.txt": "old\n"'
+  else
+    skill_md='# v2\n'; extra='"assets/img/new.txt": "new\n"'
+  fi
+  cat > "$dir/index.mjs" <<EOF
+import { skills } from "@projitect/blueprint-skills"
+import pkg from "./package.json" with { type: "json" }
+export const acmeSkills = skills({
+  id: "acme:skills",
+  version: pkg.version,
+  skills: [{ name: "smoke-skill", files: { "SKILL.md": "$skill_md", "scripts/run.sh": "echo run\n", "assets/keep/k.txt": "keep\n", $extra } }],
+})
+EOF
+  (cd "$dir" && npm pack --silent --pack-destination "$SMOKE" > /dev/null 2>&1)
+}
+# Unpack a packed tarball into node_modules the way a package manager would (the project's
+# devDependencies from earlier steps need the network, so `npm install` is not usable here).
+install_skills_pkg() {
+  rm -rf node_modules/acme-skills
+  mkdir -p node_modules/acme-skills
+  tar -xzf "$SMOKE/acme-skills-$1.tgz" -C node_modules/acme-skills --strip-components=1
+}
+make_skills_pkg 1.0.0
+make_skills_pkg 1.1.0
+[ -f "$SMOKE/acme-skills-1.0.0.tgz" ] && [ -f "$SMOKE/acme-skills-1.1.0.tgz" ] && pass "packed two skill package versions" || fail "npm pack failed"
+
 cat > splice-skills.mjs <<'EOF'
 import { Effect } from "effect"
 import { splice } from "@projitect/cli-internals"
 await Effect.runPromise(splice({
   projectRoot: process.cwd(),
   blueprintFile: ".pjt.ts",
-  importLine: 'import { skills } from "@projitect/blueprint-skills"',
-  callLines: [process.env.SKLINE],
+  importLine: 'import { acmeSkills } from "acme-skills"',
+  callLines: ["acmeSkills,"],
 }))
 EOF
-# Rewrites (or, with SKLINE empty, drops) the line that declares the smoke skill package.
-cat > swap-skills.mjs <<'EOF'
+cat > drop-skills.mjs <<'EOF'
 import fs from "node:fs"
 const lines = fs.readFileSync(".pjt.ts", "utf8").split("\n")
-const next = lines.flatMap((l) => (l.includes("smoke:skills") ? (process.env.SKLINE ? [`    ${process.env.SKLINE}`] : []) : [l]))
-fs.writeFileSync(".pjt.ts", next.join("\n"))
+fs.writeFileSync(".pjt.ts", lines.filter((l) => l.trim() !== "acmeSkills,").join("\n"))
 EOF
-SK_V1='skills({ id: "smoke:skills", version: "1.0.0", skills: [{ name: "smoke-skill", files: { "SKILL.md": "# v1\n", "scripts/run.sh": "echo v1\n", "assets/img/old.txt": "old\n" } }] }),'
-SK_V2='skills({ id: "smoke:skills", version: "1.1.0", skills: [{ name: "smoke-skill", files: { "SKILL.md": "# v2\n", "scripts/run.sh": "echo v1\n", "assets/img/new.txt": "new\n" } }] }),'
 mkdir -p .claude/skills/user-skill
 echo "mine" > .claude/skills/user-skill/SKILL.md
-SKLINE="$SK_V1" node --experimental-strip-types splice-skills.mjs > /dev/null 2>&1
+install_skills_pkg 1.0.0
+node --experimental-strip-types splice-skills.mjs > /dev/null 2>&1
 $BIN remodel > /dev/null
-$BIN inspect > /dev/null 2>&1 && pass "clean after skills remodel" || fail "skills blueprint left drift"
+$BIN inspect > /dev/null 2>&1 && pass "clean after skills remodel" || fail "skills package left drift"
 [ -f .claude/skills/smoke-skill/SKILL.md ] && pass "SKILL.md installed" || fail "SKILL.md missing"
 [ -f .claude/skills/smoke-skill/assets/img/old.txt ] && pass "nested skill asset installed" || fail "nested asset missing"
+RUN_SUM_BEFORE=$(cksum < .claude/skills/smoke-skill/scripts/run.sh)
+KEEP_SUM_BEFORE=$(cksum < .claude/skills/smoke-skill/assets/keep/k.txt)
 
-SKLINE="$SK_V2" node swap-skills.mjs
+# Upgrade: install the 1.1.0 tarball, then inspect in its own process BEFORE remodel.
+install_skills_pkg 1.1.0
+INSPECT_JSON=$($BIN inspect --json 2>/dev/null)
+INSPECT_EXIT=$?
+[ $INSPECT_EXIT -eq 1 ] && pass "inspect reports drift before upgrade remodel (exit 1)" || fail "inspect did not exit 1 before upgrade remodel"
+echo "$INSPECT_JSON" | tr -d '[:space:]' | grep -q '"from":"1.0.0".*"to":"1.1.0"\|"to":"1.1.0".*"from":"1.0.0"' && pass "inspect reports upgrade 1.0.0 -> 1.1.0" || fail "inspect missed the real upgrade from/to"
+echo "$INSPECT_JSON" | grep -q ".claude/skills/smoke-skill/SKILL.md" && pass "inspect lists changed SKILL.md" || fail "inspect missed SKILL.md drift"
 $BIN remodel > /dev/null
-grep -q "# v2" .claude/skills/smoke-skill/SKILL.md && pass "version bump rewrote SKILL.md" || fail "SKILL.md not updated"
-[ -f .claude/skills/smoke-skill/assets/img/new.txt ] && pass "version bump added new file" || fail "new file missing"
-[ ! -e .claude/skills/smoke-skill/assets/img/old.txt ] && pass "version bump removed dropped file" || fail "dropped file survived"
-$BIN inspect > /dev/null 2>&1 && pass "clean after skills update" || fail "drift after skills update"
+grep -q "# v2" .claude/skills/smoke-skill/SKILL.md && pass "upgrade rewrote SKILL.md" || fail "SKILL.md not updated"
+[ -f .claude/skills/smoke-skill/assets/img/new.txt ] && pass "upgrade added new file" || fail "new file missing"
+[ ! -e .claude/skills/smoke-skill/assets/img/old.txt ] && pass "upgrade removed dropped file" || fail "dropped file survived"
+[ "$RUN_SUM_BEFORE" = "$(cksum < .claude/skills/smoke-skill/scripts/run.sh)" ] && pass "unchanged script untouched" || fail "unchanged script changed"
+[ "$KEEP_SUM_BEFORE" = "$(cksum < .claude/skills/smoke-skill/assets/keep/k.txt)" ] && pass "unchanged nested asset untouched" || fail "unchanged nested asset changed"
+$BIN inspect > /dev/null 2>&1 && pass "clean after skills upgrade" || fail "drift after skills upgrade"
 
 echo "tampered" > .claude/skills/smoke-skill/scripts/run.sh
 $BIN inspect > /dev/null 2>&1
 [ $? -eq 1 ] && pass "skill file drift detected (exit 1)" || fail "skill drift NOT detected"
 $BIN remodel > /dev/null
-grep -q "echo v1" .claude/skills/smoke-skill/scripts/run.sh && pass "remodel restored skill file" || fail "skill file not restored"
+grep -q "echo run" .claude/skills/smoke-skill/scripts/run.sh && pass "remodel restored skill file" || fail "skill file not restored"
 
-SKLINE="" node swap-skills.mjs
+node drop-skills.mjs
 $BIN remodel > /dev/null
-[ ! -e .claude/skills/smoke-skill ] && pass "removed skill and its empty directory" || fail "skill directory survived removal"
+[ ! -e .claude/skills/smoke-skill ] && pass "removed skill and its directory" || fail "skill directory survived removal"
 [ -f .claude/skills/user-skill/SKILL.md ] && pass "unrelated skill untouched" || fail "unrelated skill lost"
 $BIN inspect > /dev/null 2>&1 && pass "clean after skills removal" || fail "drift after skills removal"
 

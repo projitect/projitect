@@ -25,7 +25,7 @@ nested:
 `.agents/skills`; the layout beneath it is identical.
 
 ```ts
-skills({ target: ".agents/skills", skills: [...] })
+skills({ id: "acme:skills", version: "1.0.0", target: ".agents/skills", skills: [...] })
 ```
 
 ## Authoring a skill package
@@ -36,12 +36,12 @@ Export a blueprint built with `skills({ id, version, skills })`; see the
 | Option    | Meaning                                                                                        |
 | --------- | ---------------------------------------------------------------------------------------------- |
 | `skills`  | List of `{ name, files }`. `files` maps relative paths to content and must include `SKILL.md`. |
-| `target`  | Skills root. Default `.claude/skills`.                                                         |
-| `id`      | Owner id. Default `pjt:skills`; give every skill package its own.                              |
-| `version` | Recorded in the lockfile. Pass the package's own version.                                      |
+| `id`      | Required. Stable, namespaced owner id such as `acme:skills`; every skill package has its own.  |
+| `version` | Required. The package's own version; `pjt inspect` reports upgrades from the lockfile.         |
+| `target`  | Skills root. Default `.claude/skills`. Literal path only: glob characters are rejected.        |
 
 Skill names are a single path segment. File paths are `/`-separated and relative. Empty values,
-absolute paths, `.` or `..` segments, backslashes and separators inside a name fail with
+absolute paths, glob characters in `target`, `.` or `..` segments, backslashes and separators inside a name fail with
 [`pjt.skills.invalid-path`](/errors/pjt.skills.invalid-path/), and nothing is written.
 
 The blueprint declares write permission for `<target>/**` only, so the
@@ -59,7 +59,8 @@ installed skill file and `pjt remodel` restores the declared content (see
 - **Swap.** Replace one package with another in `.pjt.ts` and remodel. The old package's files are
   removed and the new package's files installed.
 - **Remove.** Delete the entry from `.pjt.ts` and remodel. Only that package's files are deleted,
-  along with any skill directory left empty.
+  along with that skill's directory once it is empty. Directories above the skill's own, such as the
+  skills root, are never removed. A file that another package now claims is never deleted.
 
 Unrelated skills and files in the same directory are never touched. Two packages claiming the same
 file fail with [`pjt.plan.conflict-owned`](/errors/pjt.plan.conflict-owned/).

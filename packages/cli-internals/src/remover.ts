@@ -1,6 +1,6 @@
 import { promises as fs } from "node:fs"
 import path from "node:path"
-import { Array, Effect, Match, Option } from "effect"
+import { Array, Effect, Match, Option, Predicate } from "effect"
 import { PredicateX, RecordX, StringX } from "@nunofyobiz/effect-extras"
 import type { Errors, PjtLock } from "@projitect/core"
 import { findRegion } from "./region.js"
@@ -21,7 +21,7 @@ export const applyRemovals = (params: {
       applyOne({
         op,
         full: path.resolve(params.projectRoot, op.path),
-        projectRoot: path.resolve(params.projectRoot),
+        projectRoot: params.projectRoot,
       }),
       (mutated) => (mutated ? Option.some(op.path) : Option.none<string>()),
     ),
@@ -41,7 +41,15 @@ const applyOne = (params: {
   Match.valueTags(params.op, {
     Region: (op) => removeRegion(params.full, op),
     Merge: (op) => Effect.promise(() => removeMergeKeys(params.full, op.ownedKeys)),
-    Owned: () => Effect.promise(() => removeFile(params.full, params.projectRoot)),
+    Owned: (op) =>
+      Effect.promise(() =>
+        removeFile(
+          params.full,
+          Predicate.isNotUndefined(op.ownedDir)
+            ? path.resolve(params.projectRoot, op.ownedDir)
+            : undefined,
+        ),
+      ),
     // Seed is write-once; we never delete the file when a seed blueprint leaves.
     Seed: () => Effect.succeed(false),
   })
@@ -103,26 +111,28 @@ const removeMergeKeys = async (full: string, keys: readonly string[]): Promise<b
   return true
 }
 
-const removeFile = async (full: string, projectRoot: string): Promise<boolean> => {
+const removeFile = async (full: string, ownedDir: string | undefined): Promise<boolean> => {
   try {
     await fs.rm(full, { force: true })
-    await pruneEmptyParents(path.dirname(full), projectRoot)
+    if (Predicate.isNotUndefined(ownedDir)) {
+      await pruneEmptyDirs(path.dirname(full), ownedDir)
+    }
     return true
   } catch {
     return false
   }
 }
 
-/** Remove now-empty directories upward from `dir`, stopping at the first non-empty one or the project root. */
-const pruneEmptyParents = async (dir: string, projectRoot: string): Promise<void> => {
-  if (dir === projectRoot || !dir.startsWith(`${projectRoot}${path.sep}`)) {
+/** Remove empty directories upward from `dir` to `ownedDir` inclusive, never above it. */
+const pruneEmptyDirs = async (dir: string, ownedDir: string): Promise<void> => {
+  if (dir !== ownedDir && !dir.startsWith(`${ownedDir}${path.sep}`)) {
     return
   }
   const removed = await fs.rmdir(dir).then(
     () => true,
     () => false,
   )
-  if (removed) {
-    await pruneEmptyParents(path.dirname(dir), projectRoot)
+  if (removed && dir !== ownedDir) {
+    await pruneEmptyDirs(path.dirname(dir), ownedDir)
   }
 }

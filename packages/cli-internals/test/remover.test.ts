@@ -193,32 +193,52 @@ describe("applyRemovals — owned", () => {
     expect(await exists("generated.ts")).toBe(false)
   })
 
-  it("prunes directories the removal leaves empty, but keeps ones that still hold files", async () => {
-    await fs.mkdir(path.join(cwd, "skills/a/nested"), { recursive: true })
-    await fs.mkdir(path.join(cwd, "skills/b"), { recursive: true })
-    await writeFile("skills/a/nested/x.md", "x")
-    await writeFile("skills/b/y.md", "y")
+  it("prunes empty directories up to the owned dir, but not above it", async () => {
+    await fs.mkdir(path.join(cwd, "agents/skills/a/nested"), { recursive: true })
+    await writeFile("agents/skills/a/nested/x.md", "x")
     await run(
       applyRemovals({
         projectRoot: cwd,
         removals: [
-          { _tag: "Owned", path: "skills/a/nested/x.md", ownerId: "pjt:s" },
-          { _tag: "Owned", path: "skills/b/y.md", ownerId: "pjt:s" },
+          {
+            _tag: "Owned",
+            path: "agents/skills/a/nested/x.md",
+            ownerId: "pjt:s",
+            ownedDir: "agents/skills/a",
+          },
         ],
       }),
     )
-    expect(await exists("skills/a")).toBe(false)
-    expect(await exists("skills/b")).toBe(false)
+    expect(await exists("agents/skills/a")).toBe(false)
+    expect(await exists("agents/skills")).toBe(true)
+    expect(await exists("agents")).toBe(true)
+  })
+
+  it("keeps the owned dir while it still holds other files", async () => {
     await fs.mkdir(path.join(cwd, "skills/c"), { recursive: true })
     await writeFile("skills/c/keep.md", "k")
     await writeFile("skills/c/gone.md", "g")
     await run(
       applyRemovals({
         projectRoot: cwd,
-        removals: [{ _tag: "Owned", path: "skills/c/gone.md", ownerId: "pjt:s" }],
+        removals: [
+          { _tag: "Owned", path: "skills/c/gone.md", ownerId: "pjt:s", ownedDir: "skills/c" },
+        ],
       }),
     )
     expect(await exists("skills/c/keep.md")).toBe(true)
+  })
+
+  it("prunes nothing when the op names no owned dir", async () => {
+    await fs.mkdir(path.join(cwd, "pre/existing"), { recursive: true })
+    await writeFile("pre/existing/f.md", "f")
+    await run(
+      applyRemovals({
+        projectRoot: cwd,
+        removals: [{ _tag: "Owned", path: "pre/existing/f.md", ownerId: "pjt:s" }],
+      }),
+    )
+    expect(await exists("pre/existing")).toBe(true)
   })
 
   it("is fine when the owned file is already missing", async () => {

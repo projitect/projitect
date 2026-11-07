@@ -125,7 +125,7 @@ export class PlanConflictOwned extends Schema.TaggedError<PlanConflictOwned>()(
 
 export class SkillInvalid extends Schema.TaggedError<SkillInvalid>()("SkillInvalid", {
   id: Schema.Literal("pjt.skills.invalid-path"),
-  field: Schema.Literals(["target", "name", "path", "skill"]),
+  field: Schema.Literals(["target", "name", "path", "skill", "id", "version"]),
   value: Schema.String,
   message: Schema.String,
 }) {}
