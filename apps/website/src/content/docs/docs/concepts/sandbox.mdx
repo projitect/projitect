@@ -51,5 +51,6 @@ the way you'd treat any new npm dep — read the source before adding it.
 ## What about exec?
 
 A blueprint can declare `{ kind: "exec", command: "..." }` in its permissions, but the v0 FS
-doesn't expose a `runCommand` operation yet. That's a v0.1 feature so the contract is in place
-before any blueprint can shell out.
+doesn't run commands yet. Running them is planned as post-apply operations in a blueprint's
+ChangeSet, so the contract is in place before any blueprint can shell out. See the
+[roadmap](/docs/roadmap/).
