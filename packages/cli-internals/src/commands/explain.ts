@@ -70,6 +70,8 @@ const ERROR_BLURBS: Readonly<Record<Errors.ErrorId, string>> = {
     "The package manager install command exited non-zero. The underlying error is included in the message.",
   "pjt.add.markers-missing":
     "Your `.pjt.ts` is missing the marker comment pairs `pjt:imports` and `pjt:blueprints`. `pjt add` uses those as splice anchors. Restore them and re-run.",
+  "pjt.add.metadata-missing":
+    "The package you added has no `projitect` field in its package.json, so `pjt add` can't splice it. Import it in `.pjt.ts` by hand, then run `pjt remodel`.",
   "pjt.worker.crashed":
     "The worker process that runs blueprint code crashed before it returned a result. The exit code or signal is included in the message.",
   "pjt.worker.timed-out":

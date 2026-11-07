@@ -298,6 +298,10 @@ const reduceOps = (
     Effect.map((files) => ({ files })),
   )
 
+/** Closing sentence of every plan-conflict message: the command-level way out. */
+const conflictNextStep =
+  "Remove one of the conflicting blueprints from `.pjt.ts`, then run `pjt remodel`."
+
 /**
  * Reduce one path's operations into a single FilePlan. Every op on a path must share an
  * ownership mode (`_tag`); a mixed group is a `pjt.plan.conflict-owned`.
@@ -316,7 +320,7 @@ const reduceGroup = (
             path,
             ownerA: head.ownerId,
             ownerB: offender.ownerId,
-            message: `Blueprints ${head.ownerId} (${head._tag}) and ${offender.ownerId} (${offender._tag}) both target ${path} with incompatible modes`,
+            message: `Blueprints ${head.ownerId} (${head._tag}) and ${offender.ownerId} (${offender._tag}) both target ${path} with incompatible modes. ${conflictNextStep}`,
           }),
         ),
       onNone: () =>
@@ -359,7 +363,7 @@ const reduceRegion = (
           path,
           ownerA: ownerId,
           ownerB: ownerId,
-          message: `Multiple blueprints share ownerId ${ownerId} for region in ${path}`,
+          message: `Multiple blueprints share ownerId ${ownerId} for region in ${path}. ${conflictNextStep}`,
         }),
       ),
     onNone: () => {
@@ -402,7 +406,7 @@ const reconcileOwnership = (
             key,
             ownerA: prior,
             ownerB: op.ownerId,
-            message: `Blueprints ${prior} and ${op.ownerId} both claim key "${key}" in ${path}`,
+            message: `Blueprints ${prior} and ${op.ownerId} both claim key "${key}" in ${path}. ${conflictNextStep}`,
           })
         }
         ownership.set(key, op.ownerId)
@@ -437,8 +441,8 @@ const reduceSole = (
         ownerB: second.ownerId,
         message:
           kind === "owned"
-            ? `Multiple blueprints claim full ownership of ${path}`
-            : `Multiple blueprints try to seed ${path}`,
+            ? `Multiple blueprints claim full ownership of ${path}. ${conflictNextStep}`
+            : `Multiple blueprints try to seed ${path}. ${conflictNextStep}`,
       }),
     )
   }

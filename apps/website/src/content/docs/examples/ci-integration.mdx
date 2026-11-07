@@ -6,30 +6,18 @@ sidebar:
   order: 4
 ---
 
+import workflow from "../../../../examples/ci-inspect/inspect.yml?raw"
+import blueprints from "../../../../examples/ci-inspect/example.ts?raw"
+import { Code } from "@astrojs/starlight/components"
+
 The whole point of `pjt inspect` is that it exits nonzero when your repo drifts. One step in
 your CI workflow turns that into a per-PR gate.
 
-```yaml title=".github/workflows/check.yml"
-name: check
-on:
-  pull_request:
-    branches: [main]
-  push:
-    branches: [main]
+<Code code={workflow} lang="yaml" title=".github/workflows/inspect.yml" />
 
-jobs:
-  pjt-inspect:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm pjt inspect
-```
+The workflow guards a project whose `.pjt.ts` looks like this:
+
+<Code code={blueprints} lang="ts" title=".pjt.ts" />
 
 ## What this guards against
 
@@ -37,8 +25,9 @@ jobs:
 - Stale `package.json` scripts from removed blueprints
 - Drift after a blueprint package upgrade where the contributor forgot to run `pjt remodel`
 
-The job fails fast with the human-readable diff in the log, and the failure links back to a
-`pjt.region.*` or `pjt.plan.*` error id that points the contributor at the fix.
+The job fails fast with the drifted files in the log. The fix is the command the output names:
+run `pnpm pjt remodel` locally, then commit the result. The workflow file is checked by
+`pnpm --filter website check:examples`.
 
 ## Other CI providers
 

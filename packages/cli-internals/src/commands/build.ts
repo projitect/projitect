@@ -76,7 +76,7 @@ export const build = (params: {
           command: "build",
           message:
             `Git working tree is dirty (${status.lines.length} uncommitted change${status.lines.length === 1 ? "" : "s"}). ` +
-            "Commit or stash, or pass `--force-dirty` to override.",
+            "Commit your changes (`git add -A && git commit -m wip`) and re-run `pjt build --force`, or pass `--force-dirty` to wipe anyway.",
         })
       }
     }

@@ -448,14 +448,44 @@ for (const f of ['package.json', 'dist/package.json']) {
 }
 pack_markdown 1.0.0
 pack_markdown 1.1.0 "Write conventional commit subjects" "Write Conventional Commits subjects"
-TGZ1="$(ls "$REG"/*-1.0.0.tgz)"
-TGZ2="$(ls "$REG"/*-1.1.0.tgz)"
-publish() { # <latest>: rewrite the registry state; 1.1.0 is only listed once published
-  if [ "$1" = "1.0.0" ]; then
-    printf '{"name":"@projitect/blueprint-markdown","latest":"1.0.0","tarballs":{"1.0.0":"%s"}}' "$TGZ1" > "$REG/state.json"
-  else
-    printf '{"name":"@projitect/blueprint-markdown","latest":"%s","tarballs":{"1.0.0":"%s","1.1.0":"%s"}}' "$1" "$TGZ1" "$TGZ2" > "$REG/state.json"
-  fi
+TGZ1="$REG/projitect-blueprint-markdown-1.0.0.tgz"
+TGZ2="$REG/projitect-blueprint-markdown-1.1.0.tgz"
+
+# Two more packages served by the same registry under the @acme scope: a skills blueprint (1.0.0 and
+# 1.1.0) and a package without "projitect" metadata. Both are packed with `npm pack`.
+make_acme_skills() { # <version>
+  local dir="$REG/skills-$1"
+  mkdir -p "$dir"
+  local skill_md='# v1\n' extra='"assets/img/old.txt": "old\n"'
+  [ "$1" = "1.1.0" ] && { skill_md='# v2\n'; extra='"assets/img/new.txt": "new\n"'; }
+  cat > "$dir/package.json" <<EOF
+{ "name": "@acme/skills", "version": "$1", "type": "module", "main": "index.mjs",
+  "projitect": { "type": "blueprint", "import": "import { acmeSkills } from \"@acme/skills\"", "call": "acmeSkills" } }
+EOF
+  cat > "$dir/index.mjs" <<EOF
+import { skills } from "@projitect/blueprint-skills"
+import pkg from "./package.json" with { type: "json" }
+export const acmeSkills = skills({
+  id: "acme:skills",
+  version: pkg.version,
+  skills: [{ name: "acme-skill", files: { "SKILL.md": "$skill_md", "scripts/run.sh": "echo run\n", $extra } }],
+})
+EOF
+  npm pack "$dir" --pack-destination "$REG" --silent > /dev/null 2>&1
+}
+make_acme_skills 1.0.0
+make_acme_skills 1.1.0
+mkdir -p "$REG/plain"
+echo '{"name":"@acme/plain","version":"1.0.0"}' > "$REG/plain/package.json"
+npm pack "$REG/plain" --pack-destination "$REG" --silent > /dev/null 2>&1
+SK1="$REG/acme-skills-1.0.0.tgz"
+SK2="$REG/acme-skills-1.1.0.tgz"
+PLAIN="$REG/acme-plain-1.0.0.tgz"
+publish() { # <markdown latest> [<skills latest>]: rewrite the registry state; a version is only listed once published
+  local md="\"1.0.0\":\"$TGZ1\"" sk="\"1.0.0\":\"$SK1\""
+  [ "$1" = "1.1.0" ] && md="$md,\"1.1.0\":\"$TGZ2\""
+  [ "${2:-1.0.0}" = "1.1.0" ] && sk="$sk,\"1.1.0\":\"$SK2\""
+  printf '{"packages":[{"name":"@projitect/blueprint-markdown","latest":"%s","tarballs":{%s}},{"name":"@acme/skills","latest":"%s","tarballs":{%s}},{"name":"@acme/plain","latest":"1.0.0","tarballs":{"1.0.0":"%s"}}]}' "$1" "$md" "${2:-1.0.0}" "$sk" "$PLAIN" > "$REG/state.json"
 }
 publish 1.0.0
 node "${ROOT}/scripts/local-registry.mjs" "$REG/state.json" "$REG/port" &
@@ -473,8 +503,9 @@ npm install --no-package-lock --silent \
   "file:${PKG}/blueprint" \
   "file:${PKG}/cli-internals" \
   "file:${PKG}/projitect" \
+  "file:${PKG}/blueprint-skills" \
   "effect@rc" "tsx" 2>&1 | tail -1
-printf '@projitect:registry=http://127.0.0.1:%s/\n' "$(cat "$REG/port")" > .npmrc
+printf '@projitect:registry=http://127.0.0.1:%s/\n@acme:registry=http://127.0.0.1:%s/\n' "$(cat "$REG/port")" "$(cat "$REG/port")" > .npmrc
 $BIN init > /dev/null 2>&1
 
 printf '# Agent guide\n\nHand-written intro.\n' > AGENTS.md
@@ -508,6 +539,7 @@ UP_EXIT=$?
 [ "$UP_EXIT" -eq 1 ] && pass "inspect after the upgrade, before remodel, exits 1" || fail "inspect exit was $UP_EXIT after upgrade"
 echo "$UP_OUT" | grep -q "upgrade pjt:markdown:agents:commits 1.0.0 → 1.1.0" && pass "inspect reports the real 1.0.0 → 1.1.0 upgrade" || fail "inspect missed the upgrade"
 echo "$UP_OUT" | grep -q "modify AGENTS.md" && pass "inspect names AGENTS.md as changed" || fail "inspect did not name AGENTS.md"
+echo "$UP_OUT" | grep -q 'Run `pjt remodel`' && pass "inspect names the next command" || fail "inspect did not name pjt remodel"
 cmp -s AGENTS.md AGENTS.v1 && pass "inspect wrote nothing" || fail "inspect modified AGENTS.md"
 $BIN remodel > /dev/null
 grep -q "Write Conventional Commits subjects" AGENTS.md && pass "remodel applied the 1.1.0 content" || fail "1.1.0 content missing"
@@ -528,6 +560,62 @@ sed -i.bak '/markdownSnippets\.readmeLicense()/d' .pjt.ts && rm .pjt.ts.bak
 $BIN remodel > /dev/null
 cmp -s README.md README.seed && pass "README.md is byte-identical to the seed after removal" || fail "README.md differs from the seed after removal"
 $BIN inspect > /dev/null 2>&1 && pass "clean after removal" || fail "drift after removal"
+
+# Hand-edited managed content: `inspect --json` prints parseable JSON naming the drifted file and
+# exits 1; remodel repairs it and inspect exits 0 again.
+sed -i.bak 's/^\(<!-- pjt:markdown:agents:no-destructive-shortcuts start -->\)$/\1\nHAND EDIT/' AGENTS.md && rm AGENTS.md.bak
+DRIFT_JSON=$($BIN inspect --json 2>/dev/null)
+DRIFT_EXIT=$?
+[ "$DRIFT_EXIT" -eq 1 ] && pass "inspect --json exits 1 on a hand-edited managed file" || fail "inspect --json exit was $DRIFT_EXIT on drift"
+echo "$DRIFT_JSON" | python3 -c "import sys, json; d = json.loads(sys.stdin.read()); assert d['hasDrift'] is True; assert any(f['path'] == 'AGENTS.md' and f['status'] != 'ok' for f in d['files'])" > /dev/null 2>&1 && pass "inspect --json is parseable and names the drifted AGENTS.md" || fail "inspect --json did not name AGENTS.md as drifted"
+$BIN inspect 2>&1 | grep -q 'Run `pjt remodel`' && pass "inspect drift report names the next command" || fail "inspect drift report does not name pjt remodel"
+$BIN remodel > /dev/null
+CLEAN_JSON=$($BIN inspect --json 2>/dev/null)
+CLEAN_EXIT=$?
+[ "$CLEAN_EXIT" -eq 0 ] && echo "$CLEAN_JSON" | python3 -c "import sys, json; assert json.loads(sys.stdin.read())['hasDrift'] is False" > /dev/null 2>&1 && pass "inspect --json exits 0 with hasDrift false once repaired" || fail "inspect --json not clean after remodel"
+
+# Agent path, no terminal: `add` with stdin from /dev/null and no --section installs every section;
+# naming all sections explicitly gives the same bytes; both give the same bytes on every run.
+reset_markdown() {
+  sed -i.bak '/markdownSnippets\./d' .pjt.ts && rm .pjt.ts.bak
+  $BIN remodel > /dev/null
+}
+reset_markdown
+$BIN add @projitect/blueprint-markdown < /dev/null > /dev/null 2>&1
+[ "$(grep -c 'markdownSnippets\.' .pjt.ts)" -eq 6 ] && pass "non-interactive add without --section installs all six sections" || fail "non-interactive add did not install every section"
+$BIN remodel > /dev/null
+$BIN inspect > /dev/null 2>&1 && pass "clean after the non-interactive add" || fail "drift after the non-interactive add"
+cp AGENTS.md AGENTS.all && cp README.md README.all && cp .pjt.lock lock.all && cp .pjt.ts pjt.all
+reset_markdown
+$BIN add @projitect/blueprint-markdown --section agentsPackageManager,agentsVerification,agentsCommits,agentsNoDestructiveShortcuts,readmeContributing,readmeLicense < /dev/null > /dev/null 2>&1
+$BIN remodel > /dev/null
+cmp -s AGENTS.md AGENTS.all && cmp -s README.md README.all && cmp -s .pjt.lock lock.all && cmp -s .pjt.ts pjt.all && pass "explicit --section run gives the same bytes as the all-sections run" || fail "explicit and implicit installs differ"
+
+# Skills blueprint through the registry: add, upgrade, drift, remove.
+$BIN add @acme/skills < /dev/null > /dev/null 2>&1
+grep -q "acmeSkills," .pjt.ts && pass "pjt add spliced the skills blueprint into .pjt.ts" || fail "skills blueprint not spliced"
+$BIN remodel > /dev/null
+$BIN inspect > /dev/null 2>&1 && pass "clean after installing the skills package" || fail "drift after installing the skills package"
+grep -q "# v1" .claude/skills/acme-skill/SKILL.md && pass "skill 1.0.0 content installed" || fail "skill content missing"
+publish 1.1.0 1.1.0
+# `remodel` records `projitect` again; drop it so the reinstall keeps the local build.
+npm pkg delete devDependencies.projitect > /dev/null 2>&1
+npm install -D --no-package-lock --silent @acme/skills@1.1.0 > /dev/null 2>&1
+SK_JSON=$($BIN inspect --json 2>/dev/null)
+[ $? -eq 1 ] && echo "$SK_JSON" | grep -q ".claude/skills/acme-skill/SKILL.md" && pass "inspect reports the skills upgrade as drift" || fail "inspect missed the skills upgrade"
+$BIN remodel > /dev/null
+grep -q "# v2" .claude/skills/acme-skill/SKILL.md && [ -f .claude/skills/acme-skill/assets/img/new.txt ] && [ ! -e .claude/skills/acme-skill/assets/img/old.txt ] && pass "remodel applied the skills upgrade" || fail "skills upgrade not applied"
+$BIN inspect > /dev/null 2>&1 && pass "clean after the skills upgrade" || fail "drift after the skills upgrade"
+sed -i.bak '/acmeSkills,/d' .pjt.ts && rm .pjt.ts.bak
+$BIN remodel > /dev/null
+[ ! -e .claude/skills/acme-skill ] && pass "removing the skills blueprint removes its files" || fail "skill directory survived removal"
+$BIN inspect > /dev/null 2>&1 && pass "clean after the skills removal" || fail "drift after the skills removal"
+
+# A package without "projitect" metadata fails with an id and the next command.
+NOMETA_OUT=$($BIN add @acme/plain < /dev/null 2>&1)
+NOMETA_EXIT=$?
+[ "$NOMETA_EXIT" -ne 0 ] && pass "add of a package without metadata exits nonzero" || fail "add without metadata exited 0"
+echo "$NOMETA_OUT" | grep -q "pjt.add.metadata-missing" && echo "$NOMETA_OUT" | grep -q 'pjt remodel' && pass "metadata error names its id and the next command" || fail "metadata error lacks id or next command"
 
 kill "$REG_PID" 2>/dev/null
 cd "$SMOKE"
@@ -576,7 +664,9 @@ rm -rf "$YESDIR"
 echo "=== 8. build --force refuses on dirty git ==="
 git add -A && git commit -q -m "checkpoint"
 echo "stray" > scratch.txt
-$BIN build --force 2>&1 | grep -q "dirty-git" && pass "build refuses on dirty git" || fail "dirty-git not caught"
+DIRTY_OUT=$($BIN build --force 2>&1)
+echo "$DIRTY_OUT" | grep -q "dirty-git" && pass "build refuses on dirty git" || fail "dirty-git not caught"
+echo "$DIRTY_OUT" | grep -q "git commit" && pass "dirty-git message names the commit step" || fail "dirty-git message lacks the next command"
 
 echo "=== 9. build --force --force-dirty --yes wipes + rebuilds ==="
 mkdir -p src docs

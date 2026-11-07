@@ -1,0 +1,115 @@
+---
+title: Install guidance and skills
+description: The whole journey from an empty git project to managed guidance and skills, for people, agents and CI.
+sidebar:
+  label: Install guidance and skills
+---
+
+This page walks one journey end to end: an empty git project gets shared guidance (`AGENTS.md`,
+`README.md`) or agent skills from a published blueprint package, keeps them current through package
+upgrades, and fails CI when someone hand-edits them. Every step is one of the existing commands,
+and each reports through its exit code.
+
+## The sequence
+
+```bash
+git init
+pjt init                                      # .pjt.ts, .pjt.lock, projitect devDependencies
+pjt add @projitect/blueprint-markdown         # installs the package, splices .pjt.ts
+pjt remodel                                   # writes the managed files
+pjt inspect                                   # exit 0: in sync
+```
+
+`pjt add` works for any package that carries `projitect` metadata, such as a Markdown snippet
+package or a package built on `@projitect/blueprint-skills`. A package without that metadata fails
+with [`pjt.add.metadata-missing`](/errors/pjt.add.metadata-missing/), stays installed, and the
+message tells you to import it in `.pjt.ts` by hand and run `pjt remodel`.
+
+## With no terminal (agents and scripts)
+
+Pass `--section` and nothing prompts. Without a terminal, `pjt add` never prompts even when
+`--section` is missing: it installs every section the package declares. Both forms give the same
+files on every run.
+
+```bash
+git init
+pjt init --yes                                # --yes also creates package.json if missing
+pjt add @projitect/blueprint-markdown --section agentsVerification,agentsCommits,readmeLicense
+pjt remodel                                   # exit 0
+pjt inspect --json                            # exit 0, hasDrift false
+```
+
+| Step                      | Success                          | Failure                                                     |
+| ------------------------- | -------------------------------- | ----------------------------------------------------------- |
+| `pjt init --yes`          | exit 0                           | exit 1, error id and next command printed                   |
+| `pjt add <pkg> --section` | exit 0, lines added to `.pjt.ts` | exit 1, error id and next command printed                   |
+| `pjt remodel`             | exit 0                           | exit 1, error id and next command printed                   |
+| `pjt inspect --json`      | exit 0, `"hasDrift": false`      | exit 1, parseable JSON listing the drifted files; see below |
+
+Naming every section explicitly and omitting `--section` produce byte-identical results, and
+running the sequence twice changes no bytes the second time.
+
+## Upgrade, swap and remove
+
+- **Upgrade.** Raise the package version with your package manager. `pjt inspect` exits 1 and
+  prints `↑ upgrade <id> <from> → <to>` plus the changed files. `pjt remodel` rewrites only what the
+  package owns; `pjt inspect` then exits 0.
+- **Swap.** Replace one call in `.pjt.ts` with another and run `pjt remodel`. The old content is
+  removed, the new content is written, and `pjt inspect` exits 0.
+- **Remove.** Delete the call from `.pjt.ts` and run `pjt remodel`. Only the content that call
+  owned goes away; text you wrote around it stays.
+
+## Drift in CI and for agents
+
+With managed content hand-edited, `pjt inspect --json` prints JSON that names the drifted files and
+exits 1:
+
+```json
+{
+  "$schema": "https://projitect.dev/schemas/inspect.v1.json",
+  "hasDrift": true,
+  "files": [
+    {
+      "path": "AGENTS.md",
+      "status": "modify",
+      "summary": "~ modify AGENTS.md — region pjt:markdown:agents:commits content drift"
+    }
+  ],
+  "removals": [],
+  "upgrades": []
+}
+```
+
+Run `pjt remodel`, then `pjt inspect` again: it exits 0. Copy the
+[ci-integration workflow](/examples/ci-integration/) to run `pjt inspect` on every pull request.
+
+## When a step fails
+
+Each failure prints an error id and a next command:
+
+| Failure                               | Next command                                                                |
+| ------------------------------------- | --------------------------------------------------------------------------- |
+| No git repository                     | `git init`, or `pjt init --yes`                                             |
+| Package without `projitect` metadata  | Import it in `.pjt.ts`, then `pjt remodel`                                  |
+| Dirty git tree on `pjt build --force` | `git add -A && git commit -m wip`, then rerun `pjt build --force`           |
+| Drift                                 | `pjt remodel`, then `pjt inspect`                                           |
+| Plan conflict                         | Remove one of the conflicting blueprints from `.pjt.ts`, then `pjt remodel` |
+
+## Checking the interactive prompt
+
+In a real terminal, `pjt add <package>` without `--section` asks which sections to install for a
+package that declares sections. Automated tests have no terminal, so the prompt is checked by hand
+with this procedure:
+
+1. In a scratch git project run `pjt init`, then `pjt add @projitect/blueprint-markdown`.
+2. Confirm the multi-select prompt `Pick sections to add` lists every section.
+3. Move with the arrow keys, toggle two sections with space and confirm with enter. `.pjt.ts` gains exactly those two calls.
+4. Run `pjt remodel` and `pjt inspect`. Inspect exits 0.
+5. Repeat step 1 and press Ctrl-C at the prompt. `.pjt.ts` is unchanged and the command exits 0.
+6. Compare with the non-interactive path: `pjt add @projitect/blueprint-markdown --section <the two names>` gives the same installed files.
+
+**Last run: 2026-11-07**, in a pseudo-terminal with Node 22 against a packed
+`@projitect/blueprint-markdown`: the prompt listed all six sections, toggling
+`agentsPackageManager` and `agentsVerification` added exactly those two calls, `pjt remodel` wrote
+`package.json` and `AGENTS.md`, `pjt inspect` exited 0, and Ctrl-C left `.pjt.ts` byte-identical
+with exit 0.

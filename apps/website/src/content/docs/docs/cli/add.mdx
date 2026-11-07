@@ -55,6 +55,13 @@ Pressing **Ctrl-C** during the interactive picker, or confirming with nothing ti
 
 The blueprint-set's `"callTemplate"` (e.g. `gitignores.{section}()`) is filled in per chosen section.
 
+## Exit codes
+
+| Code | Meaning                                                                                                                   |
+| ---- | ------------------------------------------------------------------------------------------------------------------------- |
+| 0    | The package was installed and spliced, or the picker selected nothing and `.pjt.ts` is unchanged.                         |
+| 1    | An error id was printed: install failed, markers missing, or no `projitect` metadata. The message names the next command. |
+
 ## Recipe: noninteractive (scripts and agents)
 
 Pass `--section` and nothing prompts. Follow with `remodel` to write the files and `inspect` to
@@ -66,17 +73,18 @@ pjt remodel     # exit 0 on success; nonzero with an error id on failure
 pjt inspect     # exit 0: in sync; exit 1: drift (the file is named in the output)
 ```
 
-See the [markdown-snippets example](/examples/markdown-snippets/) for the whole lifecycle,
+The whole journey, including the agent path and the hand check of the interactive prompt, is on
+[Install guidance and skills](/docs/journey/). See the [markdown-snippets example](/examples/markdown-snippets/) for the whole lifecycle,
 including upgrades and removal.
 
 ## When the package doesn't have `"projitect"` metadata
 
-`pjt add` still runs the install — but skips the splice. You'll see:
+`pjt add` installs the package, finds no `"projitect"` field in its `package.json`, and exits 1 with
+[`pjt.add.metadata-missing`](/errors/pjt.add.metadata-missing/). `.pjt.ts` is left unchanged and
+the package stays installed:
 
 ```text
-Installed some-package via pnpm.
-some-package has no `"projitect"` metadata in its package.json, so we can't auto-splice into .pjt.ts.
-Edit it by hand, then run `pjt remodel`.
+Error [pjt.add.metadata-missing]: some-package was installed but has no `"projitect"` metadata in its package.json, so `pjt add` can't splice it into .pjt.ts. Import it in .pjt.ts by hand, then run `pjt remodel`.
 ```
 
 Edit `.pjt.ts` manually, then run `pjt remodel`. To enable auto-splice for your own blueprint package, see [Authoring → Publishing](/docs/authoring/#publishing).

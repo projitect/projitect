@@ -9,3 +9,5 @@ sidebar:
 **What**: Region ownership is keyed by `ownerId` (which is the blueprint's `id`). When two blueprints share an id and target the same file, the planner can't tell their regions apart.
 
 **How to fix**: Give each blueprint a unique `id`. If you control both blueprints, namespace them (`my-org:gitignore:macos` vs `other-org:gitignore:macos`). If they're third-party, you can only have one of them in your `.pjt.ts` at a time.
+
+Once the conflict is resolved in `.pjt.ts`, run `pjt remodel`.

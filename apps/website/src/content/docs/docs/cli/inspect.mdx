@@ -18,7 +18,7 @@ Built for CI.
 | 1    | Drift: a managed region or key was edited or is missing, an upgrade changed a blueprint's content, or a blueprint left `.pjt.ts`. The drifted file is named in the output.                   |
 | 1    | A project whose blueprints declare post-apply commands also exits 1, with `pjt.inspect.operation-unsupported`: inspect cannot check commands, so it never reports such a project as in sync. |
 
-A script or agent runs `pjt remodel` after exit 1 and `pjt inspect` again to confirm exit 0.
+On exit 1 the human-readable output ends with ``Drift detected. Run `pjt remodel` to apply the blueprints.`` A script or agent runs `pjt remodel` and then `pjt inspect` again to confirm exit 0.
 
 ## Output
 
@@ -90,7 +90,7 @@ a breaking change and ships as `inspect.v2.json` in a major release, alongside t
 - run: pnpm pjt inspect
 ```
 
-Done. The job fails if any blueprint-managed file drifts. For richer CI tooling (Slack
+Copy the full workflow from the [ci-integration example](/examples/ci-integration/). The job fails if any blueprint-managed file drifts. For richer CI tooling (Slack
 notification with diff contents, GitHub Actions step summary, etc.), pipe `pjt inspect --json`
 into your own formatter.
 
