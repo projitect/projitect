@@ -32,7 +32,16 @@ export { applyPlan } from "./applier.js"
 export { applyRemovals } from "./remover.js"
 export { readLockfile, writeLockfile, blueprintIds } from "./lockfile.js"
 export { makeRealLayer } from "./filesystem-impl.js"
-export { NodePlatformLive, FileSystemLive, StdioLive, TerminalLive } from "./platform/index.js"
+export {
+  NodePlatformLive,
+  FileSystemLive,
+  StdioLive,
+  TerminalLive,
+  runCommand,
+  nodeSpawner,
+  type ProcessSpawner,
+  type CommandOutput,
+} from "./platform/index.js"
 export { splice } from "./edit-pjt.js"
 export {
   detect as detectPackageManager,
