@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, realpathSync } from "node:fs"
 import { builtinModules } from "node:module"
 import path from "node:path"
-import { Array, Match, Option, pipe } from "effect"
+import { Array, Match, Option, Order, pipe } from "effect"
 import { PredicateX } from "@nunofyobiz/effect-extras"
 
 /**
@@ -75,26 +75,43 @@ const dependencyNames = (packageDir: string): readonly string[] => {
  * and the real directory are listed: Node's resolver reads `package.json` through the link path.
  */
 const packageClosure = (roots: readonly PackageLocation[]): ReadonlySet<string> => {
-  const seen = new Set<string>()
+  const reals = new Set<string>()
+  const links = new Set<string>()
   const visit = ({ link, real }: PackageLocation): void => {
-    if (seen.has(real)) {
-      seen.add(link)
-      return
-    }
-    seen.add(real)
-    seen.add(link)
-    for (const name of dependencyNames(real)) {
-      Option.map(findPackageDir(name, real), visit)
+    links.add(link)
+    if (!reals.has(real)) {
+      reals.add(real)
+      for (const name of dependencyNames(real)) {
+        Option.map(findPackageDir(name, real), visit)
+      }
     }
   }
   for (const root of roots) {
     visit(root)
   }
-  return seen
+  const entries = Array.dedupe([...reals, ...links])
+  // Node's permission trie loses an exact grant that is a string prefix of a sibling grant
+  // (`…/blueprint` next to `…/blueprint-vitest`), and the resolver needs exactly that grant to
+  // `readlink` a symlinked package. A trailing `*` keeps such a link readable, provided the
+  // shorter grant is passed first — so the entries are sorted.
+  const shadows = (entry: string): boolean =>
+    Array.some(
+      entries,
+      (other) =>
+        other !== entry && other.startsWith(entry) && !other.startsWith(`${entry}${path.sep}`),
+    )
+  return new Set(
+    Array.map(entries, (entry) => (links.has(entry) && shadows(entry) ? `${entry}*` : entry)),
+  )
 }
 
 /** Packages the worker itself imports, resolved from the directory its entry file lives in. */
-const workerPackages = ["effect", "@projitect/core", "@projitect/blueprint"] as const
+const workerPackages = [
+  "effect",
+  "@nunofyobiz/effect-extras",
+  "@projitect/core",
+  "@projitect/blueprint",
+] as const
 
 /**
  * Everything the confined worker may read, as real paths:
@@ -131,12 +148,15 @@ export const computeReadAllowlist = (params: {
   // `<prefix>/bin/node` → `<prefix>`; any other layout → the directory holding the binary.
   const binDir = path.dirname(realpathSync(execPath))
   const nodeInstall = path.basename(binDir) === "bin" ? path.dirname(binDir) : binDir
-  return Array.dedupe([
-    distDir,
-    ownManifest,
-    ...packageClosure(packageDirs),
-    realpathSync(blueprintFile),
-    realpathSync(moduleFile),
-    nodeInstall,
-  ])
+  return Array.sort(
+    Array.dedupe([
+      distDir,
+      ownManifest,
+      ...packageClosure(packageDirs),
+      realpathSync(blueprintFile),
+      realpathSync(moduleFile),
+      nodeInstall,
+    ]),
+    Order.String,
+  )
 }

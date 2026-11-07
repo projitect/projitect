@@ -243,6 +243,38 @@ describe("planBlueprintFile", () => {
     })
   })
 
+  it("imports symlinked packages whose names share a prefix", async () => {
+    // Node's permission trie loses an exact grant that prefixes a sibling's (`pkg-a` / `pkg-a-b`).
+    const modules = path.join(cwd, "node_modules")
+    await fs.mkdir(modules, { recursive: true })
+    const install = async (name: string, symlinked: boolean) => {
+      // `pkg-a` is a symlink (as in pnpm); `pkg-a-b` is a real directory (as from a registry).
+      const real = path.join(cwd, symlinked ? "store" : "node_modules", name)
+      await fs.mkdir(real, { recursive: true })
+      await fs.writeFile(
+        path.join(real, "package.json"),
+        JSON.stringify({ name, type: "module", exports: "./index.js" }),
+      )
+      await fs.writeFile(path.join(real, "index.js"), `export const name = "${name}"\n`)
+      if (symlinked) {
+        await fs.symlink(real, path.join(modules, name))
+      }
+    }
+    await Promise.all([install("pkg-a", true), install("pkg-a-b", false)])
+    await fs.writeFile(
+      path.join(cwd, ".pjt.ts"),
+      [
+        'import { name as a } from "pkg-a"',
+        'import { name as b } from "pkg-a-b"',
+        'export default { _tag: "ProjitectConfig", blueprints: [], config: { a, b } }',
+      ].join("\n"),
+    )
+    const planned = await Effect.runPromise(
+      planBlueprintFile({ blueprintFile: ".pjt.ts", projectRoot: cwd }),
+    )
+    expect(planned).toEqual([])
+  })
+
   it("reports a missing .pjt.ts without starting a worker", async () => {
     const error = await Effect.runPromise(
       Effect.flip(planBlueprintFile({ blueprintFile: ".pjt.ts", projectRoot: cwd })),
