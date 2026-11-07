@@ -4,7 +4,7 @@ import net from "node:net"
 import * as os from "node:os"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
-import { Effect } from "effect"
+import { Effect, Schema } from "effect"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import { computeReadAllowlist, packageNameOf, permissionFlag } from "../src/worker/allowlist.js"
 import { planBlueprintFile } from "../src/worker/host.js"
@@ -151,17 +151,27 @@ process.send({
 process.exit(0)
 `
 
+const ProbeReport = Schema.Struct({
+  home: Schema.String,
+  ssh: Schema.String,
+  projectTree: Schema.String,
+  spawn: Schema.String,
+  network: Schema.String,
+})
+type ProbeReport = typeof ProbeReport.Type
+const decodeProbeReport = Schema.decodeUnknownSync(ProbeReport)
+
 const probe = async (port: number) => {
   const probeFile = path.join(cwd, "probe.mjs")
   await fs.writeFile(probeFile, probeSource, "utf8")
-  return new Promise<Record<string, string>>((resolve, reject) => {
+  return new Promise<ProbeReport>((resolve, reject) => {
     const child = fork(probeFile, [here, String(port)], {
       execArgv: [permissionFlag(process.versions.node), `--allow-fs-read=${probeFile}`],
       env: {},
       stdio: ["ignore", "ignore", "pipe", "ipc"],
     })
     child.on("message", (message) => {
-      resolve(message as Record<string, string>)
+      resolve(decodeProbeReport(message))
     })
     child.on("error", reject)
     child.on("exit", (code) => {
@@ -180,13 +190,13 @@ describe("Node permission model inside the worker flags", () => {
     const port = typeof address === "object" && address !== null ? address.port : 0
     try {
       const result = await probe(port)
-      expect(result["home"]).toBe("ERR_ACCESS_DENIED")
-      expect(result["ssh"]).toBe("ERR_ACCESS_DENIED")
-      expect(result["projectTree"]).toBe("ERR_ACCESS_DENIED")
-      expect(result["spawn"]).toBe("ERR_ACCESS_DENIED")
+      expect(result.home).toBe("ERR_ACCESS_DENIED")
+      expect(result.ssh).toBe("ERR_ACCESS_DENIED")
+      expect(result.projectTree).toBe("ERR_ACCESS_DENIED")
+      expect(result.spawn).toBe("ERR_ACCESS_DENIED")
       // Node 22.12–24 document no network permission, so outbound connections are NOT restricted
       // there. A runtime that gains one is expected to deny the connection instead.
-      expect(result["network"]).toBe(nodeMajor < 25 ? "connected" : "ERR_ACCESS_DENIED")
+      expect(result.network).toBe(nodeMajor < 25 ? "connected" : "ERR_ACCESS_DENIED")
     } finally {
       server.close()
     }
