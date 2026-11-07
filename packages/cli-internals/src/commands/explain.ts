@@ -62,6 +62,8 @@ const ERROR_BLURBS: Readonly<Record<Errors.ErrorId, string>> = {
     "A command run by projitect exited non-zero or could not be started. Its exit code, stdout and stderr are included.",
   "pjt.exec.command-not-permitted":
     "A blueprint tried to run a command that none of its declared `exec` permissions names exactly.",
+  "pjt.inspect.operation-unsupported":
+    "`pjt inspect` cannot check a project whose blueprints declare post-apply commands, so it fails instead of reporting clean.",
   "pjt.pm.not-detected":
     "Could not figure out which package manager you're using. Add a lockfile (`pnpm-lock.yaml`, `package-lock.json`, etc.) at your project root.",
   "pjt.pm.install-failed":

@@ -3,9 +3,11 @@ import path from "node:path"
 import { Effect } from "effect"
 import type { Terminal } from "effect"
 import { Prompt } from "effect/unstable/cli"
+import { StructX } from "@nunofyobiz/effect-extras"
 import { Errors } from "@projitect/core"
 import type { ProjitectConfig } from "@projitect/core"
 import { ensureGitRepo, gitStatus } from "../git.js"
+import type { ProcessSpawner } from "../platform/process-runner.js"
 import { remodel } from "./remodel.js"
 import type { RemodelResult } from "./remodel.js"
 
@@ -50,6 +52,7 @@ export const build = (params: {
   readonly force: boolean
   readonly forceDirty: boolean
   readonly yes: boolean
+  readonly spawner?: ProcessSpawner
 }): Effect.Effect<BuildResult, BuildError, BuildRequirements> =>
   Effect.gen(function* () {
     if (!params.force) {
@@ -84,13 +87,16 @@ export const build = (params: {
       if (!confirmed) {
         return {
           wiped: [],
-          remodel: { written: [], removed: [] },
+          remodel: { written: [], removed: [], ran: [] },
         }
       }
     }
 
     const wiped = yield* wipeTree(params.config.projectRoot)
-    const remodelResult = yield* remodel({ config: params.config })
+    const remodelResult = yield* remodel({
+      config: params.config,
+      ...StructX.defined("spawner", params.spawner),
+    })
     return { wiped, remodel: remodelResult }
   })
 

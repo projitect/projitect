@@ -83,6 +83,14 @@ export const parseArgv = (command: string): Option.Option<readonly string[]> => 
   return argv[0] === undefined || argv[0] === "" ? Option.none() : Option.some(argv)
 }
 
+/** The refusal for a command no declared `exec` permission names exactly. */
+export const commandNotPermitted = (command: string): Errors.CommandNotPermitted =>
+  new Errors.CommandNotPermitted({
+    id: "pjt.exec.command-not-permitted",
+    command,
+    message: `No declared exec permission covers \`${command}\``,
+  })
+
 /**
  * Runs `command` (parsed per `parseArgv`) in `cwd`, after checking it against
  * the declared `exec` permissions. A command no permission names exactly fails with
@@ -99,11 +107,7 @@ export const runCommand = (params: {
   const { permissions, command, cwd, spawner } = params
   return Effect.gen(function* () {
     if (!isCommandPermitted(permissions, command)) {
-      return yield* new Errors.CommandNotPermitted({
-        id: "pjt.exec.command-not-permitted",
-        command,
-        message: `No declared exec permission covers \`${command}\``,
-      })
+      return yield* commandNotPermitted(command)
     }
     const [program = "", ...args] = yield* Option.match(parseArgv(command), {
       onNone: () =>

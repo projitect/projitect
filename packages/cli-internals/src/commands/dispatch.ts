@@ -15,18 +15,28 @@ import { add } from "./add.js"
 
 /**
  * Per-handler error renderer. Catches our typed `ProjitectError` union and writes a
- * consistent `Error [id]: message` line plus the docs URL / explain hint. Sets
- * `process.exitCode = 1` so the CLI exits non-zero. Returns void so the handler chain stays
- * happy.
+ * consistent `Error [id]: message` line plus the docs URL / explain hint — or, with `json`, an
+ * `{ "error": { ... } }` object carrying the error's id and fields. Sets `process.exitCode = 1`
+ * so the CLI exits non-zero. Returns void so the handler chain stays happy.
  */
-const reportError = (error: Errors.ProjitectError): Effect.Effect<void, never, Terminal.Terminal> =>
+const reportError = (
+  error: Errors.ProjitectError,
+  json = false,
+): Effect.Effect<void, never, Terminal.Terminal> =>
   Effect.gen(function* () {
-    yield* display(`Error [${error.id}]: ${error.message}\n`)
-    yield* display(
-      `  See https://projitect.dev/errors/${error.id} or run \`pjt explain ${error.id}\`\n`,
-    )
+    if (json) {
+      yield* display(`${JSON.stringify({ error }, null, 2)}\n`)
+    } else {
+      yield* display(`Error [${error.id}]: ${error.message}\n`)
+      yield* display(
+        `  See https://projitect.dev/errors/${error.id} or run \`pjt explain ${error.id}\`\n`,
+      )
+    }
     process.exitCode = 1
   })
+
+const jsonFlag = (description: string) =>
+  Flag.boolean("json").pipe(Flag.withDefault(false), Flag.withDescription(description))
 
 const display = (text: string): Effect.Effect<void, never, Terminal.Terminal> =>
   Effect.gen(function* () {
@@ -95,39 +105,55 @@ const initCmd = Command.make(
 // pjt remodel
 // ---------------------------------------------------------------------------
 
-const remodelCmd = Command.make("remodel", {}, () =>
-  Effect.gen(function* () {
-    const config = configFromEnv()
-    const result = yield* remodel({ config }).pipe(
-      Effect.matchEffect({
-        onSuccess: (r) => Effect.succeed(r),
-        onFailure: (error: Errors.ProjitectError) => reportError(error).pipe(Effect.as(null)),
-      }),
-    )
-    if (result === null) {
-      return
-    }
-    const parts: string[] = []
-    if (result.written.length > 0) {
-      parts.push(
-        `Wrote ${result.written.length} file${result.written.length === 1 ? "" : "s"}:`,
-        ...result.written.map((p) => `  ${p}`),
+const remodelCmd = Command.make(
+  "remodel",
+  {
+    json: jsonFlag("Emit the result, or the error with its id and fields, as JSON."),
+  },
+  (input) =>
+    Effect.gen(function* () {
+      const config = configFromEnv()
+      const result = yield* remodel({ config }).pipe(
+        Effect.matchEffect({
+          onSuccess: (r) => Effect.succeed(r),
+          onFailure: (error: Errors.ProjitectError) =>
+            reportError(error, input.json).pipe(Effect.as(null)),
+        }),
       )
-    }
-    if (result.removed.length > 0) {
-      parts.push(
-        `Cleaned up ${result.removed.length} orphan${result.removed.length === 1 ? "" : "s"}:`,
-        ...result.removed.map((p) => `  ${p}`),
-      )
-    }
-    if (parts.length === 0) {
-      parts.push("Project already in sync. No changes written.")
-    }
-    yield* display(`${parts.join("\n")}\n`)
-  }),
+      if (result === null) {
+        return
+      }
+      if (input.json) {
+        yield* display(`${JSON.stringify(result, null, 2)}\n`)
+        return
+      }
+      const parts: string[] = []
+      if (result.written.length > 0) {
+        parts.push(
+          `Wrote ${result.written.length} file${result.written.length === 1 ? "" : "s"}:`,
+          ...result.written.map((p) => `  ${p}`),
+        )
+      }
+      if (result.removed.length > 0) {
+        parts.push(
+          `Cleaned up ${result.removed.length} orphan${result.removed.length === 1 ? "" : "s"}:`,
+          ...result.removed.map((p) => `  ${p}`),
+        )
+      }
+      if (result.ran.length > 0) {
+        parts.push(
+          `Ran ${result.ran.length} command${result.ran.length === 1 ? "" : "s"}:`,
+          ...result.ran.map((c) => `  ${c}`),
+        )
+      }
+      if (parts.length === 0) {
+        parts.push("Project already in sync. No changes written.")
+      }
+      yield* display(`${parts.join("\n")}\n`)
+    }),
 ).pipe(
   Command.withDescription(
-    "Apply the blueprint plan to disk (non-destructive). Adds + updates + removes orphan claims.",
+    "Apply the blueprint plan to disk (non-destructive), then run post-apply commands.",
   ),
 )
 
@@ -141,7 +167,7 @@ const inspectCmd = Command.make(
     json: Flag.boolean("json").pipe(
       Flag.withDefault(false),
       Flag.withDescription(
-        `Emit machine-readable JSON output conforming to ${InspectJsonSchemaUrl}. Exit code still 1 on drift.`,
+        `Emit machine-readable JSON output conforming to ${InspectJsonSchemaUrl}; an error is emitted as an \`{ "error": ... }\` object. Exit code still 1 on drift.`,
       ),
     ),
   },
@@ -151,7 +177,8 @@ const inspectCmd = Command.make(
       const result = yield* inspect({ config }).pipe(
         Effect.matchEffect({
           onSuccess: (r) => Effect.succeed(r),
-          onFailure: (error: Errors.ProjitectError) => reportError(error).pipe(Effect.as(null)),
+          onFailure: (error: Errors.ProjitectError) =>
+            reportError(error, input.json).pipe(Effect.as(null)),
         }),
       )
       if (result === null) {
@@ -188,6 +215,7 @@ const buildCmd = Command.make(
       Flag.withDefault(false),
       Flag.withDescription("Skip the interactive confirmation prompt."),
     ),
+    json: jsonFlag("Emit the result, or the error with its id and fields, as JSON."),
   },
   (input) =>
     Effect.gen(function* () {
@@ -207,11 +235,17 @@ const buildCmd = Command.make(
                 process.exitCode = 130
                 return display("Cancelled.\n").pipe(Effect.as(null))
               }),
-              Match.orElse((projitectError) => reportError(projitectError).pipe(Effect.as(null))),
+              Match.orElse((projitectError) =>
+                reportError(projitectError, input.json).pipe(Effect.as(null)),
+              ),
             ),
         }),
       )
       if (result === null) {
+        return
+      }
+      if (input.json) {
+        yield* display(`${JSON.stringify(result, null, 2)}\n`)
         return
       }
       const lines: string[] = []
@@ -228,6 +262,12 @@ const buildCmd = Command.make(
           lines.push(
             `Rebuilt ${result.remodel.written.length} file${result.remodel.written.length === 1 ? "" : "s"} from the plan:`,
             ...result.remodel.written.map((p) => `  ${p}`),
+          )
+        }
+        if (result.remodel.ran.length > 0) {
+          lines.push(
+            `Ran ${result.remodel.ran.length} command${result.remodel.ran.length === 1 ? "" : "s"}:`,
+            ...result.remodel.ran.map((c) => `  ${c}`),
           )
         }
       }
