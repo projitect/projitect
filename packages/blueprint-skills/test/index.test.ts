@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest"
 import { Effect } from "effect"
 import { makeInMemoryLayer } from "@projitect/test-kit"
-import { buildPlan, diffLockfile } from "@projitect/cli-internals"
+import type { Blueprint } from "@projitect/core"
+import { buildPlan, diffLockfile, makeRealLayer } from "@projitect/cli-internals"
 import { skills } from "../src/index.js"
 
 /**
@@ -33,8 +34,27 @@ const one = (name: string, files?: Record<string, string>) => ({
   files: files ?? { "SKILL.md": SKILL_MD },
 })
 
-const buildAll = (tree: Parameters<typeof buildPlan>[0]["tree"]) =>
-  buildPlan({ tree, projectRoot: process.cwd() })
+// What the confined worker does: run each blueprint's plan behind the permission gate, hand the
+// results to `buildPlan`. Run in-process here so the tests need no child.
+const buildAll = (tree: readonly Blueprint.Blueprint[]) =>
+  Effect.forEach(tree, (blueprint) =>
+    blueprint.plan.pipe(
+      Effect.provide(
+        makeRealLayer({
+          blueprintId: blueprint.id,
+          permissions: blueprint.permissions,
+          projectRoot: process.cwd(),
+        }),
+      ),
+      Effect.map((changeSet) => ({
+        id: blueprint.id,
+        version: blueprint.version,
+        permissions: blueprint.permissions,
+        directoryPrefix: "",
+        changeSet,
+      })),
+    ),
+  ).pipe(Effect.flatMap((planned) => buildPlan({ planned })))
 
 describe("skills() — layout", () => {
   it("writes every file under .claude/skills/<name>/, including nested assets", async () => {

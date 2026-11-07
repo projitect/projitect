@@ -26,6 +26,7 @@ export const ChildError = Schema.Union([
   Errors.RegionDuplicate,
   Errors.LoaderImportFailed,
   Errors.LoaderInvalidDefaultExport,
+  Errors.SkillInvalid,
 ])
 export type ChildError = typeof ChildError.Type
 
