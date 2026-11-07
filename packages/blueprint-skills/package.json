@@ -1,6 +1,6 @@
 {
   "name": "@projitect/blueprint-skills",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "Agent skills blueprint for projitect — installs versioned skill packages (SKILL.md plus referenced files) into a repo-local skills directory, with drift detection.",
   "repository": {
     "type": "git",
