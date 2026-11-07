@@ -6,13 +6,7 @@ export { explain } from "./commands/explain.js"
 export { build } from "./commands/build.js"
 export { add } from "./commands/add.js"
 export { resolveConfig, parseEnv } from "./config-cascade.js"
-export {
-  loadBlueprintFile,
-  pjt,
-  isEffectTree,
-  type ProjitectFile,
-  type BlueprintTree,
-} from "./loader.js"
+export { pjt, isEffectTree, type ProjitectFile, type BlueprintTree } from "./loader.js"
 export {
   buildPlan,
   diffLockfile,
@@ -28,6 +22,7 @@ export {
   type PlanDiff,
   type FileDiff,
 } from "./differ.js"
+export { planBlueprintFile, WORKER_TIMEOUT_MS } from "./worker/host.js"
 export { applyPlan } from "./applier.js"
 export { applyRemovals } from "./remover.js"
 export { readLockfile, writeLockfile, blueprintIds } from "./lockfile.js"

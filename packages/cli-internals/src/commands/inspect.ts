@@ -1,13 +1,12 @@
 import { Array, Effect, Schema } from "effect"
 import { Errors } from "@projitect/core"
 import type { PjtLock, ProjitectConfig } from "@projitect/core"
-import { loadBlueprintFile, isEffectTree } from "../loader.js"
-import type { BlueprintTree } from "../loader.js"
+import { planBlueprintFile } from "../worker/host.js"
 import { buildPlan, diffLockfile } from "../plan.js"
 import type { UpgradeRecord } from "../plan.js"
 import { diffPlan, renderInspectReport } from "../differ.js"
 import type { FileDiff } from "../differ.js"
-import { makeProjectRootLayer, makeRealLayer } from "../filesystem-impl.js"
+import { makeProjectRootLayer } from "../filesystem-impl.js"
 import { readLockfile } from "../lockfile.js"
 import { InspectJson, InspectJsonSchemaUrl } from "./inspect-json.js"
 
@@ -37,25 +36,11 @@ export const inspect = (params: {
   readonly config: ProjitectConfig.ProjitectConfig
 }): Effect.Effect<InspectResult, Errors.ProjitectError> =>
   Effect.gen(function* () {
-    const file = yield* loadBlueprintFile({
+    const planned = yield* planBlueprintFile({
       blueprintFile: params.config.blueprintFile,
       projectRoot: params.config.projectRoot,
     })
-    const tree: BlueprintTree = isEffectTree(file.blueprints)
-      ? yield* file.blueprints.pipe(
-          Effect.provide(
-            makeRealLayer({
-              blueprintId: "pjt:config-loader",
-              permissions: [{ kind: "read", glob: "**" }],
-              projectRoot: params.config.projectRoot,
-            }),
-          ),
-        )
-      : file.blueprints
-    const { plan, byBlueprint } = yield* buildPlan({
-      tree,
-      projectRoot: params.config.projectRoot,
-    })
+    const { plan, byBlueprint } = yield* buildPlan({ planned })
     // Fail closed: commands cannot be diffed yet, so a clean report would be a false one.
     if (Array.isReadonlyArrayNonEmpty(plan.commands)) {
       return yield* new Errors.OperationUnsupportedOnInspect({
