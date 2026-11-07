@@ -25,7 +25,7 @@ FAILED=0
 pass() { echo "  ✓ $1"; }
 fail() { echo "  ✗ $1"; FAILED=1; }
 
-cleanup() { [ -n "${REG_PID:-}" ] && kill "$REG_PID" 2>/dev/null; rm -rf "$SMOKE" "${SMOKE}-tools" "${REG:-}" "${E2E:-}"; }
+cleanup() { [ -n "${REG_PID:-}" ] && kill "$REG_PID" 2>/dev/null; [ -n "${REACT_REG_PID:-}" ] && kill "$REACT_REG_PID" 2>/dev/null; rm -rf "$SMOKE" "${SMOKE}-tools" "${REG:-}" "${E2E:-}" "${REACTDIR:-}" "${REACTREG:-}"; }
 trap cleanup EXIT
 
 cd "$SMOKE"
@@ -733,6 +733,177 @@ grep -q '"id": "pjt.exec.command-not-permitted"' /tmp/exec-denied.out && pass "-
 [ ! -f marker.txt ] && pass "denied command was never started" || fail "denied command ran"
 cd "$SMOKE"
 rm -rf "$EXECDIR"
+
+echo "=== 10. react blueprint from packed tarballs: add, build, install, vite build, test, dev server, drift, upgrade, remove ==="
+# A published-package journey for a real app. Every package is packed with `pnpm pack` (which
+# rewrites workspace:* to real versions, so the peer metadata is the published one) and served by
+# the local registry; the app's React, Vite and Vitest dependencies come from the public registry, so
+# this section needs network access (CI has it). Two versions of the React blueprint are served.
+REACTREG="$(mktemp -d -t pjt-react-registry.XXXXXX)"
+REACTDIR="$(mktemp -d -t pjt-react.XXXXXX)"
+BASE_VERSION="$(node -p "require('${PKG}/core/package.json').version")"
+(cd "$ROOT" && pnpm -r --filter "./packages/*" pack --pack-destination "$REACTREG" > /dev/null)
+REACT_TGZ_BASE="$REACTREG/projitect-blueprint-react-${BASE_VERSION}.tgz"
+pack_react() { # <version> <old> <new>: repack the blueprint as <version>; optionally rewrite one phrase in dist
+  local dir="$REACTREG/react-$1"
+  mkdir -p "$dir"
+  tar -xzf "$REACT_TGZ_BASE" -C "$dir"
+  for f in package.json dist/package.json; do
+    node -e "
+const fs = require('fs');
+const p = process.argv[1];
+const j = JSON.parse(fs.readFileSync(p, 'utf8'));
+j.version = process.argv[2];
+fs.writeFileSync(p, JSON.stringify(j, null, 2) + '\n');
+" "$dir/package/$f" "$1"
+  done
+  [ -n "${2:-}" ] && sed -i.bak "s/$2/$3/" "$dir/package/dist/src/$4" && rm "$dir/package/dist/src/$4.bak"
+  npm pack "$dir/package" --pack-destination "$REACTREG" --silent > /dev/null 2>&1
+}
+pack_react 1.0.0
+pack_react 1.1.0 'preview: "vite preview"' 'preview: "vite preview --port 4173"' index.js
+sed -i.bak 's/Hello from projitect/Hello from projitect 1.1/' "$REACTREG/react-1.1.0/package/dist/src/templates.js" && rm "$REACTREG/react-1.1.0/package/dist/src/templates.js.bak"
+npm pack "$REACTREG/react-1.1.0/package" --pack-destination "$REACTREG" --silent > /dev/null 2>&1
+cat > "$REACTREG/state.mjs" <<'EOF'
+import { readdirSync, writeFileSync } from "node:fs"
+const [dir, version, reactLatest] = process.argv.slice(2)
+const react = (v) => `${dir}/projitect-blueprint-react-${v}.tgz`
+const packages = readdirSync(dir)
+  .filter((f) => f.startsWith("projitect-") && f.endsWith(`-${version}.tgz`) && f !== `projitect-${version}.tgz`)
+  .map((f) => ({ name: `@projitect/${f.slice("projitect-".length, -`-${version}.tgz`.length)}`, file: f }))
+  .filter(({ name }) => name !== "@projitect/blueprint-react")
+  .map(({ name, file }) => ({ name, latest: version, tarballs: { [version]: `${dir}/${file}` } }))
+packages.push({
+  name: "@projitect/blueprint-react",
+  latest: reactLatest,
+  tarballs: { "1.0.0": react("1.0.0"), ...(reactLatest === "1.1.0" && { "1.1.0": react("1.1.0") }) },
+})
+writeFileSync(`${dir}/state.json`, JSON.stringify({ packages }))
+EOF
+publish_react() { node "$REACTREG/state.mjs" "$REACTREG" "$BASE_VERSION" "$1"; }
+publish_react 1.0.0
+node "${ROOT}/scripts/local-registry.mjs" "$REACTREG/state.json" "$REACTREG/port" &
+REACT_REG_PID=$!
+for _ in $(seq 1 40); do [ -s "$REACTREG/port" ] && break; sleep 0.25; done
+[ -s "$REACTREG/port" ] && pass "local registry serves the packed packages" || fail "local registry did not start"
+
+cd "$REACTDIR"
+git init -q
+git config user.email t@t
+git config user.name t
+# pnpm, like the repo itself: npm 10 crashes resolving any vitest 4.1 install ("edgesOut of null").
+PNPM_SPEC="$(node -p "require('${ROOT}/package.json').packageManager")"
+# The projitect blueprint owns `devDependencies.projitect` (a registry range), so an override keeps
+# resolving that range to the packed CLI tarball across every `build` and `remodel`.
+echo "{\"name\":\"smoke-react\",\"version\":\"0.0.0\",\"private\":true,\"type\":\"module\",\"packageManager\":\"${PNPM_SPEC}\",\"devDependencies\":{\"projitect\":\"^${BASE_VERSION}\"},\"pnpm\":{\"overrides\":{\"projitect\":\"file:${REACTREG}/projitect-${BASE_VERSION}.tgz\"}}}" > package.json
+printf 'node_modules/\n' > .gitignore
+write_npmrc() { printf '@projitect:registry=http://127.0.0.1:%s/\n' "$(cat "$REACTREG/port")" > .npmrc; }
+write_npmrc
+# The CLI comes from its packed tarball through the override above.
+EFFECT_VERSION="$(node -p "require('${PKG}/core/package.json').peerDependencies.effect")"
+pnpm add -D "effect@${EFFECT_VERSION}" tsx > /tmp/react-cli-install.out 2>&1 || fail "installing the packed CLI failed: $(tail -5 /tmp/react-cli-install.out)"
+REACT_BIN=node_modules/projitect/bin/pjt.mjs
+# The `pjt init` starter, minus its registry install of projitect: `pjt add` splices at these anchors.
+cat > .pjt.ts <<'EOF'
+// pjt:projitect:imports start
+import { pjt } from "projitect/cli"
+// pjt:projitect:imports end
+
+// pjt:imports start
+// pjt:imports end
+
+export default pjt({
+  blueprints: [
+    // pjt:blueprints start
+    // pjt:blueprints end
+  ],
+})
+EOF
+
+# Normal dependency installation: pnpm (detected from the lockfile) resolves the published peer metadata.
+$REACT_BIN add @projitect/blueprint-react < /dev/null > /tmp/react-add.out 2>&1
+[ $? -eq 0 ] && pass "pjt add @projitect/blueprint-react installs the packed package and its peers" || fail "pjt add failed: $(tail -5 /tmp/react-add.out)"
+grep -q "react()," .pjt.ts && pass "pjt add spliced react() into .pjt.ts" || fail "react() not spliced"
+for peer in blueprint blueprint-gitignore blueprint-tsconfig blueprint-vitest core; do
+  ls node_modules/.pnpm | grep -q "^@projitect+$peer@" || fail "peer @projitect/$peer was not installed"
+done
+git add -A
+git commit -qm "baseline"
+
+$REACT_BIN build --force --yes > /tmp/react-build.out 2>&1
+[ $? -eq 0 ] && pass "pjt build exits 0" || fail "pjt build failed: $(tail -5 /tmp/react-build.out)"
+write_npmrc # `build` wipes everything but .pjt.ts, package.json and node_modules
+for f in index.html src/main.tsx src/App.tsx src/App.test.tsx src/index.css vite.config.ts vitest.config.ts tsconfig.json; do
+  [ -f "$f" ] && pass "$f created" || fail "$f missing"
+done
+grep -q "^dist/" .gitignore && pass ".gitignore ignores dist/" || fail "dist/ not ignored"
+$REACT_BIN inspect > /dev/null 2>&1 && pass "inspect clean after build" || fail "react build left drift"
+grep -A2 '"pjt:react"' .pjt.lock | grep -q '"version": "1.0.0"' && pass ".pjt.lock records the installed package version 1.0.0" || fail ".pjt.lock does not record 1.0.0"
+
+pnpm install --no-frozen-lockfile > /tmp/react-install.out 2>&1
+[ $? -eq 0 ] && pass "pnpm install of the generated dependencies succeeds" || fail "npm install failed: $(tail -3 /tmp/react-install.out)"
+npm run build > /tmp/react-vite-build.out 2>&1
+[ $? -eq 0 ] && [ -f dist/index.html ] && pass "npm run build (tsc + vite build) emits dist/index.html" || fail "vite build failed: $(tail -5 /tmp/react-vite-build.out)"
+npm test > /tmp/react-test.out 2>&1
+[ $? -eq 0 ] && grep -q "2 passed" /tmp/react-test.out && pass "generated test passes under vitest" || fail "generated test failed: $(tail -8 /tmp/react-test.out)"
+
+node_modules/.bin/vite --host 127.0.0.1 --port 5199 --strictPort > /tmp/react-dev.out 2>&1 &
+VITE_PID=$!
+PAGE=""
+for _ in $(seq 1 60); do
+  PAGE="$(curl -sf http://127.0.0.1:5199/ 2>/dev/null)" && break
+  sleep 0.5
+done
+echo "$PAGE" | grep -q '/src/main.tsx' && pass "dev server serves index.html referencing src/main.tsx" || fail "dev server did not serve index.html"
+curl -sf http://127.0.0.1:5199/src/App.tsx 2>/dev/null | grep -q "Hello from projitect" && pass "dev server serves the starter App component" || fail "dev server did not serve App.tsx"
+kill "$VITE_PID" 2>/dev/null
+wait "$VITE_PID" 2>/dev/null
+
+# The starter source is the user's: editing it is never drift.
+echo '// my edit' >> src/App.tsx
+echo '<!-- my edit -->' >> index.html
+$REACT_BIN inspect > /dev/null 2>&1 && pass "editing starter source leaves inspect clean" || fail "starter edit reported as drift"
+$REACT_BIN remodel > /dev/null 2>&1
+grep -q "// my edit" src/App.tsx && pass "remodel leaves edited starter source untouched" || fail "remodel overwrote src/App.tsx"
+
+# A managed value drifts: inspect fails, remodel restores it and keeps the user's own keys.
+npm pkg set scripts.lint="echo lint" > /dev/null
+sed -i.bak 's/"dev": "vite"/"dev": "vite --open"/' package.json && rm package.json.bak
+$REACT_BIN inspect > /dev/null 2>&1
+[ $? -eq 1 ] && pass "managed package.json value drift detected (exit 1)" || fail "managed drift NOT detected"
+$REACT_BIN remodel > /dev/null 2>&1
+grep -q '"dev": "vite"' package.json && pass "remodel restores the managed script" || fail "managed script not restored"
+grep -q '"lint": "echo lint"' package.json && pass "remodel keeps the user's own script" || fail "user script lost"
+$REACT_BIN inspect > /dev/null 2>&1 && pass "clean after remodel restores the managed value" || fail "still dirty after restore"
+
+# Upgrade: publish 1.1.0 (new managed preview script, new starter heading) and install it. The
+# version `inspect` sees comes from the installed package in a separate process.
+cp src/App.tsx App.edited
+publish_react 1.1.0
+pnpm add -D @projitect/blueprint-react@1.1.0 > /tmp/react-upgrade.out 2>&1
+grep -q '"version": "1.1.0"' node_modules/@projitect/blueprint-react/package.json && pass "package manager upgraded to 1.1.0" || fail "upgrade to 1.1.0 failed: $(tail -3 /tmp/react-upgrade.out)"
+UP_OUT=$($REACT_BIN inspect 2>&1)
+UP_EXIT=$?
+[ "$UP_EXIT" -eq 1 ] && pass "inspect after the upgrade, before remodel, exits 1" || fail "inspect exit was $UP_EXIT after upgrade"
+echo "$UP_OUT" | grep -q "upgrade pjt:react 1.0.0 → 1.1.0" && pass "inspect reports the real 1.0.0 → 1.1.0 upgrade" || fail "inspect missed the upgrade"
+cmp -s src/App.tsx App.edited && pass "inspect wrote nothing" || fail "inspect modified src/App.tsx"
+$REACT_BIN remodel > /dev/null 2>&1
+grep -q '"preview": "vite preview --port 4173"' package.json && pass "remodel applied the 1.1.0 managed script" || fail "1.1.0 managed script missing"
+cmp -s src/App.tsx App.edited && pass "edited starter source survives the upgrade" || fail "upgrade touched src/App.tsx"
+grep -q "Hello from projitect 1.1" src/App.tsx && fail "new starter template overwrote the seeded file" || pass "new starter template is not written over existing source"
+grep -A2 '"pjt:react"' .pjt.lock | grep -q '"version": "1.1.0"' && pass ".pjt.lock records 1.1.0" || fail ".pjt.lock still at 1.0.0"
+$REACT_BIN inspect > /dev/null 2>&1 && pass "clean after remodel of the upgrade" || fail "drift after upgrade remodel"
+
+# Removing the blueprint deletes the maintained scaffolding, not the seeded source or user keys.
+sed -i.bak '/react(),/d' .pjt.ts && rm .pjt.ts.bak
+$REACT_BIN remodel > /dev/null 2>&1
+[ ! -f vite.config.ts ] && [ ! -f vitest.config.ts ] && [ ! -f tsconfig.json ] && pass "removal deletes the owned scaffolding" || fail "owned files survived removal"
+[ -f src/App.tsx ] && [ -f src/main.tsx ] && [ -f index.html ] && pass "removal keeps the seeded source" || fail "seeded source lost on removal"
+grep -q '"lint": "echo lint"' package.json && pass "removal keeps the user's own package.json keys" || fail "user key lost on removal"
+grep -q '"vite"' package.json && fail "managed devDependency survived removal" || pass "removal drops the managed package.json keys"
+kill "$REACT_REG_PID" 2>/dev/null
+cd "$SMOKE"
+rm -rf "$REACTDIR" "$REACTREG"
 
 echo "=== FINAL ==="
 [ $FAILED -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILURES SEEN"; exit 1; }
