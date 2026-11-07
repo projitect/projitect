@@ -34,16 +34,24 @@ export const makeRealLayer = (config: {
     })
 
   // Real path of `full`, or — when it does not exist yet (a write or mkdir target) — of its nearest
-  // existing ancestor with the missing remainder re-appended.
-  const realPathOf = async (full: string): Promise<string> => {
+  // existing ancestor with the missing remainder re-appended. A dangling symlink is followed to its
+  // (missing) target rather than treated as a missing name, so a link to a not-yet-created file
+  // outside the project cannot slip through; `hops` bounds circular links.
+  const maxLinkHops = 40
+  const realPathOf = async (full: string, hops = 0): Promise<string> => {
     try {
       return await fs.realpath(full)
     } catch {
       const parent = path.dirname(full)
+      const stat = await fs.lstat(full).catch(() => undefined)
+      if (stat?.isSymbolicLink() === true && hops < maxLinkHops) {
+        const target = await fs.readlink(full)
+        return realPathOf(path.resolve(await realPathOf(parent, hops), target), hops + 1)
+      }
       if (parent === full) {
         return full
       }
-      return path.join(await realPathOf(parent), path.basename(full))
+      return path.join(await realPathOf(parent, hops), path.basename(full))
     }
   }
 

@@ -66,6 +66,29 @@ describe("symlink-safe permission gate", () => {
     expect(exit).toEqual(Exit.succeed("ok"))
   })
 
+  it("denies write and mkdir through a dangling symlink to a missing path outside the project", async () => {
+    await fs.symlink(path.join(outside, "new.txt"), path.join(root, "escape-file"))
+    const written = await run(root, (f) => f.writeFile("escape-file", "x"))
+    expect(JSON.stringify(written)).toContain("pjt.fs.permission-denied")
+    const made = await run(root, (f) => f.mkdir("escape-file"))
+    expect(JSON.stringify(made)).toContain("pjt.fs.permission-denied")
+    await expect(fs.lstat(path.join(outside, "new.txt"))).rejects.toThrow()
+  })
+
+  it("allows write through a dangling symlink whose missing target stays inside the project", async () => {
+    await fs.symlink(path.join(root, "real", "later.txt"), path.join(root, "soon"))
+    const exit = await run(root, (f) => f.writeFile("soon", "x"))
+    expect(Exit.isSuccess(exit)).toBe(true)
+    expect(await fs.readFile(path.join(root, "real", "later.txt"), "utf8")).toBe("x")
+  })
+
+  it("denies a circular symlink without hanging", async () => {
+    await fs.symlink(path.join(root, "loop-b"), path.join(root, "loop-a"))
+    await fs.symlink(path.join(root, "loop-a"), path.join(root, "loop-b"))
+    const exit = await run(root, (f) => f.writeFile("loop-a", "x"))
+    expect(Exit.isFailure(exit)).toBe(true)
+  })
+
   it("resolves a symlinked project root", async () => {
     const linkedRoot = path.join(base, "linked-root")
     await fs.symlink(root, linkedRoot)
