@@ -1,0 +1,28 @@
+{
+  "version": 2,
+  "profiles": {
+    "default": {
+      "backends": ["docker"],
+      "docker": {
+        "dockerfile": ".ampm/Dockerfile",
+        "context": ".ampm"
+      },
+      "resources": {
+        "minimumMemoryMiB": 2048
+      },
+      "checks": [
+        {
+          "name": "node",
+          "argv": ["node", "--version"],
+          "expectedExitCode": 0
+        },
+        {
+          "name": "pnpm",
+          "argv": ["pnpm", "--version"],
+          "expectedExitCode": 0,
+          "provides": [{ "kind": "tool", "name": "pnpm" }]
+        }
+      ]
+    }
+  }
+}
