@@ -160,11 +160,13 @@ const makeDiskLayer = (config: {
           }).pipe(Effect.orElseSucceed(() => false)),
         ),
       ),
+    // Non-recursive on purpose: removes a file or symlink, and fails on a directory so user content
+    // that now sits at the path survives.
     remove: (p) =>
       resolvePath(p, "remove").pipe(
         Effect.flatMap((full) =>
           Effect.tryPromise({
-            try: () => fs.rm(full, { recursive: true, force: true }),
+            try: () => fs.rm(full, { force: true }),
             catch: (e) =>
               new Errors.FsWriteFailed({
                 id: "pjt.fs.write-failed",

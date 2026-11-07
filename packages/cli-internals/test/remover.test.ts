@@ -189,6 +189,17 @@ describe("applyRemovals — owned", () => {
     )
     expect(touched).toEqual(["already-gone.ts"])
   })
+
+  it("keeps user content when the owned path is now a directory", async () => {
+    await writeFile("generated/user.md", "u")
+    const touched = await run(
+      applyRemovals({
+        removals: [{ _tag: "Owned", path: "generated", ownerId: "pjt:gen" }],
+      }),
+    )
+    expect(touched).toEqual([])
+    expect(await exists("generated/user.md")).toBe(true)
+  })
 })
 
 describe("applyRemovals — seed", () => {
@@ -303,6 +314,17 @@ describe("applyRemovals — owned dir pruning (disk)", () => {
       ),
     )
     expect(await present("skills/c/late.md")).toBe(true)
+  })
+
+  it("keeps user content when the formerly owned path is now a directory", async () => {
+    await put("skills/c/gone.md/user.md", "u")
+    await put("skills/c/gone.md/deep/more.md", "m")
+    const touched = await remove([
+      { _tag: "Owned", path: "skills/c/gone.md", ownerId: "pjt:s", ownedDir: "skills/c" },
+    ])
+    expect(touched).toEqual([])
+    expect(await present("skills/c/gone.md/user.md")).toBe(true)
+    expect(await present("skills/c/gone.md/deep/more.md")).toBe(true)
   })
 
   it("prunes nothing when the op names no owned dir", async () => {
