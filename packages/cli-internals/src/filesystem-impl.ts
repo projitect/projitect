@@ -24,43 +24,67 @@ export const makeRealLayer = (config: {
   const { blueprintId, permissions, projectRoot } = config
   const resolved = path.resolve(projectRoot)
 
-  const resolvePath = (p: string, op: FsOp): Effect.Effect<string, Errors.FsPermissionDenied> => {
-    if (path.isAbsolute(p)) {
-      return Effect.fail(
-        new Errors.FsPermissionDenied({
-          id: "pjt.fs.permission-denied",
-          path: p,
-          operation: op,
-          blueprintId,
-          message: `Absolute paths are not allowed in blueprints: ${p}`,
-        }),
-      )
+  const denied = (p: string, op: FsOp, message: string) =>
+    new Errors.FsPermissionDenied({
+      id: "pjt.fs.permission-denied",
+      path: p,
+      operation: op,
+      blueprintId,
+      message,
+    })
+
+  // Real path of `full`, or — when it does not exist yet (a write or mkdir target) — of its nearest
+  // existing ancestor with the missing remainder re-appended.
+  const realPathOf = async (full: string): Promise<string> => {
+    try {
+      return await fs.realpath(full)
+    } catch {
+      const parent = path.dirname(full)
+      if (parent === full) {
+        return full
+      }
+      return path.join(await realPathOf(parent), path.basename(full))
     }
-    const full = path.resolve(resolved, p)
-    if (!full.startsWith(`${resolved}${path.sep}`) && full !== resolved) {
-      return Effect.fail(
-        new Errors.FsPermissionDenied({
-          id: "pjt.fs.permission-denied",
-          path: p,
-          operation: op,
-          blueprintId,
-          message: `Path escapes project root: ${p}`,
-        }),
-      )
-    }
-    if (!isPermitted(permissions, op, p)) {
-      return Effect.fail(
-        new Errors.FsPermissionDenied({
-          id: "pjt.fs.permission-denied",
-          path: p,
-          operation: op,
-          blueprintId,
-          message: `Blueprint ${blueprintId} did not declare ${op} permission for ${p}`,
-        }),
-      )
-    }
-    return Effect.succeed(full)
   }
+
+  // Accident-prevention, not hostile-code containment: the real path is resolved at check time, so
+  // a link swapped between the check and the FS call is not caught.
+  const resolvePath = (p: string, op: FsOp): Effect.Effect<string, Errors.FsPermissionDenied> =>
+    Effect.gen(function* () {
+      if (path.isAbsolute(p)) {
+        return yield* denied(p, op, `Absolute paths are not allowed in blueprints: ${p}`)
+      }
+      const full = path.resolve(resolved, p)
+      if (!full.startsWith(`${resolved}${path.sep}`) && full !== resolved) {
+        return yield* denied(p, op, `Path escapes project root: ${p}`)
+      }
+      if (!isPermitted(permissions, op, p)) {
+        return yield* denied(
+          p,
+          op,
+          `Blueprint ${blueprintId} did not declare ${op} permission for ${p}`,
+        )
+      }
+      const [realRoot, realFull] = yield* Effect.promise(() =>
+        Promise.all([realPathOf(resolved), realPathOf(full)]),
+      )
+      const realRelative = path.relative(realRoot, realFull).split(path.sep).join("/")
+      if (
+        realRelative === ".." ||
+        realRelative.startsWith("../") ||
+        path.isAbsolute(realRelative)
+      ) {
+        return yield* denied(p, op, `Path resolves outside project root via symlink: ${p}`)
+      }
+      if (!isPermitted(permissions, op, realRelative)) {
+        return yield* denied(
+          p,
+          op,
+          `Blueprint ${blueprintId} did not declare ${op} permission for ${p} (resolves to ${realRelative})`,
+        )
+      }
+      return full
+    })
 
   const shape: BlueprintFileSystemShape = {
     readFile: (p) =>

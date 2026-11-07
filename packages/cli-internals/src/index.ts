@@ -42,3 +42,4 @@ export {
   type ProjitectPackageMetadata,
 } from "./pm.js"
 export { isGitRepo, gitStatus, ensureGitRepo } from "./git.js"
+export * as Ipc from "./ipc/index.js"
