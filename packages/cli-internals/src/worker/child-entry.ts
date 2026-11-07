@@ -1,4 +1,4 @@
-import { Array, Cause, Effect, Exit, Layer, Option, Schema } from "effect"
+import { Array, Cause, Effect, Exit, Layer, Match, Option, Predicate, Schema } from "effect"
 import { BlueprintFileSystem, ChangeSet, Errors } from "@projitect/core"
 import type { Blueprint } from "@projitect/core"
 import { isDirectoryBlueprint } from "@projitect/blueprint"
@@ -69,18 +69,32 @@ const fsLayerFor = (
 ): Layer.Layer<BlueprintFileSystem> =>
   Layer.succeed(BlueprintFileSystem, makeClient(openScope(blueprintId, permissions)))
 
+/** Node's permission errors carry the denied `resource`; name it so an allowlist miss is diagnosable. */
+const describeImportFailure = (e: unknown): string =>
+  Match.value(e).pipe(
+    Match.when(
+      (error: unknown): error is Error & { readonly resource: string } =>
+        Predicate.isError(error) && "resource" in error && typeof error.resource === "string",
+      (error) => `${error.message} (${error.resource})`,
+    ),
+    Match.when(Predicate.isError, (error) => error.message),
+    Match.orElse(String),
+  )
+
 const run = (start: { readonly modulePath: string; readonly blueprintFile: string }) =>
   Effect.gen(function* () {
     const { modulePath, blueprintFile } = start
     const module_ = yield* Effect.tryPromise({
       try: (): Promise<{ readonly default?: unknown }> => import(modulePath),
-      catch: (e) =>
-        new Errors.LoaderImportFailed({
+      catch: (e) => {
+        const cause = describeImportFailure(e)
+        return new Errors.LoaderImportFailed({
           id: "pjt.loader.import-failed",
           blueprintFile,
-          cause: e instanceof Error ? e.message : String(e),
-          message: `Failed to import ${blueprintFile}: ${e instanceof Error ? e.message : String(e)}`,
-        }),
+          cause,
+          message: `Failed to import ${blueprintFile}: ${cause}`,
+        })
+      },
     })
     const value = module_.default
     if (!isProjitectFile(value)) {
