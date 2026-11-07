@@ -19,3 +19,9 @@ human-readable summary. The CLI writes a Markdown file to this directory. Commit
 
 CI runs `changesets/action` on merges to `main`. It either opens a "Version Packages" PR (when
 unreleased changesets exist) or publishes to npm with OIDC (when that PR is merged).
+
+After a successful publish, `scripts/comment-released.ts` comments "Shipped in projitect vX.Y.Z"
+on each PR in the release and on the issues those PRs close. Each comment carries a hidden
+`<!-- pjt-release:vX.Y.Z -->` marker, so re-running skips anything already commented. It is
+best-effort and never fails the publish. Preview locally with
+`GITHUB_TOKEN=… GITHUB_REPOSITORY=projitect/projitect PUBLISHED_PACKAGES='[{"name":"projitect","version":"X.Y.Z"}]' pnpm release:comment --dry-run`.

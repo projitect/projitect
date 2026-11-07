@@ -16,6 +16,7 @@
     "lint:fix": "eslint . --fix",
     "prepare": "husky && effect-language-service patch",
     "release": "pnpm build && changeset publish",
+    "release:comment": "tsx scripts/comment-released.ts",
     "tc": "tsc --build",
     "tc:clean": "tsc --build --clean",
     "tc:watch": "tsc --build --watch",
