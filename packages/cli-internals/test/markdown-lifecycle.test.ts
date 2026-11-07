@@ -8,9 +8,10 @@ import type { Blueprint, PjtLock } from "@projitect/core"
 import { diffPlan } from "../src/differ.js"
 import { applyPlan } from "../src/applier.js"
 import { readLockfile, writeLockfile } from "../src/lockfile.js"
-import { buildPlan, diffLockfile } from "../src/plan.js"
+import { diffLockfile } from "../src/plan.js"
 import { makeProjectRootLayer } from "../src/filesystem-impl.js"
 import { applyRemovals } from "../src/remover.js"
+import { planTree } from "./support/plan-tree.js"
 
 /**
  * End-to-end lifecycle for `@projitect/blueprint-markdown` in a clean temporary project:
@@ -55,7 +56,7 @@ const exists = (relative: string) =>
 const remodelTree = (tree: readonly Blueprint.Blueprint[], root = cwd) =>
   Effect.runPromise(
     Effect.gen(function* () {
-      const { plan, byBlueprint } = yield* buildPlan({ tree, projectRoot: root })
+      const { plan, byBlueprint } = yield* planTree(tree, root)
       return yield* Effect.gen(function* () {
         const previous = yield* readLockfile
         const { removals } = diffLockfile({ previous, current: byBlueprint })
@@ -70,7 +71,7 @@ const remodelTree = (tree: readonly Blueprint.Blueprint[], root = cwd) =>
 const inspectTree = (tree: readonly Blueprint.Blueprint[]) =>
   Effect.runPromise(
     Effect.gen(function* () {
-      const { plan, byBlueprint } = yield* buildPlan({ tree, projectRoot: cwd })
+      const { plan, byBlueprint } = yield* planTree(tree, cwd)
       return yield* Effect.gen(function* () {
         const previous = yield* readLockfile
         const { removals, upgrades } = diffLockfile({ previous, current: byBlueprint })
@@ -279,13 +280,13 @@ describe("blueprint-markdown conflicts", () => {
   it("fails with pjt.plan.conflict-region when two blueprints claim the same owner id in one file", async () => {
     const error = await Effect.runPromise(
       Effect.flip(
-        buildPlan({
-          tree: [
+        planTree(
+          [
             markdownSnippets.agentsVerification(),
             markdownSnippets.agentsVerification({ content: "## Verification\n\nDifferent.\n" }),
           ],
-          projectRoot: cwd,
-        }),
+          cwd,
+        ),
       ),
     )
     expect(error).toMatchObject({
