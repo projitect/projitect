@@ -15,6 +15,7 @@ describe(".ampm/Dockerfile", () => {
     const pinned = /^ARG PNPM_VERSION=(?<spec>\S+)$/mu.exec(read(".ampm/Dockerfile"))?.groups?.[
       "spec"
     ]
-    expect(`pnpm@${pinned}`).toBe(packageManager.replace(/\+.*$/u, ""))
+    expect(pinned).toBeDefined()
+    expect(`pnpm@${pinned ?? ""}`).toBe(packageManager.replace(/\+.*$/u, ""))
   })
 })
