@@ -23,20 +23,23 @@ checked off as a record of what's in code. Everything above it is still pending.
 
 How stories map onto board or factory tasks. The kanban and factory intake follow it.
 
-1. **Source of truth.** BACKLOG.md owns story ids, `Depends on:` edges and shipped status. The
-   board or factory decides only _when_ an already-unblocked story gets worked; it never overrides
-   a dependency edge.
+1. **Source of truth.** BACKLOG.md owns scope, acceptance criteria, story ids and the `Depends on:`
+   design. The board or factory (ampm) is authoritative for live execution status and decides
+   _when_ a story gets worked; it never overrides a dependency edge.
 2. **Provenance.** A task filed from a story carries the story id (e.g. `ARG-2`) in its title or
    body, copies the story's `Depends on:` line verbatim, and is linked as a dependency to any
    prerequisite tasks already on the board.
-3. **Satisfied dependency.** A dependency is satisfied only when every acceptance checkbox of the
-   prerequisite story is `[x]`, or the story sits in the Shipped section. Merged code alone is not
-   enough.
-4. **Promotion.** A story whose `Depends on:` entries are not all satisfied is not promoted into
-   active work. At admit and refine, the reviewer checks the copied `Depends on:` line against this
-   file and holds or parks the task if a prerequisite is unmet.
+3. **Satisfied dependency.** A code dependency is satisfied when the prerequisite's implementation
+   is verified merged. A dependency on a published package or a release is satisfied only by a
+   verified release. Hand-ticking BACKLOG checkboxes or moving a story to Shipped is bookkeeping,
+   not a precondition for progress.
+4. **Gating.** Admission and refinement are never blocked on upstream implementation. Planning or
+   building is held (or parked) at the point the unmet code dependency is actually needed; the
+   reviewer checks the copied `Depends on:` line against board status there.
 5. **Epic sequencing.** Every epic carries a one-line `Sequencing:` note: `none`, a relative
    priority, or a `Not before:` marker. Orderings between epics are written there, not implied.
+   Notes are targeted: no blanket "guidance before everything" or "first release before any new
+   package".
 
 Automated enforcement at the factory's admit step is factory-side tooling, not covered here.
 
@@ -44,7 +47,7 @@ Automated enforcement at the factory's admit step is factory-side tooling, not c
 
 ## Epic: Agent guidance & skills
 
-Sequencing: priority early — before every other epic; raises the floor for how later tickets run.
+Sequencing: priority after consumer Markdown/skills onboarding; ahead of nothing else by default — contributor guidance does not gate other epics or bonus catalog work.
 
 Bring projitect's `AGENTS.md` and `.claude/skills/` up to the depth of the sibling StoryCut repo
 (`/Users/kapil/Github/StoryCut/StoryCut`), which has a 61 KB `AGENTS.md` and 15 skills vs
@@ -182,7 +185,7 @@ _As a maintainer, I want a LICENSE at the repo root, so that the MIT declaration
 
 ## Epic: Release readiness
 
-Sequencing: first priority among the epics that ship code — REL-6 lands before Sandbox hardening and before epics that publish new packages.
+Sequencing: high priority — REL-6 lands before Sandbox hardening; stories that need a published package wait on a verified release, other new-package work is not blocked.
 
 Automatable code/release work for the first public npm release. The manual blockers live in the
 **Manual / owner actions** epic above.

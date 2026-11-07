@@ -204,9 +204,9 @@ real concern. Read the comment trail and pick the appropriate roll-back option.
 When a card comes from a story in [BACKLOG.md](../../BACKLOG.md), follow its
 [Ordering convention](../../BACKLOG.md#ordering-convention): BACKLOG.md owns story ids, `Depends on:`
 edges and shipped status; the board never overrides an edge. Triage (§5), refine (§7) and run (§8)
-copy the story id and the `Depends on:` line verbatim into the card, link prerequisite cards already
-on the board, and hold the card if a prerequisite is not satisfied (all its checkboxes `[x]`, or in
-Shipped).
+copy the story id and the `Depends on:` line verbatim into the card and link prerequisite cards
+already on the board. Admission and refinement proceed regardless; hold the card at planning or
+build when an unmet code dependency (not yet verified merged) is actually needed.
 
 ---
 
@@ -231,7 +231,7 @@ Suggested cadences (adjust to taste):
   refinement or produce a vague plan you'll reject at Plan Review. Refine first.
 - **Click-through-approving on a card you don't trust.** The gates are your filter — use
   them. If you're tempted to bypass them, the card needed more refinement.
-- **Promoting a story before its prerequisites are `[x]`.** Merged code is not enough; hold the card until BACKLOG.md says the dependency is satisfied.
+- **Building a story before its code prerequisites are merged.** Hold the card at planning or build until the dependency is verified merged (or released, for package dependencies).
 - **Triaging during capture.** Splits attention. Capture is a separate moment from triage.
 - **Grilling something you already understand.** `/grill-me` is for fuzzy ideas. If you
   already have the thesis, dump.
