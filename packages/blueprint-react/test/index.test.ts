@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { Effect } from "effect"
 import { makeInMemoryLayer } from "@projitect/test-kit"
+import manifest from "../package.json" with { type: "json" }
 import { react } from "../src/index.js"
 
 /**
@@ -24,6 +25,10 @@ const STARTER_PATHS = [
 describe("react()", () => {
   it("has one composite id", () => {
     expect(react().id).toBe("pjt:react")
+  })
+
+  it("takes its version from the package manifest, so a release bump reaches the lockfile", () => {
+    expect(react().version).toBe(manifest.version)
   })
 
   it("seeds exactly the starter source", async () => {

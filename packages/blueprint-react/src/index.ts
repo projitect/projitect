@@ -22,9 +22,12 @@ import { tsconfig } from "@projitect/blueprint-tsconfig"
 import { vitest } from "@projitect/blueprint-vitest"
 import type { Blueprint } from "@projitect/core"
 import { ChangeSet as CS } from "@projitect/core"
+import manifest from "../package.json" with { type: "json" }
 import * as templates from "./templates.js"
 
-const PACKAGE_VERSION = "0.0.0"
+// Read the version from the package manifest (emitted next to `dist/src`) so a release bump
+// reaches `.pjt.lock` and `pjt inspect` can report a real upgrade.
+const PACKAGE_VERSION = manifest.version
 
 const REACT_DEP_RANGE = "^19.2.0"
 const VITE_DEP_RANGE = "^7.3.0"

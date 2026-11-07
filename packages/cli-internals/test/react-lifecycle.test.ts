@@ -1,7 +1,7 @@
 import { promises as fs } from "node:fs"
 import * as os from "node:os"
 import path from "node:path"
-import { Effect } from "effect"
+import { Effect, Schema } from "effect"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import { react } from "@projitect/blueprint-react"
 import type { Blueprint } from "@projitect/core"
@@ -57,8 +57,9 @@ const existing = (files: readonly string[]) =>
   Promise.all(files.map(async (file) => ((await exists(file)) ? [file] : []))).then((found) =>
     found.flat(),
   )
-const readPackageJson = async (): Promise<Record<string, Record<string, string> | undefined>> =>
-  JSON.parse(await readFile("package.json")) as Record<string, Record<string, string> | undefined>
+const PackageJson = Schema.Record(Schema.String, Schema.Unknown)
+const readPackageJson = async () =>
+  Schema.decodeUnknownSync(PackageJson)(JSON.parse(await readFile("package.json")))
 
 const remodelTree = (tree: readonly Blueprint.Blueprint[]) =>
   Effect.runPromise(
@@ -114,12 +115,11 @@ describe("blueprint-react lifecycle", () => {
       test: "vitest run",
     })
     expect(built["dependencies"]).toMatchObject({ "left-pad": "^1.3.0" })
-    expect(Object.keys(built["dependencies"] ?? {})).toEqual(
-      expect.arrayContaining(["react", "react-dom"]),
-    )
-    expect(Object.keys(built["devDependencies"] ?? {})).toEqual(
-      expect.arrayContaining(["vite", "@vitejs/plugin-react", "vitest", "jsdom"]),
-    )
+    expect(built["dependencies"]).toHaveProperty("react")
+    expect(built["dependencies"]).toHaveProperty("react-dom")
+    for (const dependency of ["vite", "@vitejs/plugin-react", "vitest", "jsdom"]) {
+      expect(built["devDependencies"]).toHaveProperty([dependency])
+    }
     const gitignore = await readFile(".gitignore")
     expect(gitignore).toContain("# mine\n.env\n")
     expect(gitignore).toContain("dist/")
@@ -143,10 +143,10 @@ describe("blueprint-react lifecycle", () => {
 
     // 3. A managed package.json value drifts: inspect names the file, remodel restores it and
     //    leaves user keys alone.
-    const pkg = await readPackageJson()
+    const manifest = await readFile("package.json")
     await writeFile(
       "package.json",
-      `${JSON.stringify({ ...pkg, scripts: { ...pkg["scripts"], build: "vite build" } }, null, 2)}\n`,
+      manifest.replace('"build": "tsc --noEmit && vite build"', '"build": "vite build"'),
     )
     const drifted = await inspectTree(tree)
     expect(drifted.hasDrift).toBe(true)
