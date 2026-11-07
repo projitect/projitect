@@ -920,7 +920,10 @@ This is a stylistic standard. Reviewers reject docs that read like a changelog.
 
 ## Marketing site coordination at every phase
 
-The site is not a release-time chore — it's a **continuous obligation**. Three sequential gates:
+The site is not a release-time chore — it's a **continuous obligation**. Three sequential gates. Docs for a feature that has not shipped are part of that
+feature's task and PR, and are never scheduled as independent work ahead of or apart from the code.
+A planner or reviewer who meets an existing docs-only story folds its acceptance criteria into the
+parent feature's story and does not promote it as separate work.
 
 ### Plan-time
 

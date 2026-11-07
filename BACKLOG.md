@@ -221,6 +221,8 @@ _As an author, I want to declare a blueprint as `{ id, args: Schema, build: (arg
 - [ ] `defineBlueprint(def)` returns a callable `(args) => Blueprint` plus the `.definition` for introspection
 - [ ] Calling with no args is allowed when every field is optional / has a default
 - [ ] Type inference: `vitest(args)` rejects unknown keys / wrong types at compile time
+- [ ] `docs/authoring.mdx` gains a "Declaring arguments" section with a worked example
+- [ ] The section notes how args feed the `add` CLI prompts (forward-ref to NPX epic)
   > Size: M
 
 ### ARG-2 — Validate args, surface `pjt.blueprint.invalid-args`
@@ -252,14 +254,6 @@ _As a maintainer, I want gitignore / vitest / tsconfig / the projitect blueprint
 - [ ] The projitect bootstrap blueprint migrated
 - [ ] Existing unit + smoke suites stay green (on-disk output unchanged)
   > Depends on: ARG-1, ARG-2 · Size: M
-
-### ARG-5 — Authoring docs for declared args
-
-_As an author, I want a docs section on declaring args with Schema, so that I follow the convention when publishing._
-
-- [ ] `docs/authoring.mdx` gains a "Declaring arguments" section with a worked example
-- [ ] Note on how args feed the `add` CLI prompts (forward-ref to NPX epic)
-  > Depends on: ARG-1 · Size: S
 
 ---
 
@@ -351,6 +345,7 @@ _As an author, I want a blueprint that scaffolds + maintains a blueprint package
 
 - [ ] New package exporting a `blueprintPackage({...})` definition (built via `defineBlueprint`)
 - [ ] Unit tests over the emitted operations
+- [ ] `docs/authoring.mdx` (or a new page) walks the happy path to a published package: install, add `blueprintPackage`, remodel, publish; later BB stories extend this page as they land
   > Depends on: ARG-1 · Size: M
 
 ### BB-2 — Maintain package.json shape (merge mode)
@@ -359,6 +354,7 @@ _As an author, I want my package.json's `bin`, `peerDependencies`, `exports`, sc
 
 - [ ] Merge op owns `bin`, the effect / `@projitect/core` / `@projitect/blueprint` peer ranges, the `exports` map, and standard scripts
 - [ ] Re-running after a manual edit re-asserts the managed keys (drift caught by `pjt inspect`)
+- [ ] The scaffold-a-package docs describe the managed `package.json` keys
   > Depends on: BB-1 · Size: M
 
 ### BB-3 — Own the bin shim file
@@ -367,6 +363,7 @@ _As an author, I want the `add` CLI bin shim generated and kept current, so that
 
 - [ ] Owned-mode op writes the bin shim that calls `runAddCli` with the package's exports
 - [ ] Shim regenerates on `pjt remodel` if edited
+- [ ] The scaffold-a-package docs cover the generated bin shim
   > Depends on: BB-1, NPX-6 · Size: M
 
 ### BB-4 — Multiple exported blueprints
@@ -375,6 +372,7 @@ _As an author of a multi-blueprint package, I want the scaffolding to enumerate 
 
 - [ ] The blueprint accepts the list of exported definition ids/names and wires them into metadata + bin
 - [ ] Test: a 3-blueprint package produces selection-ready metadata
+- [ ] The scaffold-a-package docs cover exporting multiple blueprints
   > Depends on: BB-1, BB-2, BB-3 · Size: M
 
 ### BB-5 — Monorepo support
@@ -384,6 +382,7 @@ _As an author whose blueprint package lives in a workspace, I want the scaffoldi
 - [ ] Detects a workspace root (pnpm/npm/yarn workspaces) and places files at the package root, not the workspace root
 - [ ] Emits `workspace:*` for intra-workspace deps when in a workspace, caret ranges otherwise
 - [ ] Test fixture: a package nested under `packages/` scaffolds correctly
+- [ ] The scaffold-a-package docs cover monorepo placement and `workspace:*` ranges
   > Depends on: BB-1 · Size: L
 
 ### BB-6 — Dogfood across our own blueprint packages
@@ -392,14 +391,8 @@ _As a maintainer, I want gitignore / vitest / tsconfig to be maintained by the b
 
 - [ ] Each shipped blueprint package has its own `.pjt.ts` using `blueprintPackage(...)`
 - [ ] `pjt inspect` is clean across all of them in CI
+- [ ] The scaffold-a-package walkthrough matches the shipped behavior end to end
   > Depends on: BB-2..5 · Size: M
-
-### BB-7 — Authoring docs: scaffold a package
-
-_As an author, I want a guide for starting a blueprint package with the blueprint blueprint, so that the happy path is one page._
-
-- [ ] `docs/authoring.mdx` (or a new page) walks: install, add `blueprintPackage`, remodel, publish
-  > Depends on: BB-1..6 · Size: S
 
 ---
 
