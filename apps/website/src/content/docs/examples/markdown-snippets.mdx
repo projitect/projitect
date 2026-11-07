@@ -1,0 +1,89 @@
+---
+title: markdown-snippets
+description: Share versioned Markdown snippets across AGENTS.md and README.md, and keep them in sync.
+sidebar:
+  label: markdown-snippets
+  order: 6
+---
+
+import code from "../../../../examples/markdown-snippets/example.ts?raw"
+import { Code } from "@astrojs/starlight/components"
+
+`@projitect/blueprint-markdown` publishes reusable Markdown snippets for `AGENTS.md` and
+`README.md`. Each snippet is a region-mode blueprint with a stable owner id, so several snippets
+share one file, text you write around them is never touched, and `pjt inspect` flags a hand-edit
+inside any of them.
+
+<Code code={code} lang="ts" title=".pjt.ts" />
+
+## The snippets
+
+| Section                        | File        | Owner id                                       |
+| ------------------------------ | ----------- | ---------------------------------------------- |
+| `agentsPackageManager`         | `AGENTS.md` | `pjt:markdown:agents:package-manager`          |
+| `agentsVerification`           | `AGENTS.md` | `pjt:markdown:agents:verification`             |
+| `agentsCommits`                | `AGENTS.md` | `pjt:markdown:agents:commits`                  |
+| `agentsNoDestructiveShortcuts` | `AGENTS.md` | `pjt:markdown:agents:no-destructive-shortcuts` |
+| `readmeContributing`           | `README.md` | `pjt:markdown:readme:contributing`             |
+| `readmeLicense`                | `README.md` | `pjt:markdown:readme:license`                  |
+
+Every snippet takes optional `version` and `content` overrides. The owner id never changes, so
+overriding the content of a snippet rewrites the same region.
+
+## Add snippets interactively
+
+```bash
+pnpm pjt add @projitect/blueprint-markdown
+#   → ? Pick sections to add (space to toggle, enter to confirm):
+#        ◉ agentsVerification
+#        ◉ agentsCommits
+#        ◯ ...
+pnpm pjt remodel    # writes the fenced regions into AGENTS.md / README.md
+pnpm pjt inspect    # "Project is in sync with blueprints." — exit 0
+```
+
+A region in `AGENTS.md` looks like this; the markers render invisible in Markdown:
+
+```md
+<!-- pjt:markdown:agents:verification start -->
+
+## Verification
+
+Before claiming a task done, run the project's full check ...
+
+<!-- pjt:markdown:agents:verification end -->
+```
+
+Existing text in the file stays where it is. New regions are appended after it.
+
+## Add snippets from a script or an agent
+
+Everything is noninteractive when you pass `--section`, and every step reports through its exit
+code:
+
+```bash
+pjt add @projitect/blueprint-markdown --section agentsVerification,agentsCommits,readmeLicense
+pjt remodel     # exit 0: files written (or already in sync); nonzero: an error id on stderr
+pjt inspect     # exit 0: in sync; exit 1: drift, with the drifted file named
+```
+
+`pjt inspect --json` prints `{ hasDrift, files, removals, upgrades }` and keeps the same exit
+codes.
+
+## Upgrade, swap and remove
+
+- **Upgrade the package.** `pjt inspect` lists `↑ upgrade pjt:markdown:agents:verification 0.0.0 → 1.1.0`
+  and the changed file. `pjt remodel` rewrites only the region that snippet owns and records the new
+  version in `.pjt.lock`.
+- **Hand-edit a region.** `pjt inspect` exits 1 and prints
+  `~ modify AGENTS.md — region pjt:markdown:agents:commits content drift`. `pjt remodel` restores
+  the region and leaves the text around it alone.
+- **Swap or remove a snippet.** Delete its line from `.pjt.ts` (or replace it with another snippet)
+  and run `pjt remodel`. Only that snippet's region is deleted. If the snippet was the only content
+  of a file projitect created, the file stays behind, empty.
+- **Two claims on one id.** Two blueprints with the same owner id in one file fail with
+  [`pjt.plan.conflict-region`](/errors/pjt.plan.conflict-region/); nothing is written.
+
+## Write your own
+
+See [Authoring → Markdown snippet packages](/docs/authoring/#markdown-snippet-packages).

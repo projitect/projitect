@@ -10,6 +10,15 @@ pjt inspect [--json]
 Compares the project against `.pjt.ts`. Exits **0** if in sync, **1** if drift is detected.
 Built for CI.
 
+## Exit codes
+
+| Code | Meaning                                                                                                                                                                    |
+| ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0    | In sync. Prints `Project is in sync with blueprints. No changes needed.`                                                                                                   |
+| 1    | Drift: a managed region or key was edited or is missing, an upgrade changed a blueprint's content, or a blueprint left `.pjt.ts`. The drifted file is named in the output. |
+
+A script or agent runs `pjt remodel` after exit 1 and `pjt inspect` again to confirm exit 0.
+
 ## Output
 
 ```text
