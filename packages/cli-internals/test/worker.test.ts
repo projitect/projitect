@@ -230,6 +230,24 @@ describe("planBlueprintFile", () => {
     })
   })
 
+  it("roots a blueprint inside directory() at that directory, with no way back up", async () => {
+    // The root and the directory each hold a `marker.txt`; the blueprint must see the nested one.
+    await fs.mkdir(path.join(cwd, "docs"))
+    await fs.writeFile(path.join(cwd, "marker.txt"), "root")
+    await fs.writeFile(path.join(cwd, "docs", "marker.txt"), "docs")
+    await fs.symlink(cwd, path.join(cwd, "docs", "escape"))
+    const planned = await plan("worker-directory.pjt.ts")
+    expect(planned).toHaveLength(1)
+    expect(planned[0]?.directoryPrefix).toBe("docs")
+    const op = planned[0]?.changeSet.operations[0]
+    const report: unknown = JSON.parse(op?._tag === "Owned" ? op.content : "{}")
+    expect(report).toEqual({
+      marker: "docs",
+      climbed: "FsPermissionDenied",
+      linked: "FsPermissionDenied",
+    })
+  })
+
   it("maps a crashing worker to pjt.worker.crashed", async () => {
     expect(await planError("worker-crash.pjt.ts")).toMatchObject({
       _tag: "WorkerCrashed",
