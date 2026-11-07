@@ -17,8 +17,13 @@ export const applyRemovals = (params: {
   readonly projectRoot: string
 }): Effect.Effect<readonly string[], Errors.RegionMissingEnd | Errors.RegionDuplicate> =>
   Effect.forEach(params.removals, (op) =>
-    Effect.map(applyOne({ op, full: path.resolve(params.projectRoot, op.path) }), (mutated) =>
-      mutated ? Option.some(op.path) : Option.none<string>(),
+    Effect.map(
+      applyOne({
+        op,
+        full: path.resolve(params.projectRoot, op.path),
+        projectRoot: path.resolve(params.projectRoot),
+      }),
+      (mutated) => (mutated ? Option.some(op.path) : Option.none<string>()),
     ),
   ).pipe(Effect.map(Array.getSomes))
 
@@ -31,11 +36,12 @@ const readIfExists = (full: string): Promise<string | null> =>
 const applyOne = (params: {
   readonly op: PjtLock.LockOperation
   readonly full: string
+  readonly projectRoot: string
 }): Effect.Effect<boolean, Errors.RegionMissingEnd | Errors.RegionDuplicate> =>
   Match.valueTags(params.op, {
     Region: (op) => removeRegion(params.full, op),
     Merge: (op) => Effect.promise(() => removeMergeKeys(params.full, op.ownedKeys)),
-    Owned: () => Effect.promise(() => removeFile(params.full)),
+    Owned: () => Effect.promise(() => removeFile(params.full, params.projectRoot)),
     // Seed is write-once; we never delete the file when a seed blueprint leaves.
     Seed: () => Effect.succeed(false),
   })
@@ -97,11 +103,26 @@ const removeMergeKeys = async (full: string, keys: readonly string[]): Promise<b
   return true
 }
 
-const removeFile = async (full: string): Promise<boolean> => {
+const removeFile = async (full: string, projectRoot: string): Promise<boolean> => {
   try {
     await fs.rm(full, { force: true })
+    await pruneEmptyParents(path.dirname(full), projectRoot)
     return true
   } catch {
     return false
+  }
+}
+
+/** Remove now-empty directories upward from `dir`, stopping at the first non-empty one or the project root. */
+const pruneEmptyParents = async (dir: string, projectRoot: string): Promise<void> => {
+  if (dir === projectRoot || !dir.startsWith(`${projectRoot}${path.sep}`)) {
+    return
+  }
+  const removed = await fs.rmdir(dir).then(
+    () => true,
+    () => false,
+  )
+  if (removed) {
+    await pruneEmptyParents(path.dirname(dir), projectRoot)
   }
 }

@@ -138,7 +138,8 @@ export const buildPlan = (params: {
 
 /**
  * Diff the previous lockfile against the current blueprint set. Returns:
- * - `removals`: ops from blueprints present in the lockfile but absent from the current tree.
+ * - `removals`: ops from blueprints present in the lockfile but absent from the current tree,
+ *   plus owned files a still-present blueprint no longer ships (a new version dropping a file).
  *   The applier deletes the matching regions / merge keys / owned files in a follow-up step.
  * - `upgrades`: blueprints present in both, with different versions. Informational only — the
  *   actual content is regenerated from the current blueprint, so applying handles upgrade
@@ -160,9 +161,10 @@ export const diffLockfile = (params: {
     whenNotNullable: (lock) => {
       const entries = Record.toEntries(lock.blueprints)
       const removals = Array.flatMap(entries, ([id, prior]) =>
-        Option.isNone(Record.get(current, id))
-          ? prior.operations
-          : Array.empty<PjtLock.LockOperation>(),
+        Option.match(Record.get(current, id), {
+          onNone: () => prior.operations,
+          onSome: (live) => droppedOwnedOps(prior, live),
+        }),
       )
       const upgrades = Array.flatMap(entries, ([id, prior]) =>
         Record.get(current, id).pipe(
@@ -175,6 +177,16 @@ export const diffLockfile = (params: {
     },
   })
 }
+
+/** Owned files the prior lock entry had but the live entry no longer plans. */
+const droppedOwnedOps = (
+  prior: PjtLock.BlueprintLockEntry,
+  live: PjtLock.BlueprintLockEntry,
+): readonly PjtLock.LockOperation[] =>
+  Array.filter(
+    prior.operations,
+    (op) => op._tag === "Owned" && !Array.some(live.operations, (l) => l.path === op.path),
+  )
 
 const groupByBlueprint = (attributed: readonly AttributedOp[]): ByBlueprint =>
   Record.map(

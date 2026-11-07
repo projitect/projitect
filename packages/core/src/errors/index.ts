@@ -120,6 +120,17 @@ export class PlanConflictOwned extends Schema.TaggedError<PlanConflictOwned>()(
 ) {}
 
 // ---------------------------------------------------------------------------
+// Skills errors — a skill name, target root or file path failed validation
+// ---------------------------------------------------------------------------
+
+export class SkillInvalid extends Schema.TaggedError<SkillInvalid>()("SkillInvalid", {
+  id: Schema.Literal("pjt.skills.invalid-path"),
+  field: Schema.Literals(["target", "name", "path", "skill"]),
+  value: Schema.String,
+  message: Schema.String,
+}) {}
+
+// ---------------------------------------------------------------------------
 // Region marker errors — encountered when reading existing file content
 // ---------------------------------------------------------------------------
 
@@ -251,6 +262,7 @@ export type BlueprintError =
   | FsWriteFailed
   | RegionMissingEnd
   | RegionDuplicate
+  | SkillInvalid
 
 export type LoaderError = LoaderImportFailed | LoaderInvalidDefaultExport
 
@@ -300,6 +312,7 @@ export const ERROR_IDS = [
   "pjt.plan.conflict-region",
   "pjt.plan.conflict-merge",
   "pjt.plan.conflict-owned",
+  "pjt.skills.invalid-path",
   "pjt.region.missing-end",
   "pjt.region.duplicate",
   "pjt.apply.dirty-git",
