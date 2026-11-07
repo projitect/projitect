@@ -120,6 +120,9 @@ importers:
       '@projitect/blueprint-markdown':
         specifier: workspace:*
         version: link:../../packages/blueprint-markdown
+      '@projitect/blueprint-next':
+        specifier: workspace:*
+        version: link:../../packages/blueprint-next
       '@projitect/blueprint-react':
         specifier: workspace:*
         version: link:../../packages/blueprint-react
@@ -236,6 +239,33 @@ importers:
         specifier: 5.9.3
         version: 5.9.3
 
+  packages/blueprint-next:
+    devDependencies:
+      '@projitect/blueprint':
+        specifier: workspace:*
+        version: link:../blueprint
+      '@projitect/blueprint-gitignore':
+        specifier: workspace:*
+        version: link:../blueprint-gitignore
+      '@projitect/blueprint-tsconfig':
+        specifier: workspace:*
+        version: link:../blueprint-tsconfig
+      '@projitect/blueprint-vitest':
+        specifier: workspace:*
+        version: link:../blueprint-vitest
+      '@projitect/core':
+        specifier: workspace:*
+        version: link:../core
+      '@projitect/test-kit':
+        specifier: workspace:*
+        version: link:../test-kit
+      effect:
+        specifier: 4.0.0-rc.111
+        version: 4.0.0-rc.111
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+
   packages/blueprint-react:
     devDependencies:
       '@projitect/blueprint':
@@ -332,6 +362,9 @@ importers:
       '@projitect/blueprint-markdown':
         specifier: workspace:*
         version: link:../blueprint-markdown
+      '@projitect/blueprint-next':
+        specifier: workspace:*
+        version: link:../blueprint-next
       '@projitect/blueprint-react':
         specifier: workspace:*
         version: link:../blueprint-react
