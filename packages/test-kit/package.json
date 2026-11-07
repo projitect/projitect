@@ -1,6 +1,6 @@
 {
   "name": "@projitect/test-kit",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "Testing helpers for blueprint authors — in-memory BlueprintFileSystem Layer, ChangeSet snapshot helpers.",
   "repository": {
     "type": "git",
