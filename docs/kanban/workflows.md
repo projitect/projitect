@@ -11,18 +11,18 @@ point that matches your situation — you don't need to run them in order.
 
 ## Quick reference
 
-| You want to…                              | Run                                                     | See                                                                             |
-| ----------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| Set up kanban for the first time          | follow [SETUP.md](../../.claude/skills/kanban/SETUP.md) | [§1](#1-initial-setup-once-per-repo-per-machine)                                |
-| Stress-test a fuzzy idea before saving it | `/grill-me`                                             | [§2](#2-grill-then-dump-you-have-a-half-formed-thought)                         |
-| Capture an idea fast and keep working     | `/kanban-dump "<idea>"`                                 | [§3](#3-dump-now-refine-later-youre-mid-flow-and-dont-want-to-lose-the-thought) |
-| Process the Brain Dump column             | `/kanban-triage`                                        | [§5](#5-process-the-brain-dump-you-have-5-cards-in-brain-dump)                  |
-| Re-rank the Backlog                       | `/kanban-prioritize`                                    | [§6](#6-re-rank-the-backlog-youre-about-to-start-planning-work)                 |
-| Flesh out a thin card                     | `/kanban-refine <id>`                                   | [§7](#7-flesh-out-a-card-before-planning-it-the-card-is-one-liner-thin)         |
-| Push a specific card to Done              | `/kanban-run <id>`                                      | [§8](#8-push-a-specific-ticket-all-the-way-through-you-know-what-you-want-next) |
-| Take a raw idea all the way to Done       | dump → triage → refine → run                            | [§9](#9-chase-an-idea-cold-from-brain-dump-to-done-in-one-sitting)              |
-| Watch a card ship with minimal effort     | `/kanban-run <id>` + quick approvals                    | [§10](#10-watch-with-minimal-involvement-you-trust-the-agents-on-this-card)     |
-| Promote a BACKLOG story to a card         | copy id + `Depends on:`, hold if unmet                  | [Promoting BACKLOG stories](#promoting-backlog-stories-to-cards)                |
+| You want to…                              | Run                                                                     | See                                                                             |
+| ----------------------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| Set up kanban for the first time          | follow [SETUP.md](../../.claude/skills/kanban/SETUP.md)                 | [§1](#1-initial-setup-once-per-repo-per-machine)                                |
+| Stress-test a fuzzy idea before saving it | `/grill-me`                                                             | [§2](#2-grill-then-dump-you-have-a-half-formed-thought)                         |
+| Capture an idea fast and keep working     | `/kanban-dump "<idea>"`                                                 | [§3](#3-dump-now-refine-later-youre-mid-flow-and-dont-want-to-lose-the-thought) |
+| Process the Brain Dump column             | `/kanban-triage`                                                        | [§5](#5-process-the-brain-dump-you-have-5-cards-in-brain-dump)                  |
+| Re-rank the Backlog                       | `/kanban-prioritize`                                                    | [§6](#6-re-rank-the-backlog-youre-about-to-start-planning-work)                 |
+| Flesh out a thin card                     | `/kanban-refine <id>`                                                   | [§7](#7-flesh-out-a-card-before-planning-it-the-card-is-one-liner-thin)         |
+| Push a specific card to Done              | `/kanban-run <id>`                                                      | [§8](#8-push-a-specific-ticket-all-the-way-through-you-know-what-you-want-next) |
+| Take a raw idea all the way to Done       | dump → triage → refine → run                                            | [§9](#9-chase-an-idea-cold-from-brain-dump-to-done-in-one-sitting)              |
+| Watch a card ship with minimal effort     | `/kanban-run <id>` + quick approvals                                    | [§10](#10-watch-with-minimal-involvement-you-trust-the-agents-on-this-card)     |
+| Promote a BACKLOG story to a card         | copy id + `Depends on:`; hold planning/build if code prerequisite unmet | [Promoting BACKLOG stories](#promoting-backlog-stories-to-cards)                |
 
 ---
 
