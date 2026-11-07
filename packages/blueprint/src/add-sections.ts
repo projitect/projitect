@@ -1,4 +1,4 @@
-import { Effect, Match } from "effect"
+import { Array, Effect, Match } from "effect"
 import { Prompt } from "effect/unstable/cli"
 import type { Errors } from "@projitect/core"
 
@@ -45,34 +45,54 @@ export type SectionStrategy<R = never> =
       ) => Effect.Effect<readonly string[], Errors.ProjitectError, R>
     }
 
-/** Resolve which sections the user wants, per `strategy`. Empty means "all" for a set. */
+/**
+ * What the user wants spliced from a package. Cancellation is its own case so it can never be
+ * mistaken for "all":
+ *
+ *   - `All` — every declared section.
+ *   - `Chosen` — exactly these sections (non-empty).
+ *   - `Nothing` — the user picked no sections or quit the prompt; the host must not write.
+ */
+export type SectionSelection =
+  | { readonly _tag: "All" }
+  | { readonly _tag: "Chosen"; readonly sections: readonly string[] }
+  | { readonly _tag: "Nothing" }
+
+const chosenOr = (sections: readonly string[], whenEmpty: SectionSelection): SectionSelection =>
+  Array.isReadonlyArrayNonEmpty(sections) ? { _tag: "Chosen", sections } : whenEmpty
+
+/** Resolve which sections the user wants, per `strategy`. */
 export const resolveSections = <R>(params: {
   readonly metadata: ProjitectPackageMetadata
   readonly strategy: SectionStrategy<R>
-}): Effect.Effect<readonly string[], Errors.ProjitectError, R> => {
+}): Effect.Effect<SectionSelection, Errors.ProjitectError, R> => {
   const { metadata, strategy } = params
-  // Section strategy only matters for blueprint-sets. For `type: "blueprint"`, return empty —
-  // `computeSplice` will emit a single non-templated call line.
+  // Section strategy only matters for blueprint-sets. For `type: "blueprint"` the selection is
+  // ignored — `computeSplice` emits a single non-templated call line.
   if (metadata.type === "blueprint") {
-    return Effect.succeed([])
+    return Effect.succeed({ _tag: "All" })
   }
   return Match.valueTags(strategy, {
-    All: () => Effect.succeed<readonly string[]>([]),
-    Explicit: (explicit) => Effect.succeed(explicit.sections),
-    Ask: (ask) => ask.choose(metadata),
+    All: () => Effect.succeed<SectionSelection>({ _tag: "All" }),
+    Explicit: (explicit) => Effect.succeed(chosenOr(explicit.sections, { _tag: "All" })),
+    Ask: (ask) =>
+      Effect.map(ask.choose(metadata), (picked) => chosenOr(picked, { _tag: "Nothing" })),
   })
 }
 
-/** Compute the import line and call lines to splice for the requested sections. */
+/**
+ * Compute the import line and call lines to splice for the selection. A `Nothing` selection
+ * yields no call lines and no sections; hosts check `selection._tag` and skip the write.
+ */
 export const computeSplice = (params: {
   readonly metadata: ProjitectPackageMetadata
-  readonly requestedSections: readonly string[]
+  readonly selection: SectionSelection
 }): {
   readonly importLine: string
   readonly callLines: readonly string[]
   readonly sectionsAdded: readonly string[]
 } => {
-  const { metadata, requestedSections } = params
+  const { metadata, selection } = params
   if (metadata.type === "blueprint") {
     const call =
       metadata.call ?? "/* TODO: replace with the blueprint call from the package's README */"
@@ -84,10 +104,12 @@ export const computeSplice = (params: {
   }
   // Blueprint-set
   const allSections = metadata.sections ?? []
-  const chosen =
-    requestedSections.length > 0
-      ? requestedSections.filter((s) => allSections.includes(s))
-      : allSections
+  const chosen = Match.value(selection).pipe(
+    Match.tag("All", () => allSections),
+    Match.tag("Chosen", (picked) => picked.sections.filter((s) => allSections.includes(s))),
+    Match.tag("Nothing", () => []),
+    Match.exhaustive,
+  )
   const template = metadata.callTemplate ?? "{section}()"
   return {
     importLine: metadata.import,
@@ -98,7 +120,8 @@ export const computeSplice = (params: {
 
 /**
  * Interactive section picker for a `type: "blueprint-set"` package. Ctrl-C yields an empty
- * selection rather than crashing.
+ * selection rather than crashing; `resolveSections` maps an empty `Ask` result to
+ * `Nothing`, so quitting never splices anything.
  *
  * Returns an empty selection if no sections are declared (defensive default — shouldn't happen
  * for well-formed metadata, but we don't want to crash on a malformed package).
@@ -107,11 +130,11 @@ export const chooseSectionsInteractive = (
   metadata: ProjitectPackageMetadata,
 ): Effect.Effect<readonly string[], never, Prompt.Environment> => {
   const sections = metadata.sections ?? []
-  if (sections.length === 0) {
+  if (!Array.isReadonlyArrayNonEmpty(sections)) {
     return Effect.succeed([])
   }
   return Prompt.multiSelect({
     message: "Pick sections to add (space to toggle, enter to confirm):",
     choices: sections.map((name) => ({ title: name, value: name })),
-  }).pipe(Effect.catchTag("QuitError", () => Effect.succeed([] as readonly string[])))
+  }).pipe(Effect.catchTag("QuitError", () => Effect.succeed<readonly string[]>([])))
 }

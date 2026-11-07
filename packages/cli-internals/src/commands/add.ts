@@ -11,6 +11,8 @@ export interface AddResult {
   readonly metadata: ProjitectPackageMetadata | null
   readonly sectionsAdded: readonly string[]
   readonly splicedIntoBlueprintFile: boolean
+  /** The user picked no sections (or quit the prompt); `.pjt.ts` was left untouched. */
+  readonly selectionCancelled: boolean
 }
 
 /**
@@ -48,15 +50,24 @@ export const add = <R = never>(params: {
         metadata: null,
         sectionsAdded: [],
         splicedIntoBlueprintFile: false,
+        selectionCancelled: false,
       }
     }
 
-    const sections = yield* resolveSections({ metadata, strategy: params.strategy })
+    const selection = yield* resolveSections({ metadata, strategy: params.strategy })
 
-    const { importLine, callLines, sectionsAdded } = computeSplice({
-      metadata,
-      requestedSections: sections,
-    })
+    if (selection._tag === "Nothing") {
+      return {
+        pm,
+        pkg: params.pkg,
+        metadata,
+        sectionsAdded: [],
+        splicedIntoBlueprintFile: false,
+        selectionCancelled: true,
+      }
+    }
+
+    const { importLine, callLines, sectionsAdded } = computeSplice({ metadata, selection })
 
     yield* splice({
       projectRoot: params.config.projectRoot,
@@ -71,5 +82,6 @@ export const add = <R = never>(params: {
       metadata,
       sectionsAdded,
       splicedIntoBlueprintFile: true,
+      selectionCancelled: false,
     }
   })

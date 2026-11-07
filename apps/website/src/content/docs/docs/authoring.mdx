@@ -246,8 +246,10 @@ edit `.pjt.ts` follow the same conventions:
   splice; the caller reads and writes the file.
 - `resolveSections` / `computeSplice` — turn a package's `"projitect"` metadata
   (`ProjitectPackageMetadata`) and a `SectionStrategy` (`All`, `Explicit` or `Ask`) into the
-  import line and call lines.
-- `chooseSectionsInteractive` — the interactive section multi-select; Ctrl-C selects nothing.
+  import line and call lines. `resolveSections` returns a `SectionSelection` (`All`, `Chosen` or
+  `Nothing`); on `Nothing` the host skips the write.
+- `chooseSectionsInteractive` — the interactive section multi-select; Ctrl-C selects nothing, so
+  `.pjt.ts` is left unchanged.
 
 <Aside type="note" title="Lint rule">
   The `@projitect/blueprint` package ships an ESLint preset that forbids `node:fs` and
