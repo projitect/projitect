@@ -739,7 +739,9 @@ Errors live in `packages/core/src/errors/`. To add a new one:
 3. Add `apps/website/src/content/docs/errors/<id>.mdx` with **What**, **Why**, **How to fix**
 4. `pnpm --filter website check:errors` will catch step 3 if you forget
 
-Use the `new-error-code` skill in `.claude/skills/` to scaffold all three at once.
+Also register the id in `ERROR_IDS` and add its blurb to `ERROR_BLURBS` in
+`packages/cli-internals/src/commands/explain.ts`. The `new-error-code` skill in `.claude/skills/`
+walks through every step (see [Contributor skills](#contributor-skills)).
 
 ## Kanban workflow
 
@@ -842,6 +844,21 @@ projitect packages or the marketing site. The
 [Versioning (lockstep)](#versioning-lockstep) rules do not apply to changes in the kanban
 bundle.
 
+## Contributor skills
+
+Project skills under `.claude/skills/` cover the repeated chores. Prefer them over improvising:
+
+| Skill            | Use for                                                                                |
+| ---------------- | -------------------------------------------------------------------------------------- |
+| `create-commit`  | Staging and committing: one concept, conventional subject, changeset, no `--no-verify` |
+| `verify-commit`  | Auditing commits against these rules, then `pnpm check-all`                            |
+| `push-pr`        | Pushing the branch and opening a merge-commit PR with a conventional title             |
+| `rebase-main`    | Rebasing onto `origin/main` without stash; `--force-with-lease` only                   |
+| `new-package`    | Scaffolding a published workspace package under `packages/`                            |
+| `new-blueprint`  | Scaffolding `@projitect/blueprint-<name>` plus its marketing-site pages                |
+| `new-error-code` | Adding a `pjt.*` error end to end (class, registry, blurb, MDX page)                   |
+| `release-bump`   | Cutting a release (see [Shipping a release](#shipping-a-release))                      |
+
 ## Commits and PRs
 
 - Conventional Commits by convention — there is no commitlint config or `commit-msg` hook;
@@ -851,6 +868,7 @@ bundle.
   PR titles are conventional too (e.g. `fix(deps): update dependency sharp (#35)`).
 - One concept per commit; squash trivial fixups locally before opening a PR
 - Run `pnpm check-all` before pushing
+- The `create-commit`, `verify-commit`, `push-pr` and `rebase-main` skills encode this section
 - A PR that changes a published package (see the package table under
   [What this repo is](#what-this-repo-is)) adds a hand-written `.changeset/<kebab-name>.md` —
   frontmatter `"projitect": <bump>`; the `fixed` group in `.changeset/config.json` bumps every
