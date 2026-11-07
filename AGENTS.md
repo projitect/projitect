@@ -38,12 +38,22 @@ changesets — one shared version, matching Effect v4's own release model.
 
 **pnpm only.** Never npm, never yarn, never bun in this repo. The lockfile is `pnpm-lock.yaml`.
 
-If `pnpm` is not found, escalate in this exact order — do not chain them:
+If `pnpm` is not found, escalate in this exact order — do not chain the steps:
 
 1. Run the command as-is. If it works, stop.
 2. Run `nvm use` (reads `.nvmrc`). Try again.
 3. Run `source ~/.nvm/nvm.sh && nvm use`. Try again.
-4. Only if all three fail, ask the user.
+4. Use corepack (`packageManager` pins the pnpm version). For a single command, run
+   `corepack pnpm <args>`. Root scripts that call `pnpm` again (`check-all`, `tc`, …) need a bare
+   `pnpm` on PATH, so run `corepack pnpm install` first (it creates `node_modules`), then
+   `corepack enable --install-directory node_modules/.bin`, then `corepack pnpm check-all`. Nested
+   calls find the shim because pnpm puts `node_modules/.bin` on PATH for scripts — no `export PATH`
+   needed, which matters because each Bash call is a fresh shell. If that directory is unusable,
+   `mkdir -p <writable-dir>`, run `corepack enable --install-directory <writable-dir>`, and prefix
+   each later command with `PATH=<writable-dir>:$PATH` (per command, never a separate `export`). The
+   default `corepack enable` can fail writing `/usr/local/bin`, hence `--install-directory`.
+   `corepack` is not on the allowlist, so expect a permission prompt.
+5. Only if all of the above fail, ask the user.
 
 Do **not** prepend `cd /path/to/repo` to pnpm commands — pnpm respects the current working
 directory. Chaining `cd && pnpm` triggers permission prompts unnecessarily.
