@@ -1,0 +1,13 @@
+---
+title: pjt.worker.timed-out
+slug: errors/pjt.worker.timed-out
+description: The worker process that runs blueprint code did not finish in time.
+sidebar:
+  label: pjt.worker.timed-out
+---
+
+**What**: The worker process running blueprint code did not return a result within its time limit and was stopped.
+
+**Why**: A blueprint's plan never completes, for example because it waits on something that never arrives, or it does an unusually large amount of work.
+
+**How to fix**: Check the blueprints in `.pjt.ts` for one that hangs, and remove or fix it. The message states the time limit that was exceeded.
