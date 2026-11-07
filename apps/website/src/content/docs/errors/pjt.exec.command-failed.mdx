@@ -1,0 +1,13 @@
+---
+title: pjt.exec.command-failed
+slug: errors/pjt.exec.command-failed
+description: A command run by projitect exited non-zero or could not be started.
+sidebar:
+  label: pjt.exec.command-failed
+---
+
+**What**: projitect ran a command on a blueprint's behalf and it exited with a non-zero code, or the process could not be started at all (for example, the program was not found). The error carries the command, the exit code (absent when the process never started), and the captured stdout and stderr.
+
+**Why**: The command itself failed. projitect does not interpret the failure; it reports exactly what the process printed so you can see why.
+
+**How to fix**: Read the captured stderr and stdout. Run the same command by hand in the project root to reproduce it. If the program was not found, install it or fix the command declared by the blueprint.

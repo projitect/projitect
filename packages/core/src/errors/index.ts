@@ -221,6 +221,29 @@ export class GitCommandFailed extends Schema.TaggedError<GitCommandFailed>()("Gi
 }) {}
 
 // ---------------------------------------------------------------------------
+// Exec errors
+// ---------------------------------------------------------------------------
+
+export class CommandFailed extends Schema.TaggedError<CommandFailed>()("CommandFailed", {
+  id: Schema.Literal("pjt.exec.command-failed"),
+  command: Schema.String,
+  exitCode: Schema.optional(Schema.Number),
+  stdout: Schema.String,
+  stderr: Schema.String,
+  cause: Schema.optional(Schema.String),
+  message: Schema.String,
+}) {}
+
+export class CommandNotPermitted extends Schema.TaggedError<CommandNotPermitted>()(
+  "CommandNotPermitted",
+  {
+    id: Schema.Literal("pjt.exec.command-not-permitted"),
+    command: Schema.String,
+    message: Schema.String,
+  },
+) {}
+
+// ---------------------------------------------------------------------------
 // Lockfile errors
 // ---------------------------------------------------------------------------
 
@@ -293,6 +316,8 @@ export type LockError = LockParseFailed | LockVersionMismatch
 
 export type GitError = GitNotARepo | GitCommandFailed
 
+export type ExecError = CommandFailed | CommandNotPermitted
+
 export type PmError = PmNotDetected | PmInstallFailed
 
 export type AddError = AddMarkersMissing
@@ -308,6 +333,7 @@ export type ProjitectError =
   | InitError
   | LockError
   | GitError
+  | ExecError
   | PmError
   | AddError
   | WorkerError
@@ -340,6 +366,8 @@ export const ERROR_IDS = [
   "pjt.lock.version-mismatch",
   "pjt.git.not-a-repo",
   "pjt.git.command-failed",
+  "pjt.exec.command-failed",
+  "pjt.exec.command-not-permitted",
   "pjt.pm.not-detected",
   "pjt.pm.install-failed",
   "pjt.add.markers-missing",

@@ -1,0 +1,13 @@
+---
+title: pjt.exec.command-not-permitted
+slug: errors/pjt.exec.command-not-permitted
+description: A blueprint tried to run a command none of its exec permissions names.
+sidebar:
+  label: pjt.exec.command-not-permitted
+---
+
+**What**: A blueprint asked projitect to run a command that is not covered by any `exec` permission it declared. The command was not started.
+
+**Why**: Running commands is opt-in. An `exec` permission's `command` must match the full command line exactly, with no globbing, so `pnpm lint:fix` is not covered by a permission for `pnpm lint`. `read` and `write` permissions never grant command execution.
+
+**How to fix**: Add `{ kind: "exec", command: "<the exact command line>" }` to the blueprint's `permissions`, or change the blueprint to run a command it already declares.
