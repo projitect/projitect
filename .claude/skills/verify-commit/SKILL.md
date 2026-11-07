@@ -23,16 +23,16 @@ Run each as a separate call:
 
 ### 3. Check each commit
 
-| Check          | Pass condition                                                                                           |
-| -------------- | -------------------------------------------------------------------------------------------------------- |
-| Subject        | Conventional Commits (`type(scope): summary`), imperative                                                |
-| One concept    | The diff is explainable by the subject alone; unrelated changes belong in their own commit               |
-| Kanban suffix  | `[kanban #<id>]` present if a card drove the work; absent otherwise                                      |
-| Changeset      | If a published package changed, the branch has a `.changeset/<kebab>.md` with `"projitect": <bump>`      |
-| Bump level     | Matches [AGENTS.md → Versioning (lockstep)](../../AGENTS.md)                                             |
-| Signature      | `%G?` is `G` (good). `N` means unsigned — run `bash scripts/setup-signing.sh` and report it              |
-| Marketing site | User-facing changes touch the pages listed in [AGENTS.md → Marketing site coordination](../../AGENTS.md) |
-| No bypasses    | No `as any`, `@ts-ignore`, `.skip`, or deleted tests without replacement                                 |
+| Check          | Pass condition                                                                                              |
+| -------------- | ----------------------------------------------------------------------------------------------------------- |
+| Subject        | Conventional Commits (`type(scope): summary`), imperative                                                   |
+| One concept    | The diff is explainable by the subject alone; unrelated changes belong in their own commit                  |
+| Kanban suffix  | `[kanban #<id>]` present if a card drove the work; absent otherwise                                         |
+| Changeset      | If a published package changed, the branch has a `.changeset/<kebab>.md` with `"projitect": <bump>`         |
+| Bump level     | Matches [AGENTS.md → Versioning (lockstep)](../../../AGENTS.md)                                             |
+| Signature      | `%G?` is `G` (good). `N` means unsigned — run `bash scripts/setup-signing.sh` and report it                 |
+| Marketing site | User-facing changes touch the pages listed in [AGENTS.md → Marketing site coordination](../../../AGENTS.md) |
+| No bypasses    | No `as any`, `@ts-ignore`, `.skip`, or deleted tests without replacement                                    |
 
 ### 4. Run the gate
 

@@ -5,7 +5,7 @@ description: Add a new projitect error end to end — a Schema.TaggedError in pa
 
 # new-error-code
 
-Follows [AGENTS.md → Error catalog](../../AGENTS.md). Ask for (or derive) the id
+Follows [AGENTS.md → Error catalog](../../../AGENTS.md). Ask for (or derive) the id
 `pjt.<subsystem>.<kebab-case>` and the payload fields first. Example below: `pjt.cache.stale` /
 `CacheStale`.
 
@@ -63,7 +63,7 @@ Then link it from the matching section of `apps/website/src/content/docs/errors/
 ### 5. Handle it with `Match`, no casts
 
 Where the error is consumed, use `Match.valueTags` / `Match.tag` + `Match.exhaustive` (see
-[AGENTS.md → Match over if/else](../../AGENTS.md)), never `as` casts. Raise it with
+[AGENTS.md → Match over if/else](../../../AGENTS.md)), never `as` casts. Raise it with
 `yield* new CacheStale({ ... })` — do not wrap in `Effect.fail`.
 
 ### 6. Verify

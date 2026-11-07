@@ -15,7 +15,7 @@ must be conventional, e.g. `fix(deps): update dependency sharp (#35)`.
 - `git status` is clean. If not, commit first with [create-commit](../create-commit/SKILL.md).
 - You are on a feature branch, not `main`. If on `main`, ask the user for a branch name first.
 - A change to a published package has its `.changeset/<kebab>.md` (frontmatter `"projitect": <bump>`; see
-  [AGENTS.md → Versioning (lockstep)](../../AGENTS.md)). Kanban-bundle, `.claude/` and website-only changes do not need one.
+  [AGENTS.md → Versioning (lockstep)](../../../AGENTS.md)). Kanban-bundle, `.claude/` and website-only changes do not need one.
 - Docs are in the same PR as the code (no "docs follow-up" PRs).
 
 ### 2. Gate
@@ -45,7 +45,9 @@ gh pr create --title "feat(scope): summary" --body-file <path>
 Never a heredoc. Append the attribution line from the session's instructions to the body if one is given.
 Include `[kanban #<id>]` in the title only when a card is involved.
 
-### 5. Stop
+### 5. Merging
 
-Report the PR URL. Do **not** run `gh pr merge` — merging is gated and belongs to the human. When merged
-it is a merge commit, never a squash.
+Report the PR URL. Merge only when the user or session has explicitly authorized it, the PR has been
+reviewed, and CI is green on the current head commit. `gh pr merge` is a gated command, so expect a
+prompt. Without that authorization, stop here and leave the merge to the human. Always merge with a merge
+commit (`gh pr merge --merge`), never a squash.

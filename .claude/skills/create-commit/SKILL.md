@@ -6,7 +6,7 @@ description: Stage and commit the current changes the projitect way — one conc
 # create-commit
 
 Turns the working tree into one or more cohesive, signed commits. The rules come from
-[AGENTS.md → Commits and PRs](../../AGENTS.md).
+[AGENTS.md → Commits and PRs](../../../AGENTS.md).
 
 ## Steps
 
@@ -35,7 +35,7 @@ AGENTS.md; `apps/website` and `.claude/` do not count), the PR needs a hand-writ
 <one-sentence headline>
 ```
 
-Pick the bump from [AGENTS.md → Versioning (lockstep)](../../AGENTS.md): breaking → major, new public
+Pick the bump from [AGENTS.md → Versioning (lockstep)](../../../AGENTS.md): breaking → major, new public
 feature → minor, fix/refactor/doc-only → patch. When in doubt, pick the higher one. Commit the changeset
 with the change it describes, or as its own `chore` commit.
 
