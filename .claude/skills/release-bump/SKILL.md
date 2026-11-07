@@ -7,7 +7,7 @@ description: Cut a projitect release. Reads the diff since the last release, sug
 
 This skill walks the user through cutting a projitect release. It assumes all code + docs
 changes for the release have already been committed; the marketing site is already in sync (per
-the **continuous obligation** in [AGENTS.md](../../AGENTS.md)).
+the **continuous obligation** in [AGENTS.md](../../../AGENTS.md)).
 
 ## When to invoke
 
@@ -42,7 +42,7 @@ ls .changeset/*.md | grep -v README | grep -v config
 ### 2. Pick the bump
 
 Read the diff and suggest a bump per the table in
-[AGENTS.md → Versioning (lockstep)](../../AGENTS.md):
+[AGENTS.md → Versioning (lockstep)](../../../AGENTS.md):
 
 | Change                                                                 | Bump  |
 | ---------------------------------------------------------------------- | ----- |
