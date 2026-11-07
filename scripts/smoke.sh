@@ -281,6 +281,26 @@ $BIN remodel > /dev/null
 $BIN inspect > /dev/null 2>&1 && pass "clean after owned-key repair" || fail "owned-key drift survived remodel"
 grep -q '"prepare": "husky"' package.json && pass "prepare restored to husky" || fail "prepare not restored"
 
+# Real commit-time behavior: install the generated devDependencies (the blueprint never installs
+# them) plus prettier (the project's own formatter), then commit through the husky 9 hook.
+# The hook has no executable bit; husky runs it through `sh`, so this proves that assumption.
+HUSKY_RANGE=$(sed -n 's/.*"husky": "\(\^[0-9][^"]*\)".*/\1/p' package.json | head -1)
+LINT_STAGED_RANGE=$(sed -n 's/.*"lint-staged": "\(\^[0-9][^"]*\)".*/\1/p' package.json | head -1)
+git add -A > /dev/null 2>&1
+git commit -q -m "chore: smoke baseline" > /dev/null 2>&1   # hooksPath not set yet, so no hook runs
+npm install --no-package-lock --no-save --silent "husky@${HUSKY_RANGE}" "lint-staged@${LINT_STAGED_RANGE}" prettier > /dev/null 2>&1
+npm run prepare --silent > /dev/null 2>&1
+[ "$(git config core.hooksPath)" = ".husky/_" ] && pass "husky prepare installed git hooks" || fail "husky did not set core.hooksPath"
+[ -x .husky/pre-commit ] && fail "hook unexpectedly executable" || pass "hook has no executable bit"
+printf '{ "broken": ' > bad.json
+git add bad.json
+git commit -q -m "chore: should be blocked" > /dev/null 2>&1 && fail "commit with broken json was not blocked" || pass "husky + lint-staged block a failing staged file"
+git rev-parse -q --verify HEAD~1 > /dev/null 2>&1 && fail "blocked commit landed" || pass "blocked commit left no new commit"
+printf '{ "broken": false }\n' > bad.json
+git add bad.json
+git commit -q -m "chore: now valid" > /dev/null 2>&1 && pass "commit succeeds once the staged file is fixed" || fail "commit with fixed file was blocked"
+git config --unset core.hooksPath   # keep the hook out of later sections
+
 echo "=== 5b2. markdownSection writes a fenced region into README.md ==="
 # Define a one-off markdownSection blueprint inline in .pjt.ts (avoids cross-file resolution).
 # The splice adds an import + a call line; the inline `const readmeIntro = ...` goes between
