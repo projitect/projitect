@@ -691,6 +691,25 @@ This is our soft sandbox: blueprints declare what they need (`{ kind: "write", g
 and `cli-internals` enforces the bounds at the Effect layer. A worker-process sandbox is a
 tracked follow-up; the interface is designed to swap transparently when we ship it.
 
+## Where the `pjt add` CLI code lives
+
+Blueprint args are in scope, and the interactive `pjt add` CLI (BACKLOG.md ARG and NPX epics)
+splits along the sandbox line:
+
+- **`@projitect/blueprint`** holds the pure definition and Schema contracts — `BlueprintDefinition`,
+  `defineBlueprint`, arg introspection — plus the platform-neutral pieces already there
+  (`spliceBlueprintFile`, `resolveSections`, `computeSplice`, `chooseSectionsInteractive`). It stays
+  free of `node:*` and platform `FileSystem` imports.
+- **`@projitect/cli-internals`** holds the Node-backed `runAddCli` and the shared I/O, `.pjt.ts`
+  splice, prompt and terminal code. Its package-root export (`runAddCli`) is the documented host
+  entrypoint; a blueprint package's bin shim imports it from there, so the shim depends on
+  `@projitect/cli-internals`.
+- **Dependency direction** runs from `cli-internals` to `@projitect/blueprint` and
+  `@projitect/core`, never the reverse, so there is no cycle. No new package is added.
+- **No Node-dependent subpath** (such as `@projitect/blueprint/cli`) is allowed in
+  `@projitect/blueprint`. The sandbox table and the lint bans for `packages/blueprint/**` and
+  `packages/blueprint-*/**` are unchanged.
+
 ## Region marker convention
 
 Region-owned file operations use comment-fenced markers. Two shapes:

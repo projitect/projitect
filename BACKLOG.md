@@ -298,14 +298,16 @@ Sequencing: Not before: ARG-3 (for NPX-4) and NPX-1 (for the later NPX stories).
 
 A blueprint package ships a bin so users can run `npx @org/blueprint-foo add`. The CLI selects a
 blueprint (if the package exports several), prompts for args (driven by ARG-3), validates, and
-splices into the user's `.pjt.ts`. The CLI implementation lives in `@projitect/blueprint` so it
-updates automatically when that dep bumps — packages get it "for free."
+splices into the user's `.pjt.ts`. The Node-backed CLI implementation lives in
+`@projitect/cli-internals`, behind its package-root host entrypoint, so it updates automatically
+when that dep bumps — packages get it "for free." Pure definition and Schema contracts stay in
+`@projitect/blueprint` (see "Where the `pjt add` CLI code lives" in AGENTS.md).
 
-### NPX-1 — Extract shared splice + prompt code into `@projitect/blueprint`
+### NPX-1 — Share the splice and prompt code between `pjt add` and the per-package CLI
 
 _As a maintainer, I want the `.pjt.ts` splice logic and the section/arg prompt logic shared between `pjt add` and the per-package CLI, so that there's one implementation, not two._
 
-- [ ] `edit-pjt` splice logic reachable from `@projitect/blueprint` (move it down, or factor a shared module both packages import) without breaking the blueprint-package sandbox import bans
+- [ ] The pure splice already lives in `@projitect/blueprint`; the remaining Node-backed I/O, splice and prompt code is one shared module in `@projitect/cli-internals`
 - [ ] `pjt add` (in cli-internals) refactored to call the shared code — no behavior change, smoke stays green
   > Depends on: (none, but unblocks NPX-2..6) · Size: L
 
@@ -313,7 +315,7 @@ _As a maintainer, I want the `.pjt.ts` splice logic and the section/arg prompt l
 
 _As an author, I want a one-call CLI driver I can point my package's bin at, so that I don't write CLI code by hand._
 
-- [ ] `runAddCli({ packageName, definitions })` exported from `@projitect/blueprint` (or `@projitect/blueprint/cli` subpath)
+- [ ] `runAddCli({ packageName, definitions })` exported from the `@projitect/cli-internals` package root
 - [ ] Resolves the user's project root + `.pjt.ts`; if absent, prints how to `pjt init` (see NPX-5)
 - [ ] Wired through `effect/unstable/cli` `Command.run` with the Node platform layers
   > Depends on: NPX-1 · Size: M
@@ -350,10 +352,10 @@ _As a user, I want the chosen blueprint + its args written into my `.pjt.ts`, so
 
 ### NPX-6 — Bin convention so packages get the CLI for free
 
-_As an author, I want a one-line bin that delegates to the shared CLI with my package's exports, so that I don't maintain CLI code and it auto-updates when `@projitect/blueprint` bumps._
+_As an author, I want a one-line bin that delegates to the shared CLI with my package's exports, so that I don't maintain CLI code and it auto-updates when `@projitect/cli-internals` bumps._
 
-- [ ] Documented bin shim that imports the package's definitions and calls `runAddCli`
-- [ ] The shim is tiny and stable; all logic lives in `@projitect/blueprint`
+- [ ] Documented bin shim that imports the package's definitions and calls `runAddCli` from `@projitect/cli-internals`
+- [ ] The shim is tiny and stable; all logic lives in `@projitect/cli-internals`
 - [ ] `@projitect/blueprint-gitignore` ships the bin as the canonical example (`npx @projitect/blueprint-gitignore add`)
 - [ ] Smoke: `npx`-style invocation against a temp project adds a section end-to-end
   > Depends on: NPX-2..5 · Size: M

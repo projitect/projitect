@@ -12,7 +12,7 @@ A map of the monorepo. [AGENTS.md](../AGENTS.md) holds the rules; see also [gett
 | `@projitect/blueprint-tsconfig`   | First-party blueprint: managed `tsconfig.json`.                                                       |
 | `@projitect/blueprint-vitest`     | First-party blueprint: managed Vitest config.                                                         |
 | `@projitect/blueprint-changesets` | First-party blueprint: managed Changesets config, scripts and devDependency.                          |
-| `@projitect/cli-internals`        | The engine — loader, planner, differ, applier, remover, commands, Node platform layer.                |
+| `@projitect/cli-internals`        | The engine — loader, planner, differ, applier, remover, commands, Node platform layer, `runAddCli`.   |
 | `projitect`                       | Ships the `pjt` binary and `.pjt.ts` handling.                                                        |
 | `@projitect/test-kit`             | In-memory `BlueprintFileSystem` for unit tests.                                                       |
 | `apps/website`                    | Astro Starlight marketing/docs site. Private, not published.                                          |
@@ -41,4 +41,4 @@ Details: [File ownership modes](../AGENTS.md#file-ownership-modes) and [Region m
 
 ## Soft sandbox
 
-Blueprints never touch the disk directly. They use `BlueprintFileSystem`, which `cli-internals` gates by the `Permission`s each blueprint declares. ESLint backs this up with import bans: blueprint packages cannot import `@effect/platform`'s `FileSystem` or any `node:*`; `core` and `test-kit` cannot import `node:*`. See [Blueprint authoring rules](../AGENTS.md#blueprint-authoring-rules) and [ESLint absorbs Prettier](../AGENTS.md#eslint-absorbs-prettier).
+Blueprints never touch the disk directly. They use `BlueprintFileSystem`, which `cli-internals` gates by the `Permission`s each blueprint declares. ESLint backs this up with import bans: blueprint packages cannot import `@effect/platform`'s `FileSystem` or any `node:*`; `core` and `test-kit` cannot import `node:*`. Node-backed `pjt add` code lives in `cli-internals`, not in blueprint packages; see [Where the `pjt add` CLI code lives](../AGENTS.md#where-the-pjt-add-cli-code-lives). See [Blueprint authoring rules](../AGENTS.md#blueprint-authoring-rules) and [ESLint absorbs Prettier](../AGENTS.md#eslint-absorbs-prettier).
