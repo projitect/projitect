@@ -11,9 +11,9 @@
     "check:examples": "tsc --noEmit -p tsconfig.examples.json && node ./scripts/check-workflows.mjs"
   },
   "dependencies": {
-    "@astrojs/mdx": "5.0.6",
-    "@astrojs/starlight": "0.39.3",
-    "astro": "6.4.6",
+    "@astrojs/mdx": "8.1.3",
+    "@astrojs/starlight": "0.42.10",
+    "astro": "7.3.8",
     "sharp": "0.35.5"
   },
   "devDependencies": {
