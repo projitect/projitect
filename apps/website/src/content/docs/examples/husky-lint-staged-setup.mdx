@@ -52,4 +52,5 @@ globs you no longer want from `package.json` by hand.
 - **No executable bit.** The hook is written without one. Husky 9 runs `.husky/pre-commit` through
   `sh`, so it does not need one, and the file has no `husky.sh` bootstrap line.
 - **Tools are yours to supply.** The blueprint declares the commands only. It does not run
-  `husky init`, install packages, or configure ESLint or Prettier; your project provides them.
+  `husky init`, install husky or lint-staged for you (it only declares them as devDependencies),
+  or configure ESLint or Prettier; your project provides them.

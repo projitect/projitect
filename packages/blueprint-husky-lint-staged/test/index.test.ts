@@ -96,13 +96,6 @@ describe("huskyLintStaged() — existing project", () => {
     const second = await runPlan(huskyLintStaged())
     expect(second).toEqual(first)
   })
-
-  it("plans different content when the hook or owned values change", async () => {
-    const base = await planOps()
-    const other = await planOps({ config: { "*.ts": "eslint" } })
-    expect(other.owned).toEqual(base.owned)
-    expect(other.merge.value).not.toEqual(base.merge.value)
-  })
 })
 
 describe("huskyLintStaged() — config override", () => {

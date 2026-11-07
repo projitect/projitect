@@ -267,6 +267,20 @@ grep -q '"lint-staged": {' package.json && pass "lint-staged field merged" || fa
 grep -q '"husky": "' package.json && pass "husky devDep merged" || fail "husky devDep missing"
 grep -q '"lint-staged": "\^' package.json && pass "lint-staged devDep merged" || fail "lint-staged devDep missing"
 
+# Drift: editing the owned hook is reported by inspect and repaired by remodel.
+echo "echo tampered" >> .husky/pre-commit
+$BIN inspect > /dev/null 2>&1 && fail "inspect missed hook edit" || pass "inspect reports hook drift"
+$BIN remodel > /dev/null
+$BIN inspect > /dev/null 2>&1 && pass "clean after hook repair" || fail "hook drift survived remodel"
+grep -q "tampered" .husky/pre-commit && fail "hook edit survived remodel" || pass "hook content restored"
+
+# Drift: editing an owned package.json key is reported and repaired the same way.
+sed -i 's/"prepare": "husky"/"prepare": "echo drifted"/' package.json
+$BIN inspect > /dev/null 2>&1 && fail "inspect missed prepare edit" || pass "inspect reports owned-key drift"
+$BIN remodel > /dev/null
+$BIN inspect > /dev/null 2>&1 && pass "clean after owned-key repair" || fail "owned-key drift survived remodel"
+grep -q '"prepare": "husky"' package.json && pass "prepare restored to husky" || fail "prepare not restored"
+
 echo "=== 5b2. markdownSection writes a fenced region into README.md ==="
 # Define a one-off markdownSection blueprint inline in .pjt.ts (avoids cross-file resolution).
 # The splice adds an import + a call line; the inline `const readmeIntro = ...` goes between
