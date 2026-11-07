@@ -33,6 +33,8 @@ export default tseslint.config(
       // Contributor tooling (kanban skill scripts), not published library source — see the
       // "Scope: contributor tooling" note in AGENTS.md. Not held to the library's strict rules.
       ".claude/**",
+      // Smoke-test tooling (shell + a throwaway npm registry), not shipped source.
+      "scripts/**",
       "prettier.config.js",
       "vitest.config.ts",
       "eslint.config.js",

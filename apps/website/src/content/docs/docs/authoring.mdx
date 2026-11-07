@@ -102,6 +102,8 @@ export const agentsVerification = (options: SnippetOptions = {}): Blueprint.Blue
 - **The `version` changes, the `id` does not.** Bump `version` whenever the content changes. After
   a package upgrade, `pjt inspect` reports the file as drifted and `pjt remodel` rewrites only the
   region that snippet owns.
+- **Read `version` from your `package.json`** (a JSON import) instead of a hand-edited constant, so
+  every release bump reaches `.pjt.lock` and `pjt inspect` can report `↑ upgrade <id> 1.0.0 → 1.1.0`.
 - **One region per snippet.** Two blueprints with the same `id` in one file fail with
   [`pjt.plan.conflict-region`](/errors/pjt.plan.conflict-region/).
 - **Expose the snippets as a blueprint set** so `pjt add <package> --section a,b` works:
