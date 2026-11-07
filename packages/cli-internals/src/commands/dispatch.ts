@@ -8,7 +8,7 @@ import { parseEnv, resolveConfig } from "../config-cascade.js"
 import { inspect, renderInspectJson } from "./inspect.js"
 import { InspectJsonSchemaUrl } from "./inspect-json.js"
 import { remodel } from "./remodel.js"
-import { build } from "./build.js"
+import { build, renderBuildResult } from "./build.js"
 import { init } from "./init.js"
 import { explain } from "./explain.js"
 import { add } from "./add.js"
@@ -248,30 +248,7 @@ const buildCmd = Command.make(
         yield* display(`${JSON.stringify(result, null, 2)}\n`)
         return
       }
-      const lines: string[] = []
-      if (result.wiped.length === 0 && result.remodel.written.length === 0) {
-        lines.push("Cancelled. No changes made.")
-      } else {
-        if (result.wiped.length > 0) {
-          lines.push(
-            `Wiped ${result.wiped.length} entr${result.wiped.length === 1 ? "y" : "ies"}:`,
-            ...result.wiped.map((p) => `  ${p}`),
-          )
-        }
-        if (result.remodel.written.length > 0) {
-          lines.push(
-            `Rebuilt ${result.remodel.written.length} file${result.remodel.written.length === 1 ? "" : "s"} from the plan:`,
-            ...result.remodel.written.map((p) => `  ${p}`),
-          )
-        }
-        if (result.remodel.ran.length > 0) {
-          lines.push(
-            `Ran ${result.remodel.ran.length} command${result.remodel.ran.length === 1 ? "" : "s"}:`,
-            ...result.remodel.ran.map((c) => `  ${c}`),
-          )
-        }
-      }
-      yield* display(`${lines.join("\n")}\n`)
+      yield* display(renderBuildResult(result))
     }),
 ).pipe(
   Command.withDescription(

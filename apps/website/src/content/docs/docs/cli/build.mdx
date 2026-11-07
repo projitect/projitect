@@ -11,12 +11,12 @@ pjt build --force [--force-dirty] [--yes] [--json]
 
 ## Required + optional flags
 
-| Flag            | Description                                                                                                          |
-| --------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `--force`       | **Required.** Without it, `pjt build` refuses to run. The wipe is too destructive to fire by accident.               |
-| `--force-dirty` | Allow wiping even when `git status --porcelain` shows uncommitted changes. Default is to refuse on a dirty tree.     |
-| `--yes`         | Skip the interactive confirmation prompt. Use this in scripts; otherwise the human at the keyboard confirms.         |
-| `--json`        | Print the result as `{ wiped, remodel }`. On failure, print `{ "error": { ... } }` with the error's `id` and fields. |
+| Flag            | Description                                                                                                                     |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `--force`       | **Required.** Without it, `pjt build` refuses to run. The wipe is too destructive to fire by accident.                          |
+| `--force-dirty` | Allow wiping even when `git status --porcelain` shows uncommitted changes. Default is to refuse on a dirty tree.                |
+| `--yes`         | Skip the interactive confirmation prompt. Use this in scripts; otherwise the human at the keyboard confirms.                    |
+| `--json`        | Print the result as `{ cancelled, wiped, remodel }`. On failure, print `{ "error": { ... } }` with the error's `id` and fields. |
 
 ## Post-apply commands
 

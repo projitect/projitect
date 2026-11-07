@@ -7,7 +7,7 @@ import { Effect, Exit } from "effect"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import { Errors, ProjitectConfig } from "@projitect/core"
 import type { ChangeSet, Permission } from "@projitect/core"
-import { build } from "../src/commands/build.js"
+import { build, renderBuildResult } from "../src/commands/build.js"
 import { explain } from "../src/commands/explain.js"
 import { inspect } from "../src/commands/inspect.js"
 import { remodel } from "../src/commands/remodel.js"
@@ -324,6 +324,29 @@ describe("remodel / build / inspect with Exec ops", () => {
     )
     expect(result.remodel.ran).toEqual(["fmt"])
     expect(calls).toEqual(["fmt"])
+  })
+
+  it("build reports a command-only run as a success, not a cancellation", async () => {
+    declare([{ id: "a", permissions: [exec("fmt")], operations: [execOp("a", "fmt")] }])
+    execFileSync("git", ["init", "-q"], { cwd })
+    const { calls, spawner } = fakeSpawner()
+    const result = await Effect.runPromise(
+      build({ config: config(), force: true, forceDirty: true, yes: true, spawner }),
+    )
+    expect(calls).toEqual(["fmt"])
+    expect(result).toMatchObject({ cancelled: false, wiped: [], remodel: { written: [] } })
+    const text = renderBuildResult(result)
+    expect(text).toContain("Ran 1 command:\n  fmt")
+    expect(text).not.toContain("Cancelled")
+  })
+
+  it("build renders a declined confirmation as a cancellation", () => {
+    const text = renderBuildResult({
+      cancelled: true,
+      wiped: [],
+      remodel: { written: [], removed: [], ran: [] },
+    })
+    expect(text).toBe("Cancelled. No changes made.\n")
   })
 
   it("inspect fails closed with the unsupported-operation error instead of reporting clean", async () => {
