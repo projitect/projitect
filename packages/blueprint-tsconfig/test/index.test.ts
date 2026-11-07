@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { Effect } from "effect"
+import { Effect, Schema } from "effect"
 import { makeInMemoryLayer } from "@projitect/test-kit"
 import { tsconfig } from "../src/index.js"
 
@@ -161,5 +161,41 @@ describe("tsconfig() — content shape", () => {
     expect(op.content.endsWith("\n")).toBe(true)
     const parsed: unknown = JSON.parse(op.content)
     expect(parsed).toBeTypeOf("object")
+  })
+})
+
+const ReferencesJson = Schema.Struct({
+  references: Schema.optional(Schema.Array(Schema.Struct({ path: Schema.String }))),
+})
+
+const referencesOf = async (blueprint: ReturnType<typeof tsconfig>) => {
+  const { json } = await planJson(blueprint)
+  return { json, decoded: Schema.decodeUnknownSync(ReferencesJson)(json) }
+}
+
+describe("tsconfig() — references", () => {
+  it("emits { path } entries in the given order with paths unchanged", async () => {
+    const { decoded } = await referencesOf(
+      tsconfig({ references: ["./packages/a", "./packages/b/tsconfig.json"] }),
+    )
+    expect(decoded.references).toEqual([
+      { path: "./packages/a" },
+      { path: "./packages/b/tsconfig.json" },
+    ])
+  })
+
+  it("omits references when the option is absent or empty", async () => {
+    const omitted = await referencesOf(tsconfig())
+    const empty = await referencesOf(tsconfig({ references: [] }))
+    expect("references" in omitted.json).toBe(false)
+    expect("references" in empty.json).toBe(false)
+  })
+
+  it("leaves compilerOptions, include and exclude unchanged", async () => {
+    const without = await planJson(tsconfig())
+    const withRefs = await planJson(tsconfig({ references: ["./a"] }))
+    expect(withRefs.json.compilerOptions).toEqual(without.json.compilerOptions)
+    expect(withRefs.json.include).toEqual(without.json.include)
+    expect(withRefs.json.exclude).toEqual(without.json.exclude)
   })
 })

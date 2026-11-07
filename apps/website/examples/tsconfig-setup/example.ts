@@ -5,7 +5,8 @@
  *
  * For project-specific overrides projitect's options can't model (e.g. `compilerOptions.paths`),
  * create a `tsconfig.local.json` that extends `tsconfig.json` and adds the override there.
- * The blueprint never touches files it doesn't own.
+ * The blueprint never touches files it doesn't own. Project `references` are the exception —
+ * TypeScript doesn't inherit them through `extends`, so pass them to `tsconfig({ references })`.
  */
 import { pjt } from "projitect/cli"
 import { gitignores } from "@projitect/blueprint-gitignore"
