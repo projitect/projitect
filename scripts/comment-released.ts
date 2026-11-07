@@ -170,14 +170,52 @@ const pick = (value: unknown, ...path: readonly string[]): unknown =>
     value,
   )
 
-const makeClient = (repository: string, token: string): GithubClient => {
+const COMMENTS_PAGE_SIZE = 100
+
+const bodiesOf = (value: unknown): readonly string[] =>
+  Array.isArray(value)
+    ? value.flatMap((comment: unknown) => {
+        const body = pick(comment, "body")
+        return typeof body === "string" ? [body] : []
+      })
+    : []
+
+const numbersOf = (value: unknown): readonly number[] =>
+  Array.isArray(value)
+    ? value.flatMap((item: unknown) => {
+        const number = pick(item, "number")
+        return typeof number === "number" ? [number] : []
+      })
+    : []
+
+/** Issue refs that live in this repository and are closed; cross-repo refs would hit the wrong issue. */
+export const sameRepoClosedIssues = (nodes: unknown, repository: string): readonly number[] =>
+  Array.isArray(nodes)
+    ? nodes.flatMap((node: unknown) => {
+        const number = pick(node, "number")
+        const state = pick(node, "state")
+        const origin = pick(node, "repository", "nameWithOwner")
+        return typeof number === "number" &&
+          state === "CLOSED" &&
+          typeof origin === "string" &&
+          origin.toLowerCase() === repository.toLowerCase()
+          ? [number]
+          : []
+      })
+    : []
+
+export const makeClient = (
+  repository: string,
+  token: string,
+  fetchImpl: typeof fetch = fetch,
+): GithubClient => {
   const headers = {
     Authorization: `Bearer ${token}`,
     Accept: "application/vnd.github+json",
     "X-GitHub-Api-Version": "2022-11-28",
   }
   const rest = async (path: string, init?: RequestInit): Promise<unknown> => {
-    const response = await fetch(`https://api.github.com/repos/${repository}${path}`, {
+    const response = await fetchImpl(`https://api.github.com/repos/${repository}${path}`, {
       ...init,
       headers,
     })
@@ -186,19 +224,8 @@ const makeClient = (repository: string, token: string): GithubClient => {
     }
     return response.json()
   }
-  const numbersOf = (value: unknown): readonly number[] =>
-    Array.isArray(value)
-      ? value.flatMap((item: unknown) =>
-          typeof item === "object" &&
-          item !== null &&
-          "number" in item &&
-          typeof item.number === "number"
-            ? [item.number]
-            : [],
-        )
-      : []
   const graphql = async (query: string, variables: Record<string, unknown>): Promise<unknown> => {
-    const response = await fetch("https://api.github.com/graphql", {
+    const response = await fetchImpl("https://api.github.com/graphql", {
       method: "POST",
       headers,
       body: JSON.stringify({ query, variables }),
@@ -207,6 +234,18 @@ const makeClient = (repository: string, token: string): GithubClient => {
       throw new Error(`GraphQL -> ${response.status}`)
     }
     return response.json()
+  }
+  // Walk every page so a marker past the first page is still found; any page error aborts the target.
+  const commentBodies = async (
+    target: number,
+    page: number,
+    seen: readonly string[],
+  ): Promise<readonly string[]> => {
+    const bodies = bodiesOf(
+      await rest(`/issues/${target}/comments?per_page=${COMMENTS_PAGE_SIZE}&page=${page}`),
+    )
+    const all = [...seen, ...bodies]
+    return bodies.length < COMMENTS_PAGE_SIZE ? all : commentBodies(target, page + 1, all)
   }
 
   return {
@@ -221,6 +260,10 @@ const makeClient = (repository: string, token: string): GithubClient => {
                 closingIssuesReferences(first: 20) {
                   nodes {
                     number
+                    state
+                    repository {
+                      nameWithOwner
+                    }
                   }
                 }
               }
@@ -229,23 +272,12 @@ const makeClient = (repository: string, token: string): GithubClient => {
         `,
         { owner, name, number: pullRequest },
       )
-      return numbersOf(
+      return sameRepoClosedIssues(
         pick(result, "data", "repository", "pullRequest", "closingIssuesReferences", "nodes"),
+        repository,
       )
     },
-    listComments: async (target) => {
-      const comments = await rest(`/issues/${target}/comments?per_page=100`)
-      return Array.isArray(comments)
-        ? comments.flatMap((comment: unknown) =>
-            typeof comment === "object" &&
-            comment !== null &&
-            "body" in comment &&
-            typeof comment.body === "string"
-              ? [comment.body]
-              : [],
-          )
-        : []
-    },
+    listComments: (target) => commentBodies(target, 1, []),
     postComment: async (target, body) => {
       await rest(`/issues/${target}/comments`, {
         method: "POST",
