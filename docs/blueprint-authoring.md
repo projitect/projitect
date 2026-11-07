@@ -1,6 +1,6 @@
 # Blueprint authoring
 
-Rules for blueprint packages: the soft sandbox, where the `pjt add` CLI code lives, how a published package declares itself to `pjt add`, region markers, ownership modes and the error catalog. See also [architecture](./architecture.md).
+Rules for blueprint packages: the sandbox, where the `pjt add` CLI code lives, how a published package declares itself to `pjt add`, region markers, ownership modes and the error catalog. See also [architecture](./architecture.md).
 
 ## Blueprint authoring rules
 
@@ -8,9 +8,13 @@ Packages under `packages/blueprint*/` **must not** import `FileSystem` from `@ef
 ESLint enforces this. Blueprints use the `BlueprintFileSystem` service from
 `@projitect/blueprint`, which wraps the real FS behind a `Permission`-gated interface.
 
-This is our soft sandbox: blueprints declare what they need (`{ kind: "write", glob: "..." }`)
-and `cli-internals` enforces the bounds at the Effect layer. A worker-process sandbox is a
-tracked follow-up; the interface is designed to swap transparently when we ship it.
+This is our sandbox: blueprints declare what they need (`{ kind: "write", glob: "..." }`) and
+`cli-internals` enforces the bounds. `.pjt.ts` and every blueprint's plan run in a child Node
+process started with Node's permission model (`packages/cli-internals/src/worker/`): read-only
+access to an allowlist computed by the parent, no child-process or worker permission, and every
+`BlueprintFileSystem` call marshalled to the parent over IPC. It is accident prevention, not
+hostile-code containment — Node's permission model can be bypassed, and network access is not
+restricted on Node 22.12–24. The docs must never claim more; see `concepts/sandbox.mdx`.
 
 **Versions come from the manifest.** A first-party blueprint reports its own installed package
 version: `import manifest from "../package.json" with { type: "json" }` and

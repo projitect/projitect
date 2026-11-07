@@ -10,9 +10,9 @@ A **blueprint** is one unit of project scaffolding. It declares:
 - A list of **permissions** (`read:<glob>`, `write:<glob>`, `exec:<command>`)
 - A **plan** Effect that produces a `ChangeSet`
 
-Blueprints are pure data plus an Effect. The CLI never runs them in a subprocess — it just calls
-`Effect.runPromise` on the plan, provides the permission-gated `BlueprintFileSystem`, and
-collects the resulting `ChangeSet`.
+Blueprints are pure data plus an Effect. The CLI runs `.pjt.ts` and each blueprint's plan in a
+sandboxed worker process, which provides the permission-gated `BlueprintFileSystem` and returns the
+resulting `ChangeSet`. See [the sandbox](/docs/concepts/sandbox/).
 
 ## Two shapes of `.pjt.ts`
 
