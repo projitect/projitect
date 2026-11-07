@@ -146,7 +146,7 @@ grep -q '"changeset": "changeset"' package.json && pass "changeset script merged
 grep -q '"version-packages": "changeset version"' package.json && pass "version-packages script merged" || fail "version-packages script missing"
 grep -q '"@changesets/cli"' package.json && pass "@changesets/cli devDep merged into package.json" || fail "@changesets/cli devDep not merged"
 
-echo "=== 5b4. skills package: add, upgrade (separate processes), drift, remove ==="
+echo "=== 5b5. skills package: add, upgrade (separate processes), drift, remove ==="
 # Two versions of a skill package, each packed into a real tarball with `npm pack`.
 make_skills_pkg() {
   local version="$1" dir="$SMOKE/pkgsrc-$1"
