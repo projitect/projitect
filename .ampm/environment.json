@@ -3,22 +3,18 @@
   "profiles": {
     "default": {
       "backends": ["docker"],
-      "docker": {
-        "dockerfile": ".ampm/Dockerfile",
-        "context": ".ampm"
-      },
-      "resources": {
-        "minimumMemoryMiB": 2048
-      },
+      "docker": { "dockerfile": ".ampm/Dockerfile", "context": ".ampm" },
+      "resources": { "minimumMemoryMiB": 2048 },
       "checks": [
         {
           "name": "node",
           "argv": ["node", "--version"],
-          "expectedExitCode": 0
+          "expectedExitCode": 0,
+          "provides": [{ "kind": "tool", "name": "node" }]
         },
         {
           "name": "pnpm",
-          "argv": ["pnpm", "--version"],
+          "argv": ["bash", "-c", "test \"$(pnpm --version)\" = \"10.33.4\""],
           "expectedExitCode": 0,
           "provides": [{ "kind": "tool", "name": "pnpm" }]
         }
