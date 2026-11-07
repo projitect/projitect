@@ -25,7 +25,7 @@ FAILED=0
 pass() { echo "  ✓ $1"; }
 fail() { echo "  ✗ $1"; FAILED=1; }
 
-cleanup() { [ -n "${REG_PID:-}" ] && kill "$REG_PID" 2>/dev/null; rm -rf "$SMOKE" "${REG:-}" "${E2E:-}"; }
+cleanup() { [ -n "${REG_PID:-}" ] && kill "$REG_PID" 2>/dev/null; rm -rf "$SMOKE" "${SMOKE}-tools" "${REG:-}" "${E2E:-}"; }
 trap cleanup EXIT
 
 cd "$SMOKE"
@@ -288,8 +288,14 @@ HUSKY_RANGE=$(sed -n 's/.*"husky": "\(\^[0-9][^"]*\)".*/\1/p' package.json | hea
 LINT_STAGED_RANGE=$(sed -n 's/.*"lint-staged": "\(\^[0-9][^"]*\)".*/\1/p' package.json | head -1)
 git add -A > /dev/null 2>&1
 git commit -q -m "chore: smoke baseline" > /dev/null 2>&1   # hooksPath not set yet, so no hook runs
-npm install --no-package-lock --no-save --silent "husky@${HUSKY_RANGE}" "lint-staged@${LINT_STAGED_RANGE}" prettier > /dev/null 2>&1
-npm run prepare --silent > /dev/null 2>&1
+# Install into a separate prefix: a --no-save install on top of the `file:` links above trips an
+# npm arborist crash on some npm versions. husky and the hook find the tools through PATH.
+TOOLS="${SMOKE}-tools"
+mkdir -p "$TOOLS"
+(cd "$TOOLS" && echo '{"private":true}' > package.json && npm install --no-package-lock "husky@${HUSKY_RANGE}" "lint-staged@${LINT_STAGED_RANGE}" prettier) || fail "installing husky, lint-staged and prettier failed"
+ORIGINAL_PATH="$PATH"
+export PATH="${TOOLS}/node_modules/.bin:${PATH}"
+npm run prepare --silent || fail "npm run prepare failed"
 [ "$(git config core.hooksPath)" = ".husky/_" ] && pass "husky prepare installed git hooks" || fail "husky did not set core.hooksPath"
 [ -x .husky/pre-commit ] && fail "hook unexpectedly executable" || pass "hook has no executable bit"
 printf '{ "broken": ' > bad.json
@@ -300,6 +306,7 @@ printf '{ "broken": false }\n' > bad.json
 git add bad.json
 git commit -q -m "chore: now valid" > /dev/null 2>&1 && pass "commit succeeds once the staged file is fixed" || fail "commit with fixed file was blocked"
 git config --unset core.hooksPath   # keep the hook out of later sections
+export PATH="$ORIGINAL_PATH"
 
 echo "=== 5b2. markdownSection writes a fenced region into README.md ==="
 # Define a one-off markdownSection blueprint inline in .pjt.ts (avoids cross-file resolution).
