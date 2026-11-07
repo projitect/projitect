@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import { Effect } from "effect"
 import { makeInMemoryLayer } from "@projitect/test-kit"
 import { vitest } from "../src/index.js"
+import manifest from "../package.json" with { type: "json" }
 
 /**
  * Unit tests for `@projitect/blueprint-vitest` — the composite blueprint that wires vitest into
@@ -129,5 +130,11 @@ describe("vitest() — jsdom environment", () => {
       throw new Error("expected owned op")
     }
     expect(owned.content).toContain('environment: "jsdom"')
+  })
+})
+
+describe("vitest() — version", () => {
+  it("reports the installed package manifest version", () => {
+    expect(vitest().version).toBe(manifest.version)
   })
 })

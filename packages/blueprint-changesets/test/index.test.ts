@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import { Effect, Schema } from "effect"
 import { makeInMemoryLayer } from "@projitect/test-kit"
 import { changesets } from "../src/index.js"
+import manifest from "../package.json" with { type: "json" }
 
 /**
  * Unit tests for `@projitect/blueprint-changesets` — the composite blueprint that wires Changesets
@@ -139,5 +140,11 @@ describe("changesets() — idempotence", () => {
     const first = await runPlan(changesets({ access: "public" }))
     const second = await runPlan(changesets({ access: "public" }))
     expect(second).toEqual(first)
+  })
+})
+
+describe("changesets() — version", () => {
+  it("reports the installed package manifest version", () => {
+    expect(changesets().version).toBe(manifest.version)
   })
 })

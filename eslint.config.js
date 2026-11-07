@@ -6,6 +6,7 @@ import eslintComments from "@eslint-community/eslint-plugin-eslint-comments/conf
 import vitestPlugin from "@vitest/eslint-plugin"
 import importPlugin from "eslint-plugin-import"
 import prettierRecommended from "eslint-plugin-prettier/recommended"
+import firstPartyVersionSelectors from "./scripts/first-party-version-selectors.json" with { type: "json" }
 
 /**
  * Flat ESLint config. Two notable structural choices, adapted from StoryCut and effect-clue:
@@ -295,6 +296,17 @@ export default tseslint.config(
         },
       ],
     },
+  },
+
+  // ===== First-party blueprints take their version from their own manifest =====
+  //
+  // A hardcoded `PACKAGE_VERSION = "0.0.0"` stays 0.0.0 across package upgrades, so `pjt inspect`
+  // can never report a versioned-template upgrade. Explicit `version` options (and the skills
+  // package's author-supplied version) are not literals, so they pass. The selectors live in
+  // JSON so `scripts/test/first-party-version-lint.test.ts` can prove they fire.
+  {
+    files: ["packages/blueprint-*/src/**"],
+    rules: { "no-restricted-syntax": ["error", ...firstPartyVersionSelectors] },
   },
 
   // ===== @projitect/core stays runtime-pure =====

@@ -104,6 +104,9 @@ export const agentsVerification = (options: SnippetOptions = {}): Blueprint.Blue
   region that snippet owns.
 - **Read `version` from your `package.json`** (a JSON import) instead of a hand-edited constant, so
   every release bump reaches `.pjt.lock` and `pjt inspect` can report `↑ upgrade <id> 1.0.0 → 1.1.0`.
+  Every first-party blueprint does this. Set `rootDir` to `.` and include `package.json` in your
+  `tsconfig.json`, so the build emits `dist/package.json` next to `dist/src/` and the import
+  resolves from source, from `dist` and from the packed tarball alike.
 - **One region per snippet.** Two blueprints with the same `id` in one file fail with
   [`pjt.plan.conflict-region`](/errors/pjt.plan.conflict-region/).
 - **Expose the snippets as a blueprint set** so `pjt add <package> --section a,b` works:
@@ -218,7 +221,7 @@ A blueprint package's `package.json`:
   "name": "@my-org/readme-blueprints",
   "version": "1.0.0",
   "type": "module",
-  "exports": { ".": "./dist/index.js" },
+  "exports": { ".": "./dist/src/index.js" },
   "peerDependencies": {
     "@projitect/blueprint": "^0.0.0",
     "@projitect/core": "^0.0.0",

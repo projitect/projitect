@@ -1,0 +1,10 @@
+[
+  {
+    "selector": "VariableDeclarator[id.name='PACKAGE_VERSION'] > Literal.init",
+    "message": "First-party blueprints take their version from their own manifest: `import manifest from \"../package.json\" with { type: \"json\" }` and `manifest.version`. A literal PACKAGE_VERSION never follows a release bump."
+  },
+  {
+    "selector": "Property[key.name='version'] > Literal.value[value='0.0.0']",
+    "message": "A literal `version: \"0.0.0\"` freezes the blueprint version across releases. Read the package manifest's version instead."
+  }
+]

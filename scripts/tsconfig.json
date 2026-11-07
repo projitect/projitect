@@ -6,6 +6,6 @@
     "tsBuildInfoFile": "./.tsbuildinfo",
     "types": ["node"]
   },
-  "include": ["**/*.ts"],
+  "include": ["**/*.ts", "first-party-version-selectors.json"],
   "exclude": ["dist", "node_modules"]
 }

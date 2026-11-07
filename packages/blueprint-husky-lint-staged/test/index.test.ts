@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import { Effect } from "effect"
 import { makeInMemoryLayer } from "@projitect/test-kit"
 import { huskyLintStaged } from "../src/index.js"
+import manifest from "../package.json" with { type: "json" }
 
 /**
  * Unit tests for `@projitect/blueprint-husky-lint-staged` — the composite blueprint that wires
@@ -106,5 +107,11 @@ describe("huskyLintStaged() — config override", () => {
       scripts: { prepare: "husky" },
       devDependencies: { husky: "^9.0.0", "lint-staged": "^16.0.0" },
     })
+  })
+})
+
+describe("huskyLintStaged() — version", () => {
+  it("reports the installed package manifest version", () => {
+    expect(huskyLintStaged().version).toBe(manifest.version)
   })
 })
