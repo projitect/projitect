@@ -12,6 +12,9 @@ import { dual } from "effect/Function"
  * - `Merge`  — deep-merge intent for a structured file (e.g. `package.json`)
  * - `Owned`  — single blueprint owns the whole file content
  * - `Seed`   — written once at first build; never enforced after
+ *
+ * `Exec` is not a file ownership mode: it names a post-apply command that `build` and `remodel`
+ * run in a final phase, after every file operation has succeeded.
  */
 export const RegionOp = Schema.TaggedStruct("Region", {
   ownerId: Schema.String,
@@ -52,7 +55,13 @@ export const SeedOp = Schema.TaggedStruct("Seed", {
   content: Schema.String,
 })
 
-export const Operation = Schema.Union([RegionOp, MergeOp, OwnedOp, SeedOp])
+export const ExecOp = Schema.TaggedStruct("Exec", {
+  ownerId: Schema.String,
+  /** The command line to run from the project root; it must be covered by an `exec` permission. */
+  command: Schema.String,
+})
+
+export const Operation = Schema.Union([RegionOp, MergeOp, OwnedOp, SeedOp, ExecOp])
 
 export const ChangeSet = Schema.Struct({
   operations: Schema.Array(Operation),
@@ -62,6 +71,7 @@ export type RegionOp = typeof RegionOp.Type
 export type MergeOp = typeof MergeOp.Type
 export type OwnedOp = typeof OwnedOp.Type
 export type SeedOp = typeof SeedOp.Type
+export type ExecOp = typeof ExecOp.Type
 export type Operation = typeof Operation.Type
 export type ChangeSet = typeof ChangeSet.Type
 

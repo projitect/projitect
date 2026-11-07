@@ -3,13 +3,17 @@ import path from "node:path"
 import { Effect } from "effect"
 import type { Terminal } from "effect"
 import { Prompt } from "effect/unstable/cli"
+import { StructX } from "@nunofyobiz/effect-extras"
 import { Errors } from "@projitect/core"
 import type { ProjitectConfig } from "@projitect/core"
 import { ensureGitRepo, gitStatus } from "../git.js"
+import type { ProcessSpawner } from "../platform/process-runner.js"
 import { remodel } from "./remodel.js"
 import type { RemodelResult } from "./remodel.js"
 
 export interface BuildResult {
+  /** True when the confirmation prompt was declined, so nothing was wiped, written or run. */
+  readonly cancelled: boolean
   readonly wiped: readonly string[]
   readonly remodel: RemodelResult
 }
@@ -50,6 +54,7 @@ export const build = (params: {
   readonly force: boolean
   readonly forceDirty: boolean
   readonly yes: boolean
+  readonly spawner?: ProcessSpawner
 }): Effect.Effect<BuildResult, BuildError, BuildRequirements> =>
   Effect.gen(function* () {
     if (!params.force) {
@@ -83,16 +88,51 @@ export const build = (params: {
       })
       if (!confirmed) {
         return {
+          cancelled: true,
           wiped: [],
-          remodel: { written: [], removed: [] },
+          remodel: { written: [], removed: [], ran: [] },
         }
       }
     }
 
     const wiped = yield* wipeTree(params.config.projectRoot)
-    const remodelResult = yield* remodel({ config: params.config })
-    return { wiped, remodel: remodelResult }
+    const remodelResult = yield* remodel({
+      config: params.config,
+      ...StructX.defined("spawner", params.spawner),
+    })
+    return { cancelled: false, wiped, remodel: remodelResult }
   })
+
+const count = (n: number, singular: string, plural: string): string =>
+  `${n} ${n === 1 ? singular : plural}`
+
+/**
+ * The human summary `pjt build` prints. Cancellation is the declined prompt, not "nothing
+ * happened": a build that only ran post-apply commands is a success and lists them.
+ */
+export const renderBuildResult = (result: BuildResult): string => {
+  const { cancelled, wiped, remodel: applied } = result
+  const lines = cancelled
+    ? ["Cancelled. No changes made."]
+    : [
+        ...(wiped.length > 0
+          ? [`Wiped ${count(wiped.length, "entry", "entries")}:`, ...wiped.map((p) => `  ${p}`)]
+          : []),
+        ...(applied.written.length > 0
+          ? [
+              `Rebuilt ${count(applied.written.length, "file", "files")} from the plan:`,
+              ...applied.written.map((p) => `  ${p}`),
+            ]
+          : []),
+        ...(applied.ran.length > 0
+          ? [
+              `Ran ${count(applied.ran.length, "command", "commands")}:`,
+              ...applied.ran.map((c) => `  ${c}`),
+            ]
+          : []),
+      ]
+  return `${lines.join("\n")}\n`
+}
 
 const wipeTree = (projectRoot: string): Effect.Effect<readonly string[], Errors.FsWriteFailed> =>
   Effect.tryPromise({

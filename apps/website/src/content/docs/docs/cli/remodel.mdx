@@ -4,7 +4,7 @@ description: Apply the blueprint plan to disk.
 ---
 
 ```bash
-pjt remodel
+pjt remodel [--json]
 ```
 
 Loads `.pjt.ts`, builds the project plan, and writes the resulting files. **Non-destructive**:
@@ -19,6 +19,18 @@ only touches files declared by blueprints.
 5. Writes the current blueprints' changes to disk.
 6. Removes orphaned regions / JSON keys / files for blueprints that left.
 7. Rewrites `.pjt.lock` to record the new state.
+8. Runs the blueprints' post-apply commands (see below).
+
+## Post-apply commands
+
+A blueprint's `ChangeSet` can carry `Exec` operations, each naming a command to run once the files are in place. They run in one final phase, only after every file operation, the removals and the lockfile write have succeeded. When a file operation fails, no command runs.
+
+- **Order.** Commands run one at a time in blueprint order, then in the order each `ChangeSet` lists them. The first command that fails stops the phase.
+- **Duplicates.** Blueprints that declare the same command string share one run, at its first position. Two blueprints declaring the same command is not a conflict.
+- **Permissions.** Every blueprint's `exec` permissions must name its command exactly. All commands are checked before the first one starts; an uncovered command fails with `pjt.exec.command-not-permitted` and nothing is started.
+- **Working directory.** Commands run from the project root, even for blueprints nested in a `directory(...)`.
+- **Not recorded.** The lockfile does not record commands, so they run again on every `pjt remodel`.
+- **Failure.** A command that exits non-zero, or cannot start, fails with `pjt.exec.command-failed`, carrying its exit code, stdout and stderr. Files written before the phase stay written.
 
 ## Output
 
@@ -28,6 +40,8 @@ Wrote 2 files:
   README.md
 Cleaned up 1 orphan:
   .gitignore
+Ran 1 command:
+  pnpm exec prettier --write .
 ```
 
 When everything's already in sync:
@@ -36,12 +50,18 @@ When everything's already in sync:
 Project already in sync. No changes written.
 ```
 
+## Flags
+
+| Flag     | Description                                                                                                                         |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `--json` | Print the result as `{ written, removed, ran }`. On failure, print `{ "error": { ... } }` with the error's `id` and fields instead. |
+
 ## Exit codes
 
 | Code    | Meaning                                                                                   |
 | ------- | ----------------------------------------------------------------------------------------- |
 | 0       | The project matches the blueprints, whether files were written or nothing needed writing. |
-| nonzero | A blueprint, plan or region error. The error id is printed; nothing else is touched.      |
+| nonzero | A blueprint, plan, region or command error. The error id is printed.                      |
 
 Running `pjt remodel` twice with no changes in between writes nothing the second time.
 
@@ -50,6 +70,8 @@ Running `pjt remodel` twice with no changes in between writes nothing the second
 - `pjt.plan.conflict-region` — two blueprints share the same `ownerId` in one file.
 - `pjt.plan.conflict-merge` — two blueprints claim the same JSON key.
 - `pjt.region.missing-end` — a managed region's end marker was deleted.
+- `pjt.exec.command-failed` — a post-apply command exited non-zero.
+- `pjt.exec.command-not-permitted` — a post-apply command is not named by the blueprint's `exec` permissions.
 
 Run `pjt explain <id>` for each.
 

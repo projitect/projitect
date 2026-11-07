@@ -1,4 +1,5 @@
 import { Effect } from "effect"
+import { StructX } from "@nunofyobiz/effect-extras"
 import type { Errors, PjtLock, ProjitectConfig } from "@projitect/core"
 import { loadBlueprintFile, isEffectTree } from "../loader.js"
 import type { BlueprintTree } from "../loader.js"
@@ -7,19 +8,27 @@ import { applyPlan } from "../applier.js"
 import { applyRemovals } from "../remover.js"
 import { makeRealLayer } from "../filesystem-impl.js"
 import { readLockfile, writeLockfile } from "../lockfile.js"
+import { runPostApply } from "../post-apply.js"
+import type { ProcessSpawner } from "../platform/process-runner.js"
 
 export interface RemodelResult {
   readonly written: readonly string[]
   readonly removed: readonly string[]
+  /** Post-apply commands that ran, deduplicated, in the order they ran. */
+  readonly ran: readonly string[]
 }
 
 /**
- * `pjt remodel` — load blueprints, build the plan, apply changes to disk, rewrite `.pjt.lock`.
+ * `pjt remodel` — load blueprints, build the plan, apply changes to disk, rewrite `.pjt.lock`,
+ * then run the blueprints' post-apply commands.
  * Non-destructive at the file-tree level: only touches files the plan covers (additions) and
- * files where a blueprint that previously had ownership left the tree (removals).
+ * files where a blueprint that previously had ownership left the tree (removals). Commands run
+ * only after every file operation and the lockfile write have succeeded. `spawner` replaces the
+ * real process spawner in tests.
  */
 export const remodel = (params: {
   readonly config: ProjitectConfig.ProjitectConfig
+  readonly spawner?: ProcessSpawner
 }): Effect.Effect<RemodelResult, Errors.ProjitectError> =>
   Effect.gen(function* () {
     const file = yield* loadBlueprintFile({
@@ -51,5 +60,11 @@ export const remodel = (params: {
     const nextLock: PjtLock.PjtLock = { version: 1, blueprints: byBlueprint }
     yield* writeLockfile({ projectRoot: params.config.projectRoot, lock: nextLock })
 
-    return { written, removed }
+    const ran = yield* runPostApply({
+      commands: plan.commands,
+      projectRoot: params.config.projectRoot,
+      ...StructX.defined("spawner", params.spawner),
+    })
+
+    return { written, removed, ran }
   })

@@ -25,6 +25,7 @@ A map of the monorepo. [AGENTS.md](../AGENTS.md) holds the rules; see also [gett
 2. **Planner** (`plan.ts`) asks each blueprint for its `ChangeSet`; two owners of one region is a `pjt.plan.conflict`.
 3. **Differ** (`differ.ts`) compares the plan with the files on disk. `pjt inspect` reports this drift.
 4. **Applier** (`applier.ts`) writes the changes.
+5. **Post-apply phase** (`post-apply.ts`) runs the `Exec` commands the planner split out of the file plan. It runs after every file operation succeeds, checks each command against its blueprint's `exec` permission before starting any, and `pjt inspect` refuses a project that has them.
 
 Alongside, `lockfile.ts` records what was applied and `remover.ts` removes orphans the lockfile no longer claims.
 

@@ -1,5 +1,6 @@
-import { Effect, Schema } from "effect"
-import type { Errors, PjtLock, ProjitectConfig } from "@projitect/core"
+import { Array, Effect, Schema } from "effect"
+import { Errors } from "@projitect/core"
+import type { PjtLock, ProjitectConfig } from "@projitect/core"
 import { loadBlueprintFile, isEffectTree } from "../loader.js"
 import type { BlueprintTree } from "../loader.js"
 import { buildPlan, diffLockfile } from "../plan.js"
@@ -55,6 +56,14 @@ export const inspect = (params: {
       tree,
       projectRoot: params.config.projectRoot,
     })
+    // Fail closed: commands cannot be diffed yet, so a clean report would be a false one.
+    if (Array.isReadonlyArrayNonEmpty(plan.commands)) {
+      return yield* new Errors.OperationUnsupportedOnInspect({
+        id: "pjt.inspect.operation-unsupported",
+        operation: "Exec",
+        message: `\`pjt inspect\` cannot check post-apply commands, and ${plan.commands.length === 1 ? "1 is" : `${plan.commands.length} are`} declared (first: \`${plan.commands[0].command}\`).`,
+      })
+    }
     const previous = yield* readLockfile({ projectRoot: params.config.projectRoot })
     const { removals, upgrades } = diffLockfile({ previous, current: byBlueprint })
     const diff = yield* diffPlan({ plan, projectRoot: params.config.projectRoot })

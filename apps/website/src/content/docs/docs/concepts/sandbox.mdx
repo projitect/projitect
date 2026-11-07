@@ -50,7 +50,4 @@ the way you'd treat any new npm dep — read the source before adding it.
 
 ## What about exec?
 
-A blueprint can declare `{ kind: "exec", command: "..." }` in its permissions, but the v0 FS
-doesn't run commands yet. Running them is planned as post-apply operations in a blueprint's
-ChangeSet, so the contract is in place before any blueprint can shell out. See the
-[roadmap](/docs/roadmap/).
+A blueprint declares `{ kind: "exec", command: "..." }` in its permissions to run a command. `pjt build` and `pjt remodel` run the commands in a final phase after every file operation, and only a command that a blueprint's `exec` permissions name exactly (the whole command string, no globs) is started. See [`pjt remodel`](/docs/cli/remodel/#post-apply-commands) for the ordering, deduplication and failure rules. Blueprint authors cannot declare commands from the SDK yet; see the [roadmap](/docs/roadmap/).

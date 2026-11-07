@@ -1,7 +1,7 @@
-import { Array, Data, Effect, Match, Option, Record, Schema, pipe } from "effect"
+import { Array, Data, Effect, Match, Option, Record, Result, Schema, pipe } from "effect"
 import { NonNullableX, PredicateX, RecordX, StructX } from "@nunofyobiz/effect-extras"
 import { ChangeSet, Errors, PjtLock } from "@projitect/core"
-import type { Blueprint } from "@projitect/core"
+import type { Blueprint, Permission } from "@projitect/core"
 import { isDirectoryBlueprint } from "@projitect/blueprint"
 import type { DirectoryBlueprint } from "@projitect/blueprint"
 import { makeRealLayer } from "./filesystem-impl.js"
@@ -34,9 +34,24 @@ export type MergePlanFile = Extract<FilePlan, { readonly _tag: "Merge" }>
 export type OwnedPlanFile = Extract<FilePlan, { readonly _tag: "Owned" }>
 export type SeedPlanFile = Extract<FilePlan, { readonly _tag: "Seed" }>
 
+/**
+ * A post-apply command declared by a blueprint's `Exec` op, with the declaring blueprint's
+ * permissions so the final phase can check it before anything starts. Listed in tree order, then
+ * op order; duplicates are kept here and collapsed when the phase runs.
+ */
+export interface PlannedCommand {
+  readonly ownerId: string
+  readonly command: string
+  readonly permissions: readonly Permission.Permission[]
+}
+
 export interface ProjectPlan {
   readonly files: readonly FilePlan[]
+  readonly commands: readonly PlannedCommand[]
 }
+
+/** Every operation that targets a file path; `Exec` is the one that does not. */
+type FileOperation = Exclude<ChangeSet.Operation, ChangeSet.ExecOp>
 
 /**
  * Per-blueprint lockfile entries, derived from the same ops that fed the plan. Written to
@@ -81,7 +96,8 @@ const flattenTree = (tree: RawTree, prefix: string): readonly FlatBlueprint[] =>
 const rebasePath = (prefix: string, p: string): string => (prefix ? `${prefix}/${p}` : p)
 
 const rebaseOp = (prefix: string, op: ChangeSet.Operation): ChangeSet.Operation => {
-  if (!prefix) {
+  // An Exec op has no path, and its command always runs from the project root.
+  if (!prefix || op._tag === "Exec") {
     return op
   }
   return {
@@ -99,8 +115,27 @@ const rebaseOp = (prefix: string, op: ChangeSet.Operation): ChangeSet.Operation 
 interface AttributedOp {
   readonly blueprintId: string
   readonly blueprintVersion: string
+  readonly permissions: readonly Permission.Permission[]
   readonly op: ChangeSet.Operation
 }
+
+interface AttributedFileOp extends AttributedOp {
+  readonly op: FileOperation
+}
+
+interface AttributedExecOp extends AttributedOp {
+  readonly op: ChangeSet.ExecOp
+}
+
+const asFileOp = (attributed: AttributedOp): Result.Result<AttributedFileOp, void> =>
+  attributed.op._tag === "Exec"
+    ? Result.failVoid
+    : Result.succeed({ ...attributed, op: attributed.op })
+
+const asExecOp = (attributed: AttributedOp): Result.Result<AttributedExecOp, void> =>
+  attributed.op._tag === "Exec"
+    ? Result.succeed({ ...attributed, op: attributed.op })
+    : Result.failVoid
 
 /**
  * Build the project plan by running every blueprint, collecting their ops, reducing them with
@@ -132,6 +167,7 @@ export const buildPlan = (params: {
             (op): AttributedOp => ({
               blueprintId: blueprint.id,
               blueprintVersion: blueprint.version,
+              permissions: blueprint.permissions,
               op: rebaseOp(directoryPrefix, op),
             }),
           ),
@@ -139,9 +175,19 @@ export const buildPlan = (params: {
       ),
     ).pipe(Effect.map(Array.flatten))
 
-    const plan = yield* reduceOps(Array.map(attributed, (a) => a.op))
-    const byBlueprint = groupByBlueprint(attributed)
-    return { plan, byBlueprint }
+    const fileOps = Array.filterMap(attributed, asFileOp)
+    const files = yield* reduceOps(Array.map(fileOps, (a) => a.op))
+    const commands = Array.map(
+      Array.filterMap(attributed, asExecOp),
+      (a): PlannedCommand => ({
+        ownerId: a.op.ownerId,
+        command: a.op.command,
+        permissions: a.permissions,
+      }),
+    )
+    // Exec ops are not recorded in the lockfile: commands re-run on every remodel.
+    const byBlueprint = groupByBlueprint(fileOps)
+    return { plan: { files: files.files, commands }, byBlueprint }
   })
 }
 
@@ -206,7 +252,7 @@ const droppedOwnedOps = (
     (op) => op._tag === "Owned" && !Array.some(live.operations, (l) => l.path === op.path),
   )
 
-const groupByBlueprint = (attributed: readonly AttributedOp[]): ByBlueprint =>
+const groupByBlueprint = (attributed: readonly AttributedFileOp[]): ByBlueprint =>
   Record.map(
     Array.groupBy(attributed, (a) => a.blueprintId),
     (group): PjtLock.BlueprintLockEntry => ({
@@ -215,7 +261,7 @@ const groupByBlueprint = (attributed: readonly AttributedOp[]): ByBlueprint =>
     }),
   )
 
-const toLockOp = (op: ChangeSet.Operation): PjtLock.LockOperation =>
+const toLockOp = (op: FileOperation): PjtLock.LockOperation =>
   Match.valueTags(op, {
     Region: (region) =>
       PjtLock.LockRegionOp.make({
@@ -243,13 +289,13 @@ const toLockOp = (op: ChangeSet.Operation): PjtLock.LockOperation =>
 // ---------------------------------------------------------------------------
 
 const reduceOps = (
-  ops: readonly ChangeSet.Operation[],
-): Effect.Effect<ProjectPlan, Errors.PlanError> =>
+  ops: readonly FileOperation[],
+): Effect.Effect<Pick<ProjectPlan, "files">, Errors.PlanError> =>
   pipe(
     Array.groupBy(ops, (op) => op.path),
     Record.toEntries,
     Effect.forEach(([path, group]) => reduceGroup(path, group)),
-    Effect.map((files): ProjectPlan => ({ files })),
+    Effect.map((files) => ({ files })),
   )
 
 /**
@@ -258,7 +304,7 @@ const reduceOps = (
  */
 const reduceGroup = (
   path: string,
-  group: Array.NonEmptyReadonlyArray<ChangeSet.Operation>,
+  group: Array.NonEmptyReadonlyArray<FileOperation>,
 ): Effect.Effect<FilePlan, Errors.PlanError> => {
   const head = Array.headNonEmpty(group)
   return Array.findFirst(group, (op) => op._tag !== head._tag).pipe(

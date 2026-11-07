@@ -21,7 +21,8 @@ const mk = (options: Overrides & Pick<Parameters<typeof skills>[0], "skills">) =
 
 const planOps = (blueprint: ReturnType<typeof skills>) =>
   Effect.runPromise(blueprint.plan.pipe(Effect.provide(makeInMemoryLayer({})))).then(
-    (changeSet) => changeSet.operations,
+    // Skills only plan file operations; narrowing out `Exec` gives every op a `path`.
+    (changeSet) => changeSet.operations.filter((op) => op._tag !== "Exec"),
   )
 
 const planError = (blueprint: ReturnType<typeof skills>) =>
