@@ -35,6 +35,14 @@ This is a **pnpm monorepo**. `packages/*` and `apps/*` are the workspaces:
 All published packages (everything above except `apps/website`) version in **lockstep** via
 changesets — one shared version, matching Effect v4's own release model.
 
+## Contributor docs
+
+Short orientation pages that summarize and link back here:
+
+- [Getting started](docs/getting-started.md) — clone to a green `pnpm check-all`.
+- [Architecture](docs/architecture.md) — packages, the loader → planner → differ → applier pipeline, ownership modes, the soft sandbox.
+- [Publishing](docs/publishing.md) — changesets, lockstep versioning, the release workflow.
+
 ## Package manager
 
 **pnpm only.** Never npm, never yarn, never bun in this repo. The lockfile is `pnpm-lock.yaml`.

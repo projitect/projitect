@@ -1,0 +1,44 @@
+# Architecture
+
+A map of the monorepo. [AGENTS.md](../AGENTS.md) holds the rules; see also [getting started](./getting-started.md) and [publishing](./publishing.md).
+
+## Packages
+
+| Package                           | Role                                                                                                  |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `@projitect/core`                 | Shared contracts — `Blueprint`, `ChangeSet`, `Permission`, errors. Runtime-pure, no `node:*`.         |
+| `@projitect/blueprint`            | Authoring SDK — `regionFile`, `jsonMerge`, `ownFile`, `seedFile`, `directory`, `BlueprintFileSystem`. |
+| `@projitect/blueprint-gitignore`  | First-party blueprint: composable `.gitignore` sections.                                              |
+| `@projitect/blueprint-tsconfig`   | First-party blueprint: managed `tsconfig.json`.                                                       |
+| `@projitect/blueprint-vitest`     | First-party blueprint: managed Vitest config.                                                         |
+| `@projitect/blueprint-changesets` | First-party blueprint: managed Changesets config, scripts and devDependency.                          |
+| `@projitect/cli-internals`        | The engine — loader, planner, differ, applier, remover, commands, Node platform layer.                |
+| `projitect`                       | Ships the `pjt` binary and `.pjt.ts` handling.                                                        |
+| `@projitect/test-kit`             | In-memory `BlueprintFileSystem` for unit tests.                                                       |
+| `apps/website`                    | Astro Starlight marketing/docs site. Private, not published.                                          |
+
+## Pipeline
+
+`pjt build` and `pjt remodel` turn a project's `.pjt.ts` into file changes. The stages live in `packages/cli-internals/src`:
+
+1. **Loader** (`loader.ts`) reads `.pjt.ts` and yields the declared blueprints.
+2. **Planner** (`plan.ts`) asks each blueprint for its `ChangeSet`; two owners of one region is a `pjt.plan.conflict`.
+3. **Differ** (`differ.ts`) compares the plan with the files on disk. `pjt inspect` reports this drift.
+4. **Applier** (`applier.ts`) writes the changes.
+
+Alongside, `lockfile.ts` records what was applied and `remover.ts` removes orphans the lockfile no longer claims.
+
+## Ownership modes
+
+| Mode     | Meaning                                                         |
+| -------- | --------------------------------------------------------------- |
+| `region` | Text file shared by several blueprints, each in a fenced region |
+| `merge`  | Structured JSON; the blueprint owns specific keys               |
+| `owned`  | Generated file owned wholly by one blueprint                    |
+| `seed`   | Write-once, never enforced afterwards                           |
+
+Details: [File ownership modes](../AGENTS.md#file-ownership-modes) and [Region marker convention](../AGENTS.md#region-marker-convention).
+
+## Soft sandbox
+
+Blueprints never touch the disk directly. They use `BlueprintFileSystem`, which `cli-internals` gates by the `Permission`s each blueprint declares. ESLint backs this up with import bans: blueprint packages cannot import `@effect/platform`'s `FileSystem` or any `node:*`; `core` and `test-kit` cannot import `node:*`. See [Blueprint authoring rules](../AGENTS.md#blueprint-authoring-rules) and [ESLint absorbs Prettier](../AGENTS.md#eslint-absorbs-prettier).
