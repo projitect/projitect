@@ -43,7 +43,7 @@ changesets — one shared version, matching Effect v4's own release model.
 Short orientation pages that summarize and link back here:
 
 - [Getting started](docs/getting-started.md) — clone to a green `pnpm check-all`.
-- [Architecture](docs/architecture.md) — packages, the loader → planner → differ → applier pipeline, ownership modes, the soft sandbox.
+- [Architecture](docs/architecture.md) — packages, the loader → planner → differ → applier pipeline, ownership modes, the sandbox.
 - [Publishing](docs/publishing.md) — changesets, lockstep versioning, the release workflow.
 
 ## Package manager
@@ -155,7 +155,7 @@ One tool, one config, one command. Adapted from StoryCut's and effect-clue's fla
 - `eslint-plugin-package-json` validates every `package.json` in the monorepo: required fields, npm-standard property order, alphabetized dependencies. Catches "would-publish-but-broken" mistakes alongside the `publish-dry-run` CI job.
 - Filenames are kebab-case (`unicorn/filename-case`) — uniformly, now that the PascalCase `*X` utility modules live in the external `@nunofyobiz/effect-extras` rather than in this repo.
 
-Per-package sandbox enforcement at lint time (the "soft" half of the soft sandbox):
+Per-package sandbox enforcement at lint time (the lint-time half of the sandbox):
 
 | Files                                              | Banned imports                                                                                          |
 | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
@@ -694,9 +694,13 @@ Packages under `packages/blueprint*/` **must not** import `FileSystem` from `@ef
 ESLint enforces this. Blueprints use the `BlueprintFileSystem` service from
 `@projitect/blueprint`, which wraps the real FS behind a `Permission`-gated interface.
 
-This is our soft sandbox: blueprints declare what they need (`{ kind: "write", glob: "..." }`)
-and `cli-internals` enforces the bounds at the Effect layer. A worker-process sandbox is a
-tracked follow-up; the interface is designed to swap transparently when we ship it.
+This is our sandbox: blueprints declare what they need (`{ kind: "write", glob: "..." }`) and
+`cli-internals` enforces the bounds. `.pjt.ts` and every blueprint's plan run in a child Node
+process started with Node's permission model (`packages/cli-internals/src/worker/`): read-only
+access to an allowlist computed by the parent, no child-process or worker permission, and every
+`BlueprintFileSystem` call marshalled to the parent over IPC. It is accident prevention, not
+hostile-code containment — Node's permission model can be bypassed, and network access is not
+restricted on Node 22.12–24. The docs must never claim more; see `concepts/sandbox.mdx`.
 
 ## Where the `pjt add` CLI code lives
 

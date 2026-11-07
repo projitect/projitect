@@ -7,20 +7,19 @@ import { isPermitted } from "./permissions.js"
 import type { FsOp } from "./permissions.js"
 
 /**
- * Build the permission-gated `BlueprintFileSystem` Layer for one blueprint. The CLI provides a
- * fresh layer per blueprint, baking in that blueprint's `id` and declared `permissions`. All FS
- * paths get resolved relative to `projectRoot`; absolute paths or paths escaping `projectRoot`
- * are rejected with `pjt.fs.permission-denied`.
+ * Build the permission-gated `BlueprintFileSystem` shape for one blueprint. The CLI builds a fresh
+ * one per blueprint, baking in that blueprint's `id` and declared `permissions`. All FS paths get
+ * resolved relative to `projectRoot`; absolute paths or paths escaping `projectRoot` are rejected
+ * with `pjt.fs.permission-denied`.
  *
- * This is the **soft sandbox**. A worker-process replacement is a tracked v2 follow-up; this
- * implementation enforces the same interface so the swap will be transparent to blueprint
- * authors.
+ * It runs in the CLI process: the confined worker that executes blueprint code reaches it only
+ * through the IPC server (`ipc/server.ts`), one gate per blueprint.
  */
-export const makeRealLayer = (config: {
+export const makeRealShape = (config: {
   readonly blueprintId: string
   readonly permissions: readonly Permission.Permission[]
   readonly projectRoot: string
-}): Layer.Layer<BlueprintFileSystem> => {
+}): BlueprintFileSystemShape => {
   const { blueprintId, permissions, projectRoot } = config
   const resolved = path.resolve(projectRoot)
 
@@ -188,5 +187,10 @@ export const makeRealLayer = (config: {
       ),
   }
 
-  return Layer.succeed(BlueprintFileSystem, shape)
+  return shape
 }
+
+/** The same gated shape, provided as a `BlueprintFileSystem` Layer. */
+export const makeRealLayer = (
+  config: Parameters<typeof makeRealShape>[0],
+): Layer.Layer<BlueprintFileSystem> => Layer.succeed(BlueprintFileSystem, makeRealShape(config))

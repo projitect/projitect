@@ -1,10 +1,8 @@
 import { Array, Data, Effect, Match, Option, Record, Result, Schema, pipe } from "effect"
 import { NonNullableX, PredicateX, RecordX, StructX } from "@nunofyobiz/effect-extras"
 import { ChangeSet, Errors, PjtLock } from "@projitect/core"
-import type { Blueprint, Permission } from "@projitect/core"
-import { isDirectoryBlueprint } from "@projitect/blueprint"
-import type { DirectoryBlueprint } from "@projitect/blueprint"
-import { makeRealLayer } from "./filesystem-impl.js"
+import type { Permission } from "@projitect/core"
+import type { PlannedBlueprint } from "./worker/protocol.js"
 
 // ---------------------------------------------------------------------------
 // File-level plan shape (after reducing all blueprints' ChangeSets per path)
@@ -71,26 +69,8 @@ export interface UpgradeRecord {
 }
 
 // ---------------------------------------------------------------------------
-// Flatten the tree (directory wrapping, sequence implicit via array order)
-// ---------------------------------------------------------------------------
-
-type RawTree = readonly (Blueprint.Blueprint | DirectoryBlueprint)[]
-
-interface FlatBlueprint {
-  readonly blueprint: Blueprint.Blueprint
-  readonly directoryPrefix: string
-}
-
-const flattenTree = (tree: RawTree, prefix: string): readonly FlatBlueprint[] =>
-  Array.flatMap(tree, (node) =>
-    isDirectoryBlueprint(node)
-      ? flattenTree(node.children, prefix === "" ? node.name : `${prefix}/${node.name}`)
-      : [{ blueprint: node, directoryPrefix: prefix }],
-  )
-
-// ---------------------------------------------------------------------------
-// Run each blueprint's plan Effect with its own permission-gated FS layer,
-// collect operations, and reduce them into a ProjectPlan + per-blueprint lockfile entries
+// Collect each blueprint's planned operations (computed in the confined worker), reduce them into a
+// ProjectPlan + per-blueprint lockfile entries
 // ---------------------------------------------------------------------------
 
 const rebasePath = (prefix: string, p: string): string => (prefix ? `${prefix}/${p}` : p)
@@ -138,42 +118,29 @@ const asExecOp = (attributed: AttributedOp): Result.Result<AttributedExecOp, voi
     : Result.failVoid
 
 /**
- * Build the project plan by running every blueprint, collecting their ops, reducing them with
- * conflict detection, and producing the per-blueprint lockfile entries.
+ * Build the project plan from what every blueprint planned, reducing the ops with conflict
+ * detection and producing the per-blueprint lockfile entries.
  */
 export const buildPlan = (params: {
-  readonly tree: RawTree
-  readonly projectRoot: string
+  readonly planned: readonly PlannedBlueprint[]
 }): Effect.Effect<
   { readonly plan: ProjectPlan; readonly byBlueprint: ByBlueprint },
-  Errors.ProjitectError
-> => {
-  const { tree, projectRoot } = params
-  const flat = flattenTree(tree, "")
-
-  return Effect.gen(function* () {
-    const attributed = yield* Effect.forEach(flat, ({ blueprint, directoryPrefix }) =>
-      blueprint.plan.pipe(
-        Effect.provide(
-          makeRealLayer({
-            blueprintId: blueprint.id,
-            permissions: blueprint.permissions,
-            projectRoot,
+  Errors.PlanError
+> =>
+  Effect.gen(function* () {
+    const attributed = Array.flatMap(
+      params.planned,
+      ({ id, version, permissions, directoryPrefix, changeSet }) =>
+        Array.map(
+          changeSet.operations,
+          (op): AttributedOp => ({
+            blueprintId: id,
+            blueprintVersion: version,
+            permissions,
+            op: rebaseOp(directoryPrefix, op),
           }),
         ),
-        Effect.map((changeSet) =>
-          Array.map(
-            changeSet.operations,
-            (op): AttributedOp => ({
-              blueprintId: blueprint.id,
-              blueprintVersion: blueprint.version,
-              permissions: blueprint.permissions,
-              op: rebaseOp(directoryPrefix, op),
-            }),
-          ),
-        ),
-      ),
-    ).pipe(Effect.map(Array.flatten))
+    )
 
     const fileOps = Array.filterMap(attributed, asFileOp)
     const files = yield* reduceOps(Array.map(fileOps, (a) => a.op))
@@ -189,7 +156,6 @@ export const buildPlan = (params: {
     const byBlueprint = groupByBlueprint(fileOps)
     return { plan: { files: files.files, commands }, byBlueprint }
   })
-}
 
 /**
  * Diff the previous lockfile against the current blueprint set. Returns:

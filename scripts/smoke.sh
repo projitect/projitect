@@ -153,7 +153,7 @@ make_skills_pkg() {
   local version="$1" dir="$SMOKE/pkgsrc-$1"
   mkdir -p "$dir"
   cat > "$dir/package.json" <<EOF
-{ "name": "acme-skills", "version": "$version", "type": "module", "main": "index.mjs" }
+{ "name": "acme-skills", "version": "$version", "type": "module", "main": "index.mjs", "dependencies": { "@projitect/blueprint-skills": "*" } }
 EOF
   local skill_md run_sh extra
   if [ "$version" = "1.0.0" ]; then
@@ -460,6 +460,7 @@ make_acme_skills() { # <version>
   [ "$1" = "1.1.0" ] && { skill_md='# v2\n'; extra='"assets/img/new.txt": "new\n"'; }
   cat > "$dir/package.json" <<EOF
 { "name": "@acme/skills", "version": "$1", "type": "module", "main": "index.mjs",
+  "dependencies": { "@projitect/blueprint-skills": "*" },
   "projitect": { "type": "blueprint", "import": "import { acmeSkills } from \"@acme/skills\"", "call": "acmeSkills" } }
 EOF
   cat > "$dir/index.mjs" <<EOF
