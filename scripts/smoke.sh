@@ -25,7 +25,7 @@ FAILED=0
 pass() { echo "  ✓ $1"; }
 fail() { echo "  ✗ $1"; FAILED=1; }
 
-cleanup() { [ -n "${REG_PID:-}" ] && kill "$REG_PID" 2>/dev/null; rm -rf "$SMOKE" "${SMOKE}-tools" "${REG:-}" "${E2E:-}"; }
+cleanup() { [ -n "${REG_PID:-}" ] && kill "$REG_PID" 2>/dev/null; rm -rf "$SMOKE" "${SMOKE}-tools" "${REG:-}" "${E2E:-}" "${REACTDIR:-}"; }
 trap cleanup EXIT
 
 cd "$SMOKE"
@@ -47,6 +47,7 @@ npm install --no-package-lock --silent \
   "file:${PKG}/blueprint-skills" \
   "file:${PKG}/blueprint-husky-lint-staged" \
   "file:${PKG}/blueprint-tsconfig" \
+  "file:${PKG}/blueprint-react" \
   "effect@rc" "tsx" 2>&1 | tail -1
 
 BIN=node_modules/projitect/bin/pjt.mjs
@@ -733,6 +734,94 @@ grep -q '"id": "pjt.exec.command-not-permitted"' /tmp/exec-denied.out && pass "-
 [ ! -f marker.txt ] && pass "denied command was never started" || fail "denied command ran"
 cd "$SMOKE"
 rm -rf "$EXECDIR"
+
+echo "=== 10. react blueprint: build, install, vite build, test, dev server, drift, remodel, remove ==="
+# A real app: this section installs React, Vite and Vitest from the public registry, so it needs
+# network access (CI has it). The blueprints themselves still come from this checkout via file: refs.
+REACTDIR="$(mktemp -d -t pjt-react.XXXXXX)"
+cd "$REACTDIR"
+git init -q
+git config user.email t@t
+git config user.name t
+echo '{"name":"smoke-react","version":"0.0.0","private":true,"type":"module"}' > package.json
+printf 'node_modules/\n' > .gitignore
+npm install --no-package-lock --silent \
+  "file:${PKG}/core" \
+  "file:${PKG}/blueprint" \
+  "file:${PKG}/cli-internals" \
+  "file:${PKG}/projitect" \
+  "file:${PKG}/blueprint-gitignore" \
+  "file:${PKG}/blueprint-vitest" \
+  "file:${PKG}/blueprint-tsconfig" \
+  "file:${PKG}/blueprint-react" \
+  "effect@rc" "tsx" 2>&1 | tail -1
+REACT_BIN=node_modules/projitect/bin/pjt.mjs
+write_react_pjt() {
+  cat > .pjt.ts <<EOF
+import { pjt } from "projitect/cli"
+import { react } from "@projitect/blueprint-react"
+
+export default pjt({ blueprints: [$1] })
+EOF
+}
+write_react_pjt "react()"
+git add -A
+git commit -qm "baseline"
+
+$REACT_BIN build --force --yes > /tmp/react-build.out 2>&1
+[ $? -eq 0 ] && pass "pjt build exits 0" || fail "pjt build failed: $(tail -5 /tmp/react-build.out)"
+for f in index.html src/main.tsx src/App.tsx src/App.test.tsx src/index.css vite.config.ts vitest.config.ts tsconfig.json; do
+  [ -f "$f" ] && pass "$f created" || fail "$f missing"
+done
+grep -q "^dist/" .gitignore && pass ".gitignore ignores dist/" || fail "dist/ not ignored"
+$REACT_BIN inspect > /dev/null 2>&1 && pass "inspect clean after build" || fail "react build left drift"
+
+# The file: links carry `workspace:*` peer specs that npm cannot resolve; the registry packages are fine.
+npm install --no-package-lock --legacy-peer-deps --silent > /tmp/react-install.out 2>&1
+[ $? -eq 0 ] && pass "npm install of the generated dependencies succeeds" || fail "npm install failed: $(tail -3 /tmp/react-install.out)"
+npm run build > /tmp/react-vite-build.out 2>&1
+[ $? -eq 0 ] && [ -f dist/index.html ] && pass "npm run build (tsc + vite build) emits dist/index.html" || fail "vite build failed: $(tail -5 /tmp/react-vite-build.out)"
+npm test > /tmp/react-test.out 2>&1
+[ $? -eq 0 ] && grep -q "2 passed" /tmp/react-test.out && pass "generated test passes under vitest" || fail "generated test failed: $(tail -8 /tmp/react-test.out)"
+
+npx vite --host 127.0.0.1 --port 5199 --strictPort > /tmp/react-dev.out 2>&1 &
+VITE_PID=$!
+PAGE=""
+for _ in $(seq 1 60); do
+  PAGE="$(curl -sf http://127.0.0.1:5199/ 2>/dev/null)" && break
+  sleep 0.5
+done
+echo "$PAGE" | grep -q '/src/main.tsx' && pass "dev server serves index.html referencing src/main.tsx" || fail "dev server did not serve index.html"
+curl -sf http://127.0.0.1:5199/src/App.tsx 2>/dev/null | grep -q "Hello from projitect" && pass "dev server serves the starter App component" || fail "dev server did not serve App.tsx"
+kill "$VITE_PID" 2>/dev/null
+wait "$VITE_PID" 2>/dev/null
+
+# The starter source is the user's: editing it is never drift.
+echo '// my edit' >> src/App.tsx
+echo '<!-- my edit -->' >> index.html
+$REACT_BIN inspect > /dev/null 2>&1 && pass "editing starter source leaves inspect clean" || fail "starter edit reported as drift"
+$REACT_BIN remodel > /dev/null 2>&1
+grep -q "// my edit" src/App.tsx && pass "remodel leaves edited starter source untouched" || fail "remodel overwrote src/App.tsx"
+
+# A managed value drifts: inspect fails, remodel restores it and keeps the user's own keys.
+npm pkg set scripts.lint="echo lint" > /dev/null
+sed -i.bak 's/"dev": "vite"/"dev": "vite --open"/' package.json && rm package.json.bak
+$REACT_BIN inspect > /dev/null 2>&1
+[ $? -eq 1 ] && pass "managed package.json value drift detected (exit 1)" || fail "managed drift NOT detected"
+$REACT_BIN remodel > /dev/null 2>&1
+grep -q '"dev": "vite"' package.json && pass "remodel restores the managed script" || fail "managed script not restored"
+grep -q '"lint": "echo lint"' package.json && pass "remodel keeps the user's own script" || fail "user script lost"
+$REACT_BIN inspect > /dev/null 2>&1 && pass "clean after remodel restores the managed value" || fail "still dirty after restore"
+
+# Removing the blueprint deletes the maintained scaffolding, not the seeded source or user keys.
+write_react_pjt ""
+$REACT_BIN remodel > /dev/null 2>&1
+[ ! -f vite.config.ts ] && [ ! -f vitest.config.ts ] && [ ! -f tsconfig.json ] && pass "removal deletes the owned scaffolding" || fail "owned files survived removal"
+[ -f src/App.tsx ] && [ -f src/main.tsx ] && [ -f index.html ] && pass "removal keeps the seeded source" || fail "seeded source lost on removal"
+grep -q '"lint": "echo lint"' package.json && pass "removal keeps the user's own package.json keys" || fail "user key lost on removal"
+grep -q '"vite"' package.json && fail "managed devDependency survived removal" || pass "removal drops the managed package.json keys"
+cd "$SMOKE"
+rm -rf "$REACTDIR"
 
 echo "=== FINAL ==="
 [ $FAILED -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILURES SEEN"; exit 1; }
