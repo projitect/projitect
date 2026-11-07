@@ -14,8 +14,11 @@ import { Effect } from "effect"
 import { jsonMerge, ownFile } from "@projitect/blueprint"
 import type { Blueprint } from "@projitect/core"
 import { ChangeSet as CS } from "@projitect/core"
+import manifest from "../package.json" with { type: "json" }
 
-const PACKAGE_VERSION = "0.0.0"
+// Read the version from the package manifest (emitted next to `dist/src`) so a release bump
+// reaches `.pjt.lock` without a hand-edited constant. JSON import keeps this runtime-pure.
+const PACKAGE_VERSION = manifest.version
 
 const CHANGESETS_CLI_DEP_RANGE = "^2.0.0"
 const CONFIG_SCHEMA_URL = "https://unpkg.com/@changesets/config@3.1.1/schema.json"

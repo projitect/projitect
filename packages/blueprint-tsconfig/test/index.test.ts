@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import { Effect, Schema } from "effect"
 import { makeInMemoryLayer } from "@projitect/test-kit"
 import { tsconfig } from "../src/index.js"
+import manifest from "../package.json" with { type: "json" }
 
 /**
  * Unit tests for `@projitect/blueprint-tsconfig`. The blueprint emits a single owned-mode op
@@ -197,5 +198,11 @@ describe("tsconfig() — references", () => {
     expect(withRefs.json.compilerOptions).toEqual(without.json.compilerOptions)
     expect(withRefs.json.include).toEqual(without.json.include)
     expect(withRefs.json.exclude).toEqual(without.json.exclude)
+  })
+})
+
+describe("tsconfig() — version", () => {
+  it("reports the installed package manifest version", () => {
+    expect(tsconfig().version).toBe(manifest.version)
   })
 })

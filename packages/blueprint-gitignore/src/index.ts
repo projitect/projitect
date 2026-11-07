@@ -12,9 +12,12 @@
 
 import { ignoreSection } from "@projitect/blueprint"
 import type { Blueprint } from "@projitect/core"
+import manifest from "../package.json" with { type: "json" }
 import * as templates from "./templates.js"
 
-const PACKAGE_VERSION = "0.0.0"
+// Read the version from the package manifest (emitted next to `dist/src`) so a release bump
+// reaches `.pjt.lock` without a hand-edited constant. JSON import keeps this runtime-pure.
+const PACKAGE_VERSION = manifest.version
 
 // Built on `ignoreSection` from the SDK rather than `regionFile` directly — the name documents
 // intent, and any future enhancement to ignore-style fencing (e.g. dedup-aware merging) lands

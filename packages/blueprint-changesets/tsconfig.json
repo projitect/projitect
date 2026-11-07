@@ -2,10 +2,10 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "./dist",
-    "rootDir": "./src",
+    "rootDir": ".",
     "tsBuildInfoFile": "./.tsbuildinfo"
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "package.json"],
   "exclude": ["dist", "node_modules"],
   "references": [{ "path": "../core" }, { "path": "../blueprint" }]
 }
