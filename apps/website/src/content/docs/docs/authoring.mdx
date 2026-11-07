@@ -120,8 +120,9 @@ The `BlueprintFileSystem` rejects operations outside this set with `pjt.fs.permi
 **Declare what you need and nothing more** — project maintainers read this list when deciding
 whether to install your blueprint.
 
-Globs support `*` (any non-slash chars) and `**` (any chars including slashes). No brace
-expansion in v0.
+Globs support `*` (any non-slash chars), `**` (any chars including slashes) and `{a,b}`
+alternation, so `src/**/*.{ts,tsx}` covers both extensions in one entry. Alternatives may be
+empty or nested, and a path is permitted only if it matches one of them.
 
 ## directory() for scoped blueprints
 
