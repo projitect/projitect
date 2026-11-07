@@ -1,5 +1,7 @@
+import * as keypress from "node:readline"
 import * as readline from "node:readline/promises"
-import { Effect, Layer, Terminal } from "effect"
+import { Effect, Layer, Option, Queue, Terminal } from "effect"
+import type { Cause } from "effect"
 import * as PlatformError from "effect/PlatformError"
 
 /**
@@ -8,10 +10,50 @@ import * as PlatformError from "effect/PlatformError"
  * - `columns` / `rows` read from `process.stdout` (fall back to sensible defaults when not a TTY)
  * - `display(text)` writes to `process.stdout` synchronously
  * - `readLine` uses `node:readline/promises` so `Prompt.text` and `Prompt.confirm` work
- * - `readInput` (the low-level keypress stream used by `Prompt.select` / `Prompt.multiSelect`) is
- *   not implemented in v0.1. Until we ship interactive multi-select prompts, the only consumer
- *   that would call it is wizard mode. The Effect returned fails clearly if exercised.
+ * - `readInput` (the low-level keypress stream used by `Prompt.select` / `Prompt.multiSelect`)
+ *   puts a TTY stdin into raw mode for the lifetime of the enclosing scope and queues one
+ *   `UserInput` per keypress. Raw mode means Ctrl-C arrives as a keypress rather than as SIGINT,
+ *   so Ctrl-C ends the queue and the prompt fails with `QuitError`.
  */
+const readInput: Terminal.Terminal["readInput"] = Effect.gen(function* () {
+  const queue = yield* Queue.unbounded<Terminal.UserInput, Cause.Done>()
+  yield* Effect.acquireRelease(
+    Effect.sync(() => {
+      const onKeypress = (input: string | undefined, key: keypress.Key | undefined): void => {
+        Queue.offerUnsafe(queue, {
+          input: Option.fromNullishOr(input),
+          key: {
+            name: key?.name ?? "",
+            ctrl: key?.ctrl ?? false,
+            meta: key?.meta ?? false,
+            shift: key?.shift ?? false,
+          },
+        })
+        if (key?.ctrl === true && key.name === "c") {
+          // Raw mode swallows SIGINT; ending the queue makes the prompt fail with `QuitError`.
+          Queue.endUnsafe(queue)
+        }
+      }
+      keypress.emitKeypressEvents(process.stdin)
+      if (process.stdin.isTTY) {
+        process.stdin.setRawMode(true)
+      }
+      process.stdin.on("keypress", onKeypress)
+      process.stdin.resume()
+      return onKeypress
+    }),
+    (onKeypress) =>
+      Effect.sync(() => {
+        process.stdin.off("keypress", onKeypress)
+        if (process.stdin.isTTY) {
+          process.stdin.setRawMode(false)
+        }
+        process.stdin.pause()
+      }),
+  )
+  return queue
+})
+
 const make = Terminal.make({
   // @types/node types columns/rows as non-nullable, but they're undefined on non-TTY stdout.
   /* eslint-disable @typescript-eslint/no-unnecessary-condition */
@@ -41,10 +83,7 @@ const make = Terminal.make({
     },
     catch: () => new Terminal.QuitError({}),
   }),
-  readInput: Effect.die(
-    "Terminal.readInput is not implemented in the projitect Node Layer (v0.1). " +
-      "Interactive multi-select prompts will land alongside `pjt add` polish.",
-  ),
+  readInput,
 })
 
 export const TerminalLive: Layer.Layer<Terminal.Terminal> = Layer.succeed(Terminal.Terminal, make)
