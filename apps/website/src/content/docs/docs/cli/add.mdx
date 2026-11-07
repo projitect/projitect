@@ -55,6 +55,20 @@ Pressing **Ctrl-C** during the interactive picker, or confirming with nothing ti
 
 The blueprint-set's `"callTemplate"` (e.g. `gitignores.{section}()`) is filled in per chosen section.
 
+## Recipe: noninteractive (scripts and agents)
+
+Pass `--section` and nothing prompts. Follow with `remodel` to write the files and `inspect` to
+verify:
+
+```bash
+pjt add @projitect/blueprint-markdown --section agentsVerification,agentsCommits
+pjt remodel     # exit 0 on success; nonzero with an error id on failure
+pjt inspect     # exit 0: in sync; exit 1: drift (the file is named in the output)
+```
+
+See the [markdown-snippets example](/examples/markdown-snippets/) for the whole lifecycle,
+including upgrades and removal.
+
 ## When the package doesn't have `"projitect"` metadata
 
 `pjt add` still runs the install — but skips the splice. You'll see:

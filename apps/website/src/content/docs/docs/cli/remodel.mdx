@@ -36,6 +36,15 @@ When everything's already in sync:
 Project already in sync. No changes written.
 ```
 
+## Exit codes
+
+| Code    | Meaning                                                                                   |
+| ------- | ----------------------------------------------------------------------------------------- |
+| 0       | The project matches the blueprints, whether files were written or nothing needed writing. |
+| nonzero | A blueprint, plan or region error. The error id is printed; nothing else is touched.      |
+
+Running `pjt remodel` twice with no changes in between writes nothing the second time.
+
 ## Common errors
 
 - `pjt.plan.conflict-region` — two blueprints share the same `ownerId` in one file.

@@ -27,6 +27,7 @@ the per-error code lookup pages. The published packages are:
 | `@projitect/blueprint-tsconfig`   | Managed `tsconfig.json` blueprint.                                                                           |
 | `@projitect/blueprint-vitest`     | Managed Vitest config blueprint.                                                                             |
 | `@projitect/blueprint-changesets` | Managed Changesets release tooling blueprint.                                                                |
+| `@projitect/blueprint-markdown`   | Composable `AGENTS.md` / `README.md` snippets with stable owner ids.                                         |
 
 Plus `apps/website` (Astro Starlight; not published).
 

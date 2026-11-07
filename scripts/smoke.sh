@@ -25,7 +25,7 @@ FAILED=0
 pass() { echo "  ✓ $1"; }
 fail() { echo "  ✗ $1"; FAILED=1; }
 
-cleanup() { rm -rf "$SMOKE"; }
+cleanup() { [ -n "${REG_PID:-}" ] && kill "$REG_PID" 2>/dev/null; rm -rf "$SMOKE" "${REG:-}" "${E2E:-}"; }
 trap cleanup EXIT
 
 cd "$SMOKE"
@@ -43,6 +43,7 @@ npm install --no-package-lock --silent \
   "file:${PKG}/blueprint-gitignore" \
   "file:${PKG}/blueprint-vitest" \
   "file:${PKG}/blueprint-changesets" \
+  "file:${PKG}/blueprint-markdown" \
   "file:${PKG}/blueprint-tsconfig" \
   "effect@rc" "tsx" 2>&1 | tail -1
 
@@ -181,6 +182,55 @@ $BIN inspect > /dev/null 2>&1
 $BIN remodel > /dev/null
 $BIN inspect > /dev/null 2>&1 && pass "clean after markdown re-remodel" || fail "markdown still dirty"
 
+echo "=== 5b4. markdown snippets share AGENTS.md / README.md and survive the full lifecycle ==="
+cat > AGENTS.md <<'EOF'
+# Agent guide
+
+Hand-written intro.
+EOF
+cat > splice-snippets.mjs <<'EOF'
+import { Effect } from "effect"
+import { splice } from "@projitect/cli-internals"
+await Effect.runPromise(splice({
+  projectRoot: process.cwd(),
+  blueprintFile: ".pjt.ts",
+  importLine: 'import { markdownSnippets } from "@projitect/blueprint-markdown"',
+  callLines: [
+    "markdownSnippets.agentsVerification(),",
+    "markdownSnippets.agentsCommits(),",
+    "markdownSnippets.readmeLicense(),",
+  ],
+}))
+EOF
+node --experimental-strip-types splice-snippets.mjs > /dev/null 2>&1
+$BIN remodel > /dev/null
+$BIN inspect > /dev/null 2>&1 && pass "clean after snippets remodel" || fail "snippets left drift"
+grep -q "<!-- pjt:markdown:agents:verification start -->" AGENTS.md && pass "verification region in AGENTS.md" || fail "verification region missing"
+grep -q "<!-- pjt:markdown:agents:commits start -->"      AGENTS.md && pass "commits region in AGENTS.md"      || fail "commits region missing"
+grep -q "<!-- pjt:markdown:readme:license start -->"      README.md && pass "license region in README.md"      || fail "license region missing"
+grep -q "Hand-written intro."                             AGENTS.md && pass "AGENTS.md user text preserved"    || fail "AGENTS.md user text lost"
+grep -q "Some prose written by the user"                  README.md && pass "README.md user text preserved"    || fail "README.md user text lost"
+
+cp AGENTS.md AGENTS.before && cp README.md README.before && cp .pjt.lock lock.before
+$BIN remodel > /dev/null
+cmp -s AGENTS.md AGENTS.before && cmp -s README.md README.before && cmp -s .pjt.lock lock.before && pass "second remodel changes no bytes" || fail "second remodel changed files"
+rm AGENTS.before README.before lock.before
+
+sed -i.bak 's/Write conventional commit subjects/Write sloppy commit subjects/' AGENTS.md && rm AGENTS.md.bak
+DRIFT_OUT=$($BIN inspect 2>&1) && fail "snippet hand-edit NOT detected" || pass "snippet hand-edit detected (nonzero exit)"
+echo "$DRIFT_OUT" | grep -q "AGENTS.md" && pass "inspect names AGENTS.md" || fail "inspect did not name AGENTS.md"
+$BIN remodel > /dev/null
+$BIN inspect > /dev/null 2>&1 && pass "clean after snippet restore" || fail "snippet still dirty"
+grep -q "Write conventional commit subjects" AGENTS.md && pass "snippet region restored" || fail "snippet region not restored"
+
+sed -i.bak '/markdownSnippets\.agentsCommits(),/d' .pjt.ts && rm .pjt.ts.bak
+$BIN inspect 2>&1 | grep -q "remove pjt:markdown:agents:commits" && pass "inspect reports snippet removal" || fail "no snippet removal in inspect"
+$BIN remodel > /dev/null
+$BIN inspect > /dev/null 2>&1 && pass "clean after snippet removal" || fail "dirty after snippet removal"
+grep -q "markdown:agents:commits" AGENTS.md && fail "commits region still present" || pass "commits region removed"
+grep -q "markdown:agents:verification" AGENTS.md && pass "verification region kept" || fail "verification region lost"
+grep -q "Hand-written intro." AGENTS.md && pass "AGENTS.md user text survives removal" || fail "user text lost on removal"
+
 echo "=== 5c. tsconfig blueprint writes tsconfig.json with strict defaults ==="
 cat > splice-tsconfig.mjs <<'EOF'
 import { Effect } from "effect"
@@ -208,6 +258,117 @@ $BIN inspect > /dev/null 2>&1
 [ $? -eq 1 ] && pass "owned drift detected (exit 1)" || fail "owned drift NOT detected"
 $BIN remodel > /dev/null
 $BIN inspect > /dev/null 2>&1 && pass "clean after owned remodel re-applies" || fail "owned still dirty"
+
+echo "=== 5d. public CLI + real package upgrade: add -> remodel -> upgrade -> inspect -> remodel -> swap -> remove ==="
+# Two locally packed versions of @projitect/blueprint-markdown are served by a throwaway npm
+# registry. The project is a separate clean directory and every CLI call is its own process, so
+# the version `pjt inspect` sees after the upgrade comes from the installed package, not from an
+# in-memory override.
+REG="$(mktemp -d -t pjt-registry.XXXXXX)"
+E2E="$(mktemp -d -t pjt-upgrade.XXXXXX)"
+pack_markdown() { # <version> <old> <new>: pack dist + manifest as <version>; optionally rewrite one phrase
+  local dir="$REG/pkg-$1"
+  mkdir -p "$dir/package"
+  cp -r "${PKG}/blueprint-markdown/dist" "${PKG}/blueprint-markdown/package.json" "$dir/package/"
+  node -e "
+const fs = require('fs');
+for (const f of ['package.json', 'dist/package.json']) {
+  const p = process.argv[1] + '/' + f;
+  const j = JSON.parse(fs.readFileSync(p, 'utf8'));
+  j.version = process.argv[2];
+  for (const k of ['peerDependencies', 'devDependencies', 'scripts']) delete j[k];
+  fs.writeFileSync(p, JSON.stringify(j, null, 2) + '\n');
+}
+" "$dir/package" "$1"
+  [ -n "${2:-}" ] && sed -i.bak "s/$2/$3/" "$dir/package/dist/src/index.js" && rm "$dir/package/dist/src/index.js.bak"
+  npm pack "$dir/package" --pack-destination "$REG" --silent > /dev/null 2>&1
+}
+pack_markdown 1.0.0
+pack_markdown 1.1.0 "Write conventional commit subjects" "Write Conventional Commits subjects"
+TGZ1="$(ls "$REG"/*-1.0.0.tgz)"
+TGZ2="$(ls "$REG"/*-1.1.0.tgz)"
+publish() { # <latest>: rewrite the registry state; 1.1.0 is only listed once published
+  if [ "$1" = "1.0.0" ]; then
+    printf '{"name":"@projitect/blueprint-markdown","latest":"1.0.0","tarballs":{"1.0.0":"%s"}}' "$TGZ1" > "$REG/state.json"
+  else
+    printf '{"name":"@projitect/blueprint-markdown","latest":"%s","tarballs":{"1.0.0":"%s","1.1.0":"%s"}}' "$1" "$TGZ1" "$TGZ2" > "$REG/state.json"
+  fi
+}
+publish 1.0.0
+node "${ROOT}/scripts/local-registry.mjs" "$REG/state.json" "$REG/port" &
+REG_PID=$!
+for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do [ -s "$REG/port" ] && break; sleep 0.25; done
+[ -s "$REG/port" ] && pass "local registry listening" || fail "local registry did not start"
+
+cd "$E2E"
+git init -q
+git config user.email t@t
+git config user.name t
+echo '{"name":"upgrade-smoke","version":"0.0.0","private":true,"type":"module"}' > package.json
+npm install --no-package-lock --silent \
+  "file:${PKG}/core" \
+  "file:${PKG}/blueprint" \
+  "file:${PKG}/cli-internals" \
+  "file:${PKG}/projitect" \
+  "effect@rc" "tsx" 2>&1 | tail -1
+printf '@projitect:registry=http://127.0.0.1:%s/\n' "$(cat "$REG/port")" > .npmrc
+$BIN init > /dev/null 2>&1
+
+printf '# Agent guide\n\nHand-written intro.\n' > AGENTS.md
+printf '# My project\n\nHand-written readme.\n' > README.md
+cp AGENTS.md AGENTS.seed && cp README.md README.seed
+unmanaged() { awk '/^<!-- pjt:markdown:.* start -->$/{skip=1} !skip{print} /^<!-- pjt:markdown:.* end -->$/{skip=0}' "$1"; }
+
+# Install through the public CLI: `pjt add` shells out the package manager, reads the installed
+# package's "projitect" metadata and splices the chosen sections into .pjt.ts.
+$BIN add @projitect/blueprint-markdown --section agentsVerification,agentsCommits,readmeLicense > /dev/null 2>&1
+grep -q '"version": "1.0.0"' node_modules/@projitect/blueprint-markdown/package.json && pass "pjt add installed 1.0.0 from the registry" || fail "pjt add did not install 1.0.0"
+grep -q "markdownSnippets.agentsCommits()" .pjt.ts && pass "pjt add spliced the chosen sections into .pjt.ts" || fail "pjt add did not splice .pjt.ts"
+$BIN remodel > /dev/null
+$BIN inspect > /dev/null 2>&1 && pass "clean after remodel of the installed package" || fail "drift after first remodel"
+grep -q '"version": "1.0.0"' .pjt.lock && pass ".pjt.lock records 1.0.0" || fail ".pjt.lock missing 1.0.0"
+grep -q "Write conventional commit subjects" AGENTS.md && pass "AGENTS.md carries the 1.0.0 content" || fail "1.0.0 content missing"
+unmanaged AGENTS.md | cmp -s - AGENTS.seed && unmanaged README.md | cmp -s - README.seed && pass "text outside the regions is byte-identical after add" || fail "unmanaged text changed after add"
+cp AGENTS.md AGENTS.v1 && cp README.md README.v1 && cp .pjt.lock lock.v1
+$BIN remodel > /dev/null
+cmp -s AGENTS.md AGENTS.v1 && cmp -s README.md README.v1 && cmp -s .pjt.lock lock.v1 && pass "second remodel changes no bytes" || fail "second remodel changed files"
+
+# `init` also records `projitect` from the public registry; drop it so reinstalls keep the local build.
+npm pkg delete devDependencies.projitect > /dev/null 2>&1
+
+# Publish 1.1.0 and upgrade with the package manager. Nothing has been remodelled yet.
+publish 1.1.0
+npm install -D --no-package-lock --silent @projitect/blueprint-markdown@1.1.0 > /dev/null 2>&1
+grep -q '"version": "1.1.0"' node_modules/@projitect/blueprint-markdown/package.json && pass "package manager upgraded to 1.1.0" || fail "upgrade to 1.1.0 failed"
+UP_OUT=$($BIN inspect 2>&1)
+UP_EXIT=$?
+[ "$UP_EXIT" -eq 1 ] && pass "inspect after the upgrade, before remodel, exits 1" || fail "inspect exit was $UP_EXIT after upgrade"
+echo "$UP_OUT" | grep -q "upgrade pjt:markdown:agents:commits 1.0.0 → 1.1.0" && pass "inspect reports the real 1.0.0 → 1.1.0 upgrade" || fail "inspect missed the upgrade"
+echo "$UP_OUT" | grep -q "modify AGENTS.md" && pass "inspect names AGENTS.md as changed" || fail "inspect did not name AGENTS.md"
+cmp -s AGENTS.md AGENTS.v1 && pass "inspect wrote nothing" || fail "inspect modified AGENTS.md"
+$BIN remodel > /dev/null
+grep -q "Write Conventional Commits subjects" AGENTS.md && pass "remodel applied the 1.1.0 content" || fail "1.1.0 content missing"
+grep -q "Write conventional commit subjects" AGENTS.md && fail "1.0.0 content still present" || pass "1.0.0 content replaced"
+cmp -s README.md README.v1 && pass "README.md untouched by the upgrade" || fail "README.md changed by the upgrade"
+grep -q '"version": "1.1.0"' .pjt.lock && pass ".pjt.lock records 1.1.0" || fail ".pjt.lock still at 1.0.0"
+unmanaged AGENTS.md | cmp -s - AGENTS.seed && pass "text outside the regions is byte-identical after upgrade" || fail "unmanaged text changed after upgrade"
+$BIN inspect > /dev/null 2>&1 && pass "clean after remodel of the upgrade" || fail "drift after upgrade remodel"
+
+# Swap one snippet for another, then remove one.
+sed -i.bak 's/markdownSnippets\.agentsCommits()/markdownSnippets.agentsNoDestructiveShortcuts()/' .pjt.ts && rm .pjt.ts.bak
+$BIN remodel > /dev/null
+grep -q "markdown:agents:commits" AGENTS.md && fail "swapped-out region still present" || pass "swapped-out region removed"
+grep -q "markdown:agents:no-destructive-shortcuts start" AGENTS.md && pass "swapped-in region present" || fail "swapped-in region missing"
+unmanaged AGENTS.md | cmp -s - AGENTS.seed && pass "text outside the regions is byte-identical after swap" || fail "unmanaged text changed after swap"
+$BIN inspect > /dev/null 2>&1 && pass "clean after swap" || fail "drift after swap"
+sed -i.bak '/markdownSnippets\.readmeLicense()/d' .pjt.ts && rm .pjt.ts.bak
+$BIN remodel > /dev/null
+cmp -s README.md README.seed && pass "README.md is byte-identical to the seed after removal" || fail "README.md differs from the seed after removal"
+$BIN inspect > /dev/null 2>&1 && pass "clean after removal" || fail "drift after removal"
+
+kill "$REG_PID" 2>/dev/null
+cd "$SMOKE"
+rm -rf "$REG" "$E2E"
 
 echo "=== 6. explain ==="
 OUT=$($BIN explain pjt.lock.parse-failed 2>&1)

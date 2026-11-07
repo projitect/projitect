@@ -111,10 +111,25 @@ You can still hand-edit lines **outside** the markers — they belong to you, no
   Framework blueprints (`react`, `next`, `eslint`) are on the [roadmap](/docs/roadmap/).
 </Aside>
 
+## Share Markdown snippets
+
+`@projitect/blueprint-markdown` keeps shared guidance in `AGENTS.md` and `README.md` current the
+same way. Pick snippets interactively:
+
+```bash
+pnpm pjt add @projitect/blueprint-markdown   # pick sections, e.g. agentsVerification
+pnpm pjt remodel                             # fences each snippet into AGENTS.md / README.md
+pnpm pjt inspect                             # exit 0 while the regions match
+```
+
+Your own text in those files is never touched. See the
+[markdown-snippets example](/examples/markdown-snippets/) for the noninteractive recipe.
+
 ## Next steps
 
 - [vitest-setup example](/examples/vitest-setup/) — one line adds vitest config + scripts + devDeps
 - [changesets-setup example](/examples/changesets-setup/) — one line adds Changesets config + scripts + devDep
+- [markdown-snippets example](/examples/markdown-snippets/) — versioned snippets in AGENTS.md and README.md
 - [Blueprints concept](/docs/concepts/blueprints/) — the data model
 - [Ownership modes](/docs/concepts/ownership-modes/) — region / merge / owned / seed
 - [Authoring guide](/docs/authoring/) — write your own blueprint

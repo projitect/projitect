@@ -34,6 +34,7 @@
   },
   "devDependencies": {
     "@projitect/blueprint": "workspace:*",
+    "@projitect/blueprint-markdown": "workspace:*",
     "@projitect/core": "workspace:*",
     "@types/node": "22.19.19",
     "effect": "4.0.0-rc.111",
