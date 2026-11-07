@@ -12,6 +12,8 @@
 import { execFileSync } from "node:child_process"
 import { readFileSync, writeFileSync } from "node:fs"
 import { createServer } from "node:http"
+import process from "node:process"
+import { URL } from "node:url"
 
 const [stateFile, portFile] = process.argv.slice(2)
 
@@ -46,8 +48,8 @@ const server = createServer((req, res) => {
     return
   }
 
-  const match = /^\/tarballs\/(.+)\.tgz$/u.exec(pathname)
-  const tarball = match === null ? undefined : state.tarballs[match[1]]
+  const match = /^\/tarballs\/(?<version>.+)\.tgz$/u.exec(pathname)
+  const tarball = match === null ? undefined : state.tarballs[match.groups.version]
   if (tarball === undefined) {
     send(res, 404, "{}", "application/json")
     return

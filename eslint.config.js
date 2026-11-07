@@ -33,8 +33,6 @@ export default tseslint.config(
       // Contributor tooling (kanban skill scripts), not published library source — see the
       // "Scope: contributor tooling" note in AGENTS.md. Not held to the library's strict rules.
       ".claude/**",
-      // Smoke-test tooling (shell + a throwaway npm registry), not shipped source.
-      "scripts/**",
       "prettier.config.js",
       "vitest.config.ts",
       "eslint.config.js",
@@ -251,6 +249,19 @@ export default tseslint.config(
         },
       ],
     },
+  },
+
+  // ===== Plain-JS tooling under scripts/ =====
+  // The workspace-wide block above applies @typescript-eslint rules and type-aware parsing to every
+  // JS file, but the TS plugin is only registered for TS files and plain `.mjs` scripts sit outside
+  // every tsconfig. Register the plugin and switch off type-aware rules for these files only, so
+  // they stay linted with the same style rules as everything else.
+  {
+    files: ["scripts/**/*.mjs"],
+    extends: [tseslint.configs.disableTypeChecked],
+    plugins: { "@typescript-eslint": tseslint.plugin },
+    languageOptions: { parserOptions: { projectService: false } },
+    rules: { "@typescript-eslint/consistent-type-imports": "off" },
   },
 
   // ===== Sandbox enforcement: blueprint packages can't reach raw Node APIs =====
