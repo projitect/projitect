@@ -12,6 +12,7 @@ A map of the monorepo. [AGENTS.md](../AGENTS.md) holds the rules; see also [gett
 | `@projitect/blueprint-tsconfig`   | First-party blueprint: managed `tsconfig.json`.                                                       |
 | `@projitect/blueprint-vitest`     | First-party blueprint: managed Vitest config.                                                         |
 | `@projitect/blueprint-changesets` | First-party blueprint: managed Changesets config, scripts and devDependency.                          |
+| `@projitect/blueprint-react`      | First-party blueprint: React + Vite + TypeScript app, composing tsconfig, gitignore and vitest.       |
 | `@projitect/cli-internals`        | The engine — loader, planner, differ, applier, remover, commands, Node platform layer, `runAddCli`.   |
 | `projitect`                       | Ships the `pjt` binary and `.pjt.ts` handling.                                                        |
 | `@projitect/test-kit`             | In-memory `BlueprintFileSystem` for unit tests.                                                       |

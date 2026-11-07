@@ -1,0 +1,66 @@
+---
+title: react-setup
+description: Create a React + Vite + TypeScript app — maintained scaffolding plus starter source you own.
+sidebar:
+  label: react-setup
+  order: 7
+---
+
+import code from "../../../../examples/react-setup/example.ts?raw"
+import { Code } from "@astrojs/starlight/components"
+
+`react()` creates a usable React app. It splits the project into scaffolding that projitect
+maintains and starter source that is yours.
+
+<Code code={code} lang="ts" title=".pjt.ts" />
+
+Run:
+
+```bash
+pnpm pjt remodel    # writes the config, merges package.json, seeds the starter source
+pnpm install        # installs React, Vite, TypeScript and the test tooling
+pnpm dev            # serves the app with Vite
+pnpm build          # tsc --noEmit && vite build
+pnpm test           # vitest run — renders the starter component under jsdom
+```
+
+## What you get
+
+Maintained by the blueprint:
+
+- `vite.config.ts` registers `@vitejs/plugin-react` (owned mode — rewritten on every
+  `pjt remodel`). It has no `test` block: `vitest.config.ts` configures tests.
+- `tsconfig.json` for browser code — `DOM` libs, the `react-jsx` transform and bundler module
+  resolution (owned mode, from the tsconfig blueprint)
+- `vitest.config.ts` with the `jsdom` environment (owned mode, from the vitest blueprint)
+- `dev`, `build`, `preview` and `test` scripts, `react` and `react-dom` in `dependencies`, and Vite,
+  `@vitejs/plugin-react`, TypeScript, the React types, `jsdom`, Testing Library and Vitest in
+  `devDependencies` (merge mode — your own keys stay)
+- The `node` gitignore section and a `dist/` entry in `.gitignore` (region mode)
+
+Seeded once, then yours:
+
+- `index.html`
+- `src/main.tsx`
+- `src/App.tsx`
+- `src/App.test.tsx`
+- `src/index.css`
+
+## Ownership in practice
+
+Edit any starter file freely. `pjt inspect` and `pjt remodel` never compare it with the template. A
+starter file you delete is written again by the next `pjt remodel`, because seed mode means "never
+overwritten", not "never recreated".
+
+Change a maintained value — the `build` script, a managed dependency range, `vite.config.ts` — and
+`pjt inspect` exits nonzero. `pjt remodel` restores it and leaves your own `package.json` keys and
+the starter source alone.
+
+Remove `react()` from `.pjt.ts` and run `pjt remodel`: the owned config files, the managed
+`package.json` keys and the `.gitignore` regions go. The starter source and your own keys stay.
+
+## Composing with other blueprints
+
+`react()` already includes `tsconfig()`, `vitest()` and `gitignores.node()`. Listing any of them
+again gives the plan two owners for the same file or region, which fails with a conflict error. Other gitignore
+sections, such as `gitignores.macOs()`, stack alongside it.
