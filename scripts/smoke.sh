@@ -618,9 +618,130 @@ NOMETA_EXIT=$?
 [ "$NOMETA_EXIT" -ne 0 ] && pass "add of a package without metadata exits nonzero" || fail "add without metadata exited 0"
 echo "$NOMETA_OUT" | grep -q "pjt.add.metadata-missing" && echo "$NOMETA_OUT" | grep -q 'pjt remodel' && pass "metadata error names its id and the next command" || fail "metadata error lacks id or next command"
 
+
+echo "=== 5e. first-party blueprints report their installed version: two-version packed install ==="
+# The five manifest-versioned blueprints are packed as 1.0.0 and 1.1.0 (dist plus a rewritten
+# package.json and dist/package.json) and served by the same throwaway registry. Every step runs
+# in its own CLI process, so the versions `pjt inspect` compares come from the installed packages.
+FP_PKGS="gitignore tsconfig vitest changesets husky-lint-staged"
+pack_first_party() { # <package suffix> <version>
+  local dir="$REG/fp-$1-$2"
+  mkdir -p "$dir/package"
+  cp -r "${PKG}/blueprint-$1/dist" "${PKG}/blueprint-$1/package.json" "$dir/package/"
+  node -e "
+const fs = require('fs');
+for (const f of ['package.json', 'dist/package.json']) {
+  const p = process.argv[1] + '/' + f;
+  const j = JSON.parse(fs.readFileSync(p, 'utf8'));
+  j.version = process.argv[2];
+  for (const k of ['peerDependencies', 'devDependencies', 'scripts']) delete j[k];
+  fs.writeFileSync(p, JSON.stringify(j, null, 2) + '\n');
+}
+" "$dir/package" "$2"
+  # 1.1.0 also changes the emitted content, so `inspect` has real drift to attach the upgrade to.
+  if [ "$2" = "1.1.0" ]; then
+    local file="$dir/package/dist/src/index.js" expr
+    case "$1" in
+      gitignore) file="$dir/package/dist/src/templates.js"; expr='s#^node_modules/$#node_modules/\n.smoke-cache/#' ;;
+      tsconfig) expr='s#noUncheckedIndexedAccess: true,#noUncheckedIndexedAccess: true, noImplicitOverride: true,#' ;;
+      vitest) expr='s#content: "coverage/\\n"#content: "coverage/\\ntmp-smoke/\\n"#' ;;
+      changesets) expr='s#options.baseBranch ?? "main"#options.baseBranch ?? "trunk"#' ;;
+      husky-lint-staged) expr='s#content: "lint-staged\\n"#content: "pnpm lint-staged\\n"#' ;;
+    esac
+    sed -i.bak "$expr" "$file" && rm "$file.bak"
+  fi
+  npm pack "$dir/package" --pack-destination "$REG" --silent > /dev/null 2>&1
+}
+fp_state() { # <latest version>: list 1.0.0, plus 1.1.0 once it is the latest
+  local entries="" sep="" tarballs
+  for s in $FP_PKGS; do
+    tarballs="\"1.0.0\":\"$REG/projitect-blueprint-$s-1.0.0.tgz\""
+    [ "$1" = "1.1.0" ] && tarballs="$tarballs,\"1.1.0\":\"$REG/projitect-blueprint-$s-1.1.0.tgz\""
+    entries="$entries$sep{\"name\":\"@projitect/blueprint-$s\",\"latest\":\"$1\",\"tarballs\":{$tarballs}}"
+    sep=","
+  done
+  printf '{"packages":[%s]}' "$entries" > "$REG/state.json"
+}
+for s in $FP_PKGS; do
+  pack_first_party "$s" 1.0.0
+  pack_first_party "$s" 1.1.0
+done
+fp_state 1.0.0
+
+FP="$(mktemp -d -t pjt-first-party.XXXXXX)"
+cd "$FP"
+git init -q
+git config user.email t@t
+git config user.name t
+echo '{"name":"first-party-smoke","version":"0.0.0","private":true,"type":"module"}' > package.json
+npm install --no-package-lock --silent \
+  "file:${PKG}/core" \
+  "file:${PKG}/blueprint" \
+  "file:${PKG}/cli-internals" \
+  "file:${PKG}/projitect" \
+  "effect@rc" "tsx" 2>&1 | tail -1
+printf '@projitect:registry=http://127.0.0.1:%s/\n' "$(cat "$REG/port")" > .npmrc
+$BIN init > /dev/null 2>&1
+$BIN add @projitect/blueprint-gitignore --section node < /dev/null > /dev/null 2>&1
+for s in tsconfig vitest changesets husky-lint-staged; do
+  $BIN add "@projitect/blueprint-$s" < /dev/null > /dev/null 2>&1
+done
+npm pkg delete devDependencies.projitect > /dev/null 2>&1
+for s in $FP_PKGS; do
+  grep -q '"version": "1.0.0"' "node_modules/@projitect/blueprint-$s/package.json" && pass "$s: pjt add installed 1.0.0" || fail "$s: 1.0.0 not installed"
+done
+$BIN remodel > /dev/null 2>&1
+$BIN inspect > /dev/null 2>&1 && pass "clean after remodel of the five 1.0.0 blueprints" || fail "drift after the first-party remodel"
+for id in pjt:gitignore:node pjt:tsconfig pjt:vitest pjt:changesets pjt:husky-lint-staged; do
+  grep -A2 "\"$id\"" .pjt.lock | grep -q '"version": "1.0.0"' && pass "$id: .pjt.lock records 1.0.0" || fail "$id: .pjt.lock lacks 1.0.0"
+done
+
+# Each factory's emitted version equals its installed manifest version.
+cat > fp-versions.mjs <<'JS'
+import { readFileSync } from "node:fs"
+const factories = {
+  "@projitect/blueprint-gitignore": async (m) => Object.values(m.gitignores).map((section) => section()),
+  "@projitect/blueprint-tsconfig": async (m) => [m.tsconfig()],
+  "@projitect/blueprint-vitest": async (m) => [m.vitest()],
+  "@projitect/blueprint-changesets": async (m) => [m.changesets()],
+  "@projitect/blueprint-husky-lint-staged": async (m) => [m.huskyLintStaged()],
+}
+let bad = 0
+for (const [name, build] of Object.entries(factories)) {
+  const installed = JSON.parse(readFileSync(`node_modules/${name}/package.json`, "utf8")).version
+  for (const blueprint of await build(await import(name))) {
+    if (blueprint.version !== installed) {
+      console.error(`${blueprint.id}: emitted ${blueprint.version}, installed ${installed}`)
+      bad += 1
+    }
+  }
+}
+process.exit(bad === 0 ? 0 : 1)
+JS
+node fp-versions.mjs && pass "every first-party factory emits its installed manifest version (1.0.0)" || fail "a first-party factory emits a version other than its manifest"
+
+# Publish 1.1.0 and upgrade with the package manager. Nothing has been remodelled yet.
+fp_state 1.1.0
+# Drop the registry-less devDependencies the blueprints merged into package.json so npm can resolve the tree.
+npm pkg delete devDependencies.projitect devDependencies.effect devDependencies.vitest "devDependencies.@vitest/coverage-v8" "devDependencies.@changesets/cli" devDependencies.husky devDependencies.lint-staged > /dev/null 2>&1
+npm install -D --no-package-lock --ignore-scripts --silent \
+  @projitect/blueprint-gitignore@1.1.0 @projitect/blueprint-tsconfig@1.1.0 @projitect/blueprint-vitest@1.1.0 \
+  @projitect/blueprint-changesets@1.1.0 @projitect/blueprint-husky-lint-staged@1.1.0 > /dev/null 2>&1
+node fp-versions.mjs && pass "every first-party factory emits its installed manifest version (1.1.0)" || fail "a factory version lags its upgraded manifest"
+FP_OUT=$($BIN inspect 2>&1)
+FP_EXIT=$?
+[ "$FP_EXIT" -eq 1 ] && pass "inspect after the upgrade, before remodel, exits 1" || fail "inspect exit was $FP_EXIT after the first-party upgrade"
+for id in pjt:gitignore:node pjt:tsconfig pjt:vitest pjt:changesets pjt:husky-lint-staged; do
+  echo "$FP_OUT" | grep -q "upgrade $id 1.0.0 → 1.1.0" && pass "inspect reports $id 1.0.0 → 1.1.0" || fail "inspect missed the $id upgrade"
+done
+$BIN remodel > /dev/null 2>&1
+for id in pjt:gitignore:node pjt:tsconfig pjt:vitest pjt:changesets pjt:husky-lint-staged; do
+  grep -A2 "\"$id\"" .pjt.lock | grep -q '"version": "1.1.0"' && pass "$id: .pjt.lock records 1.1.0" || fail "$id: .pjt.lock still at 1.0.0"
+done
+$BIN inspect > /dev/null 2>&1 && pass "clean after remodel of the first-party upgrade" || fail "drift after the first-party upgrade remodel"
 kill "$REG_PID" 2>/dev/null
 cd "$SMOKE"
-rm -rf "$REG" "$E2E"
+rm -rf "$REG" "$E2E" "$FP"
 
 echo "=== 6. explain ==="
 OUT=$($BIN explain pjt.lock.parse-failed 2>&1)
