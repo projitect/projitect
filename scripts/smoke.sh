@@ -42,6 +42,7 @@ npm install --no-package-lock --silent \
   "file:${PKG}/projitect" \
   "file:${PKG}/blueprint-gitignore" \
   "file:${PKG}/blueprint-vitest" \
+  "file:${PKG}/blueprint-changesets" \
   "file:${PKG}/blueprint-tsconfig" \
   "effect@rc" "tsx" 2>&1 | tail -1
 
@@ -123,6 +124,25 @@ grep -q '"vitest"' package.json && pass "vitest devDep merged into package.json"
 grep -q '"test": "vitest run"' package.json && pass "vitest test script merged" || fail "test script missing"
 grep -q "pjt:vitest" .gitignore && pass ".gitignore got coverage/ region" || fail "no coverage region"
 grep -q "coverage/" .gitignore && pass ".gitignore contains coverage/" || fail "coverage/ entry missing"
+
+echo "=== 5b3. changesets blueprint owns .changeset/config.json + merges package.json ==="
+cat > splice-changesets.mjs <<'EOF'
+import { Effect } from "effect"
+import { splice } from "@projitect/cli-internals"
+await Effect.runPromise(splice({
+  projectRoot: process.cwd(),
+  blueprintFile: ".pjt.ts",
+  importLine: 'import { changesets } from "@projitect/blueprint-changesets"',
+  callLines: ["changesets(),"],
+}))
+EOF
+node --experimental-strip-types splice-changesets.mjs > /dev/null 2>&1
+$BIN remodel > /dev/null
+$BIN inspect > /dev/null 2>&1 && pass "clean after changesets remodel" || fail "changesets blueprint left drift"
+[ -f .changeset/config.json ] && pass ".changeset/config.json created" || fail ".changeset/config.json missing"
+grep -q '"changeset": "changeset"' package.json && pass "changeset script merged" || fail "changeset script missing"
+grep -q '"version-packages": "changeset version"' package.json && pass "version-packages script merged" || fail "version-packages script missing"
+grep -q '"@changesets/cli"' package.json && pass "@changesets/cli devDep merged into package.json" || fail "@changesets/cli devDep not merged"
 
 echo "=== 5b2. markdownSection writes a fenced region into README.md ==="
 # Define a one-off markdownSection blueprint inline in .pjt.ts (avoids cross-file resolution).

@@ -19,17 +19,18 @@ and the changesets changelog's `repo` option all use that slug.
 
 This is a **pnpm monorepo**. `packages/*` and `apps/*` are the workspaces:
 
-| Package                          | Role                                                                                                  |
-| -------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `@projitect/core`                | Shared contracts — `Blueprint`, `ChangeSet`, `Permission`, errors. Runtime-pure, no `node:*`.         |
-| `@projitect/blueprint`           | Authoring SDK — `regionFile`, `jsonMerge`, `ownFile`, `seedFile`, `directory`, `BlueprintFileSystem`. |
-| `@projitect/blueprint-gitignore` | First-party blueprint: composable `.gitignore` sections.                                              |
-| `@projitect/blueprint-tsconfig`  | First-party blueprint: managed `tsconfig.json`.                                                       |
-| `@projitect/blueprint-vitest`    | First-party blueprint: managed Vitest config.                                                         |
-| `@projitect/cli-internals`       | The engine — loader, planner, differ, applier, remover, commands, Node platform layer.                |
-| `projitect`                      | Ships the `pjt` binary and `.pjt.ts` handling.                                                        |
-| `@projitect/test-kit`            | In-memory `BlueprintFileSystem` for unit tests.                                                       |
-| `apps/website`                   | Astro Starlight marketing/docs site. Private, not published.                                          |
+| Package                           | Role                                                                                                  |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `@projitect/core`                 | Shared contracts — `Blueprint`, `ChangeSet`, `Permission`, errors. Runtime-pure, no `node:*`.         |
+| `@projitect/blueprint`            | Authoring SDK — `regionFile`, `jsonMerge`, `ownFile`, `seedFile`, `directory`, `BlueprintFileSystem`. |
+| `@projitect/blueprint-gitignore`  | First-party blueprint: composable `.gitignore` sections.                                              |
+| `@projitect/blueprint-tsconfig`   | First-party blueprint: managed `tsconfig.json`.                                                       |
+| `@projitect/blueprint-vitest`     | First-party blueprint: managed Vitest config.                                                         |
+| `@projitect/blueprint-changesets` | First-party blueprint: managed Changesets config, scripts and devDependency.                          |
+| `@projitect/cli-internals`        | The engine — loader, planner, differ, applier, remover, commands, Node platform layer.                |
+| `projitect`                       | Ships the `pjt` binary and `.pjt.ts` handling.                                                        |
+| `@projitect/test-kit`             | In-memory `BlueprintFileSystem` for unit tests.                                                       |
+| `apps/website`                    | Astro Starlight marketing/docs site. Private, not published.                                          |
 
 All published packages (everything above except `apps/website`) version in **lockstep** via
 changesets — one shared version, matching Effect v4's own release model.

@@ -44,6 +44,7 @@ Your project's blueprint file is one file at the root, called `.pjt.ts`:
 import { pjt } from "projitect/cli"
 import { gitignores } from "@projitect/blueprint-gitignore"
 import { vitest } from "@projitect/blueprint-vitest"
+import { changesets } from "@projitect/blueprint-changesets"
 import { tsconfig } from "@projitect/blueprint-tsconfig"
 
 export default pjt({
@@ -53,6 +54,7 @@ export default pjt({
     gitignores.vscode(),
     tsconfig(), // strict tsconfig.json, owned by the blueprint (no drift)
     vitest(), // vitest.config.ts + scripts + devDeps + coverage/ in .gitignore
+    changesets(), // .changeset/config.json + release scripts + @changesets/cli
   ],
 })
 ```

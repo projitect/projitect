@@ -1,0 +1,51 @@
+---
+title: changesets-setup
+description: Add Changesets release tooling to a project — config, scripts, and devDep in one line.
+sidebar:
+  label: changesets-setup
+  order: 5
+---
+
+import code from "../../../../examples/changesets-setup/example.ts?raw"
+import { Code } from "@astrojs/starlight/components"
+
+Drop `changesets()` into your `.pjt.ts`. One line buys you three things in lockstep:
+
+- A `.changeset/config.json` with the defaults `changeset init` writes (owned mode — projitect
+  rewrites this file on every `pjt remodel`, so adjust it through options, not by hand)
+- `changeset` and `version-packages` scripts in `package.json` (merge mode)
+- `@changesets/cli` in `devDependencies` (merge mode)
+
+<Code code={code} lang="ts" title=".pjt.ts" />
+
+Run:
+
+```bash
+pnpm pjt remodel    # writes .changeset/config.json, merges package.json
+pnpm install        # installs @changesets/cli
+pnpm changeset      # records a changeset
+```
+
+## Why this exists
+
+Config, scripts, and the CLI devDependency drift independently when copied by hand. With
+`changesets()`, `pjt inspect` fails the moment any of them drifts from what the blueprint
+declares.
+
+## Options
+
+```ts
+changesets({
+  baseBranch: "main", // default: "main"
+  access: "public" | "restricted", // default: "restricted"
+  fixed: [["@acme/a", "@acme/b"]], // default: []
+  linked: [["@acme/c", "@acme/d"]], // default: []
+  ignore: ["@acme/website"], // default: []
+  changelog: "@changesets/cli/changelog" | ["name", { ...options }] | false, // default: built-in generator
+})
+```
+
+Each option is written into `.changeset/config.json`; anything you leave out keeps its default.
+
+The default changelog generator ships with `@changesets/cli`. Any other generator, such as
+`@changesets/changelog-github`, must be installed by your project.

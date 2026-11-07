@@ -9,6 +9,7 @@
     { "path": "./packages/projitect" },
     { "path": "./packages/blueprint-gitignore" },
     { "path": "./packages/blueprint-vitest" },
+    { "path": "./packages/blueprint-changesets" },
     { "path": "./packages/blueprint-tsconfig" }
   ]
 }
