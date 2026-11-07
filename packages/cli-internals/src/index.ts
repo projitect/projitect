@@ -39,6 +39,6 @@ export {
   installDev,
   readProjitectMetadata,
   type PackageManager,
-  type ProjitectPackageMetadata,
 } from "./pm.js"
+export type { ProjitectPackageMetadata } from "@projitect/blueprint"
 export { isGitRepo, gitStatus, ensureGitRepo } from "./git.js"

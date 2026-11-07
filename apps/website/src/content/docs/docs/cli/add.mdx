@@ -47,9 +47,11 @@ Behavior is deterministic:
 | `--section <list>` provided                 | Use exactly that list                             |
 | No `--section`, TTY (`process.stdin.isTTY`) | Interactive multi-select via `Prompt.multiSelect` |
 | No `--section`, non-TTY (CI / piped)        | Add every section the package declares            |
+| Interactive picker, nothing selected        | Add nothing                                       |
 
-Pressing **Ctrl-C** during the interactive picker cancels — `pjt add` exits 130, the install
-has already happened (you can re-run with `--section` later).
+Pressing **Ctrl-C** during the interactive picker, or confirming with nothing ticked, leaves
+`.pjt.ts` unchanged. The package stays installed, `pjt add` prints
+`No sections selected; <file> was not changed.` and exits 0. Re-run with `--section` later.
 
 The blueprint-set's `"callTemplate"` (e.g. `gitignores.{section}()`) is filled in per chosen section.
 
