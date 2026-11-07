@@ -45,6 +45,7 @@ npm install --no-package-lock --silent \
   "file:${PKG}/blueprint-changesets" \
   "file:${PKG}/blueprint-markdown" \
   "file:${PKG}/blueprint-skills" \
+  "file:${PKG}/blueprint-husky-lint-staged" \
   "file:${PKG}/blueprint-tsconfig" \
   "effect@rc" "tsx" 2>&1 | tail -1
 
@@ -234,6 +235,37 @@ $BIN remodel > /dev/null
 [ ! -e .claude/skills/smoke-skill ] && pass "removed skill and its directory" || fail "skill directory survived removal"
 [ -f .claude/skills/user-skill/SKILL.md ] && pass "unrelated skill untouched" || fail "unrelated skill lost"
 $BIN inspect > /dev/null 2>&1 && pass "clean after skills removal" || fail "drift after skills removal"
+
+echo "=== 5b4. husky-lint-staged blueprint owns .husky/pre-commit + merges package.json ==="
+# Preset a conflicting `prepare` script: the blueprint owns scripts.prepare and overwrites it.
+cat > preset-prepare.mjs <<'EOF2'
+import { readFileSync, writeFileSync } from "node:fs"
+const pkg = JSON.parse(readFileSync("package.json", "utf8"))
+pkg.scripts = { ...pkg.scripts, prepare: "echo old-prepare" }
+writeFileSync("package.json", `${JSON.stringify(pkg, null, 2)}\n`)
+EOF2
+node preset-prepare.mjs
+cat > splice-husky.mjs <<'EOF2'
+import { Effect } from "effect"
+import { splice } from "@projitect/cli-internals"
+await Effect.runPromise(splice({
+  projectRoot: process.cwd(),
+  blueprintFile: ".pjt.ts",
+  importLine: 'import { huskyLintStaged } from "@projitect/blueprint-husky-lint-staged"',
+  callLines: ["huskyLintStaged(),"],
+}))
+EOF2
+node --experimental-strip-types splice-husky.mjs > /dev/null 2>&1
+$BIN remodel > /dev/null
+$BIN inspect > /dev/null 2>&1 && pass "clean after husky-lint-staged remodel" || fail "husky-lint-staged blueprint left drift"
+[ -f .husky/pre-commit ] && pass ".husky/pre-commit created" || fail ".husky/pre-commit missing"
+grep -q "lint-staged" .husky/pre-commit && pass "hook runs lint-staged" || fail "hook does not run lint-staged"
+grep -q "husky.sh" .husky/pre-commit && fail "hook sources husky.sh" || pass "hook has no husky.sh bootstrap"
+grep -q '"prepare": "husky"' package.json && pass "existing prepare overwritten with husky" || fail "prepare not set to husky"
+grep -q 'old-prepare' package.json && fail "old prepare survived" || pass "old prepare value gone"
+grep -q '"lint-staged": {' package.json && pass "lint-staged field merged" || fail "lint-staged field missing"
+grep -q '"husky": "' package.json && pass "husky devDep merged" || fail "husky devDep missing"
+grep -q '"lint-staged": "\^' package.json && pass "lint-staged devDep merged" || fail "lint-staged devDep missing"
 
 echo "=== 5b2. markdownSection writes a fenced region into README.md ==="
 # Define a one-off markdownSection blueprint inline in .pjt.ts (avoids cross-file resolution).
