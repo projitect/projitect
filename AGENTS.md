@@ -133,6 +133,8 @@ packages first — run `pnpm build` before any of them:
   typechecks. Marketing copy is not allowed to lie.
 - `pnpm --filter website check:errors` — every error id exported by `@projitect/core` has a
   matching MDX page under `apps/website/src/content/docs/errors/`.
+- `./scripts/check-packs.sh` — every packed tarball has `dist/` and a LICENSE equal to the root
+  one, a shared version, `license` MIT and the projitect `repository`.
 - `./scripts/smoke.sh` — end-to-end smoke in a throwaway `/tmp` project: exercises every CLI
   command (`init`, `remodel`, `inspect`, `explain`, `build --force`, `--completions`), validates
   lockfile-driven orphan removal, and validates the git safety nets (`init` refuses without git,
@@ -1018,6 +1020,9 @@ PR triggers the same workflow again, which runs `pnpm release` — `pnpm build` 
 Agents never publish directly: there's no interactive `changeset publish` step to run by hand,
 only the changeset file (see [Commits and PRs](#commits-and-prs)) that feeds the gated workflow
 above. Use the `release-bump` skill to walk through cutting a release.
+
+The first release is blocked on owner-only npm trusted-publisher setup, and a release is confirmed
+only by the public registry returning the version — see [docs/publishing.md](docs/publishing.md).
 
 ## Versioning (lockstep)
 

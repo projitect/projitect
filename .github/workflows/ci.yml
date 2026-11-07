@@ -163,3 +163,4 @@ jobs:
           name: packages-dist
           path: packages
       - run: pnpm -r --filter "./packages/*" publish --dry-run --no-git-checks --access public
+      - run: ./scripts/check-packs.sh

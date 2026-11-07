@@ -110,7 +110,9 @@ gh pr create --fill
 
 Otherwise, push to `main` directly. `changesets/action` will open a "Version Packages" PR
 automatically — merging that PR triggers the actual npm publish via OIDC. Tell the user where
-to watch the workflow.
+to watch the workflow. The first release is blocked until the owner completes the npm
+trusted-publisher checklist in `docs/publishing.md`, and it is confirmed only when
+`pnpm view projitect version` returns the released version — a green job is not confirmation.
 
 ## What this skill never does
 
