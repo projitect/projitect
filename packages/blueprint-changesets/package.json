@@ -1,0 +1,48 @@
+{
+  "name": "@projitect/blueprint-changesets",
+  "version": "0.0.0",
+  "description": "Changesets release-tooling blueprint for projitect — owns .changeset/config.json and the package.json scripts and @changesets/cli devDependency.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/projitect/projitect.git",
+    "directory": "packages/blueprint-changesets"
+  },
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "!**/*.tsbuildinfo"
+  ],
+  "scripts": {
+    "build": "tsc --build",
+    "build:clean": "tsc --build --clean",
+    "tc": "tsc --build"
+  },
+  "devDependencies": {
+    "@projitect/blueprint": "workspace:*",
+    "@projitect/core": "workspace:*",
+    "@projitect/test-kit": "workspace:*",
+    "effect": "4.0.0-rc.111",
+    "typescript": "5.9.3"
+  },
+  "peerDependencies": {
+    "@projitect/blueprint": "workspace:*",
+    "@projitect/core": "workspace:*",
+    "effect": "4.0.0-rc.111"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "projitect": {
+    "type": "blueprint",
+    "import": "import { changesets } from \"@projitect/blueprint-changesets\"",
+    "call": "changesets()"
+  }
+}
