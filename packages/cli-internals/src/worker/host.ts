@@ -63,7 +63,7 @@ const runWorker = (params: {
     }
     const handle = (message: FromChild): void => {
       Match.value(message).pipe(
-        Match.tag("Open", ({ scope, blueprintId, permissions }) => {
+        Match.tag("Open", ({ scope, blueprintId, permissions, directoryPrefix }) => {
           serve(
             {
               send: (frame) => {
@@ -73,7 +73,11 @@ const runWorker = (params: {
                 scopes.set(scope, handler)
               },
             },
-            makeRealShape({ blueprintId, permissions, projectRoot }),
+            makeRealShape({
+              blueprintId,
+              permissions,
+              projectRoot: path.join(projectRoot, directoryPrefix),
+            }),
           )
         }),
         Match.tag("Fs", ({ scope, frame }) => {

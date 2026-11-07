@@ -50,9 +50,10 @@ let nextScope = 0
 const openScope = (
   blueprintId: string,
   permissions: Blueprint.Blueprint["permissions"],
+  directoryPrefix: string,
 ): Transport => {
   const scope = nextScope++
-  post({ _tag: "Open", scope, blueprintId, permissions })
+  post({ _tag: "Open", scope, blueprintId, permissions, directoryPrefix })
   return {
     send: (frame) => {
       post({ _tag: "Fs", scope, frame })
@@ -66,8 +67,12 @@ const openScope = (
 const fsLayerFor = (
   blueprintId: string,
   permissions: Blueprint.Blueprint["permissions"],
+  directoryPrefix: string,
 ): Layer.Layer<BlueprintFileSystem> =>
-  Layer.succeed(BlueprintFileSystem, makeClient(openScope(blueprintId, permissions)))
+  Layer.succeed(
+    BlueprintFileSystem,
+    makeClient(openScope(blueprintId, permissions, directoryPrefix)),
+  )
 
 /** Node's permission errors carry the denied `resource`; name it so an allowlist miss is diagnosable. */
 const describeImportFailure = (e: unknown): string =>
@@ -108,12 +113,12 @@ const run = (start: { readonly modulePath: string; readonly blueprintFile: strin
     }
     const tree = isEffectTree(value.blueprints)
       ? yield* value.blueprints.pipe(
-          Effect.provide(fsLayerFor("pjt:config-loader", [{ kind: "read", glob: "**" }])),
+          Effect.provide(fsLayerFor("pjt:config-loader", [{ kind: "read", glob: "**" }], "")),
         )
       : value.blueprints
     return yield* Effect.forEach(flattenTree(tree, ""), ({ blueprint, directoryPrefix }) =>
       blueprint.plan.pipe(
-        Effect.provide(fsLayerFor(blueprint.id, blueprint.permissions)),
+        Effect.provide(fsLayerFor(blueprint.id, blueprint.permissions, directoryPrefix)),
         Effect.map(
           (changeSet): PlannedBlueprint => ({
             id: blueprint.id,
