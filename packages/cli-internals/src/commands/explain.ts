@@ -58,6 +58,10 @@ const ERROR_BLURBS: Readonly<Record<Errors.ErrorId, string>> = {
   "pjt.git.not-a-repo": "Required a git repository, but `.git/` was missing. Run `git init` first.",
   "pjt.git.command-failed":
     "A `git` command exited non-zero or git isn't installed. The underlying error is included in the message.",
+  "pjt.exec.command-failed":
+    "A command run by projitect exited non-zero or could not be started. Its exit code, stdout and stderr are included.",
+  "pjt.exec.command-not-permitted":
+    "A blueprint tried to run a command that none of its declared `exec` permissions names exactly.",
   "pjt.pm.not-detected":
     "Could not figure out which package manager you're using. Add a lockfile (`pnpm-lock.yaml`, `package-lock.json`, etc.) at your project root.",
   "pjt.pm.install-failed":

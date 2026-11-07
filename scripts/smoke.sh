@@ -25,7 +25,7 @@ FAILED=0
 pass() { echo "  ✓ $1"; }
 fail() { echo "  ✗ $1"; FAILED=1; }
 
-cleanup() { [ -n "${REG_PID:-}" ] && kill "$REG_PID" 2>/dev/null; rm -rf "$SMOKE" "${REG:-}" "${E2E:-}"; }
+cleanup() { [ -n "${REG_PID:-}" ] && kill "$REG_PID" 2>/dev/null; rm -rf "$SMOKE" "${SMOKE}-tools" "${REG:-}" "${E2E:-}"; }
 trap cleanup EXIT
 
 cd "$SMOKE"
@@ -45,6 +45,7 @@ npm install --no-package-lock --silent \
   "file:${PKG}/blueprint-changesets" \
   "file:${PKG}/blueprint-markdown" \
   "file:${PKG}/blueprint-skills" \
+  "file:${PKG}/blueprint-husky-lint-staged" \
   "file:${PKG}/blueprint-tsconfig" \
   "effect@rc" "tsx" 2>&1 | tail -1
 
@@ -234,6 +235,78 @@ $BIN remodel > /dev/null
 [ ! -e .claude/skills/smoke-skill ] && pass "removed skill and its directory" || fail "skill directory survived removal"
 [ -f .claude/skills/user-skill/SKILL.md ] && pass "unrelated skill untouched" || fail "unrelated skill lost"
 $BIN inspect > /dev/null 2>&1 && pass "clean after skills removal" || fail "drift after skills removal"
+
+echo "=== 5b4. husky-lint-staged blueprint owns .husky/pre-commit + merges package.json ==="
+# Preset a conflicting `prepare` script: the blueprint owns scripts.prepare and overwrites it.
+cat > preset-prepare.mjs <<'EOF2'
+import { readFileSync, writeFileSync } from "node:fs"
+const pkg = JSON.parse(readFileSync("package.json", "utf8"))
+pkg.scripts = { ...pkg.scripts, prepare: "echo old-prepare" }
+writeFileSync("package.json", `${JSON.stringify(pkg, null, 2)}\n`)
+EOF2
+node preset-prepare.mjs
+cat > splice-husky.mjs <<'EOF2'
+import { Effect } from "effect"
+import { splice } from "@projitect/cli-internals"
+await Effect.runPromise(splice({
+  projectRoot: process.cwd(),
+  blueprintFile: ".pjt.ts",
+  importLine: 'import { huskyLintStaged } from "@projitect/blueprint-husky-lint-staged"',
+  callLines: ["huskyLintStaged(),"],
+}))
+EOF2
+node --experimental-strip-types splice-husky.mjs > /dev/null 2>&1
+$BIN remodel > /dev/null
+$BIN inspect > /dev/null 2>&1 && pass "clean after husky-lint-staged remodel" || fail "husky-lint-staged blueprint left drift"
+[ -f .husky/pre-commit ] && pass ".husky/pre-commit created" || fail ".husky/pre-commit missing"
+grep -q "lint-staged" .husky/pre-commit && pass "hook runs lint-staged" || fail "hook does not run lint-staged"
+grep -q "husky.sh" .husky/pre-commit && fail "hook sources husky.sh" || pass "hook has no husky.sh bootstrap"
+grep -q '"prepare": "husky"' package.json && pass "existing prepare overwritten with husky" || fail "prepare not set to husky"
+grep -q 'old-prepare' package.json && fail "old prepare survived" || pass "old prepare value gone"
+grep -q '"lint-staged": {' package.json && pass "lint-staged field merged" || fail "lint-staged field missing"
+grep -q '"husky": "' package.json && pass "husky devDep merged" || fail "husky devDep missing"
+grep -q '"lint-staged": "\^' package.json && pass "lint-staged devDep merged" || fail "lint-staged devDep missing"
+
+# Drift: editing the owned hook is reported by inspect and repaired by remodel.
+echo "echo tampered" >> .husky/pre-commit
+$BIN inspect > /dev/null 2>&1 && fail "inspect missed hook edit" || pass "inspect reports hook drift"
+$BIN remodel > /dev/null
+$BIN inspect > /dev/null 2>&1 && pass "clean after hook repair" || fail "hook drift survived remodel"
+grep -q "tampered" .husky/pre-commit && fail "hook edit survived remodel" || pass "hook content restored"
+
+# Drift: editing an owned package.json key is reported and repaired the same way.
+sed -i 's/"prepare": "husky"/"prepare": "echo drifted"/' package.json
+$BIN inspect > /dev/null 2>&1 && fail "inspect missed prepare edit" || pass "inspect reports owned-key drift"
+$BIN remodel > /dev/null
+$BIN inspect > /dev/null 2>&1 && pass "clean after owned-key repair" || fail "owned-key drift survived remodel"
+grep -q '"prepare": "husky"' package.json && pass "prepare restored to husky" || fail "prepare not restored"
+
+# Real commit-time behavior: install the generated devDependencies (the blueprint never installs
+# them) plus prettier (the project's own formatter), then commit through the husky 9 hook.
+# The hook has no executable bit; husky runs it through `sh`, so this proves that assumption.
+HUSKY_RANGE=$(sed -n 's/.*"husky": "\(\^[0-9][^"]*\)".*/\1/p' package.json | head -1)
+LINT_STAGED_RANGE=$(sed -n 's/.*"lint-staged": "\(\^[0-9][^"]*\)".*/\1/p' package.json | head -1)
+git add -A > /dev/null 2>&1
+git commit -q -m "chore: smoke baseline" > /dev/null 2>&1   # hooksPath not set yet, so no hook runs
+# Install into a separate prefix: a --no-save install on top of the `file:` links above trips an
+# npm arborist crash on some npm versions. husky and the hook find the tools through PATH.
+TOOLS="${SMOKE}-tools"
+mkdir -p "$TOOLS"
+(cd "$TOOLS" && echo '{"private":true}' > package.json && npm install --no-package-lock "husky@${HUSKY_RANGE}" "lint-staged@${LINT_STAGED_RANGE}" prettier) || fail "installing husky, lint-staged and prettier failed"
+ORIGINAL_PATH="$PATH"
+export PATH="${TOOLS}/node_modules/.bin:${PATH}"
+npm run prepare --silent || fail "npm run prepare failed"
+[ "$(git config core.hooksPath)" = ".husky/_" ] && pass "husky prepare installed git hooks" || fail "husky did not set core.hooksPath"
+[ -x .husky/pre-commit ] && fail "hook unexpectedly executable" || pass "hook has no executable bit"
+printf '{ "broken": ' > bad.json
+git add bad.json
+git commit -q -m "chore: should be blocked" > /dev/null 2>&1 && fail "commit with broken json was not blocked" || pass "husky + lint-staged block a failing staged file"
+git rev-parse -q --verify HEAD~1 > /dev/null 2>&1 && fail "blocked commit landed" || pass "blocked commit left no new commit"
+printf '{ "broken": false }\n' > bad.json
+git add bad.json
+git commit -q -m "chore: now valid" > /dev/null 2>&1 && pass "commit succeeds once the staged file is fixed" || fail "commit with fixed file was blocked"
+git config --unset core.hooksPath   # keep the hook out of later sections
+export PATH="$ORIGINAL_PATH"
 
 echo "=== 5b2. markdownSection writes a fenced region into README.md ==="
 # Define a one-off markdownSection blueprint inline in .pjt.ts (avoids cross-file resolution).

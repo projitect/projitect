@@ -90,3 +90,17 @@ export const isPermitted = (
       p.kind !== "exec" && matchesGlob(path, p.glob) && (p.kind === "write" || category === "read"),
   )
 }
+
+/**
+ * Returns `true` if some declared `exec` permission names `command`.
+ *
+ * Decision: the permission's `command` matches by **exact string** against the full command line —
+ * no glob, no normalisation. A glob such as `pnpm *` would let a blueprint run any subcommand,
+ * which defeats declaring the permission; exact matching fails closed, so `pnpm lint:fix` is denied
+ * when only `pnpm lint` is declared. Relaxing to globs later is additive (the schema stores a plain
+ * string). `read`/`write` permissions never grant exec, and `exec` never grants file access.
+ */
+export const isCommandPermitted = (
+  permissions: readonly Permission.Permission[],
+  command: string,
+): boolean => Array.some(permissions, (p) => p.kind === "exec" && p.command === command)

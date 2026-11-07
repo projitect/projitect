@@ -18,3 +18,9 @@ export const NodePlatformLive = Layer.mergeAll(FileSystemLive, TerminalLive, Std
 export { FileSystemLive } from "./file-system.js"
 export { StdioLive } from "./stdio.js"
 export { TerminalLive } from "./terminal.js"
+export {
+  runCommand,
+  nodeSpawner,
+  type ProcessSpawner,
+  type CommandOutput,
+} from "./process-runner.js"
