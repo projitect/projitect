@@ -9,5 +9,17 @@ export default pjt({
       path: ".gitignore",
       content: "dist/\n",
     }),
+    ignoreSection({
+      id: "pjt:test:inspect-json-modify",
+      version: "1.0.0",
+      path: ".dockerignore",
+      content: "node_modules/\n",
+    }),
+    ignoreSection({
+      id: "pjt:test:inspect-json-ok",
+      version: "1.0.0",
+      path: ".npmignore",
+      content: "coverage/\n",
+    }),
   ],
 })

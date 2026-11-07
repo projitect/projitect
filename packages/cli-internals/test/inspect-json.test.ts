@@ -2,7 +2,7 @@ import { promises as fs } from "node:fs"
 import * as os from "node:os"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
-import { Effect } from "effect"
+import { Effect, Schema } from "effect"
 import { Ajv2020 } from "ajv/dist/2020.js"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import { ProjitectConfig } from "@projitect/core"
@@ -15,7 +15,7 @@ import { inspectJsonSchemaDocument, InspectJsonSchemaUrl } from "../src/commands
  *
  *  - The committed schema file at `apps/website/public/schemas/inspect.v1.json` never drifts
  *    from the `InspectJson` Effect Schema it's generated from.
- *  - Real `--json` output — covering create/modify/ok files, a removal, and an upgrade in one
+ *  - Real `--json` output — covering create, modify and ok files, a removal, and an upgrade in one
  *    pass — validates against that committed file using an independent validator (ajv), and
  *    malformed output is rejected by the same validator.
  */
@@ -29,6 +29,8 @@ const SCHEMA_FILE = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
   "../../../apps/website/public/schemas/inspect.v1.json",
 )
+
+const decodeObject = Schema.decodeUnknownSync(Schema.Record(Schema.String, Schema.Unknown))
 
 let cwd: string
 
@@ -48,9 +50,20 @@ describe("inspect-json", () => {
   })
 
   it("real --json output validates against the committed schema; malformed output doesn't", async () => {
-    // Lockfile entry for the fixture's blueprint at an older version → upgrade.
+    // `.gitignore` is left missing → create. `.dockerignore` holds drifted region content →
+    // modify. `.npmignore` holds the exact region content → ok.
+    // Lockfile entry for the first blueprint at an older version → upgrade.
     // Lockfile entry for a blueprint no longer in the tree → removal.
-    // The managed `.gitignore` file is left missing → create.
+    await fs.writeFile(
+      path.join(cwd, ".dockerignore"),
+      "# pjt:test:inspect-json-modify start\nsomething-else/\n# pjt:test:inspect-json-modify end\n",
+      "utf8",
+    )
+    await fs.writeFile(
+      path.join(cwd, ".npmignore"),
+      "# pjt:test:inspect-json-ok start\ncoverage/\n# pjt:test:inspect-json-ok end\n",
+      "utf8",
+    )
     await fs.writeFile(
       path.join(cwd, ".pjt.lock"),
       JSON.stringify({
@@ -85,16 +98,17 @@ describe("inspect-json", () => {
     const config = ProjitectConfig.resolve({ projectRoot: cwd, blueprintFile: FIXTURE })
     const result = await Effect.runPromise(inspect({ config }))
 
-    expect(result.files.length).toBeGreaterThan(0)
+    expect(new Set(result.files.map((file) => file.status))).toEqual(
+      new Set(["create", "modify", "ok"]),
+    )
     expect(result.removals.length).toBeGreaterThan(0)
     expect(result.upgrades.length).toBeGreaterThan(0)
     expect(result.hasDrift).toBe(true)
 
-    const output = JSON.parse(renderInspectJson(result)) as Record<string, unknown>
-
-    const ajv = new Ajv2020({ strict: false })
-    const schema = JSON.parse(await fs.readFile(SCHEMA_FILE, "utf8")) as Record<string, unknown>
-    const validate = ajv.compile(schema)
+    const output = decodeObject(JSON.parse(renderInspectJson(result)))
+    const validate = new Ajv2020({ strict: false }).compile(
+      decodeObject(JSON.parse(await fs.readFile(SCHEMA_FILE, "utf8"))),
+    )
 
     expect(validate(output)).toBe(true)
     expect(output["$schema"]).toBe(InspectJsonSchemaUrl)
@@ -104,7 +118,7 @@ describe("inspect-json", () => {
     expect(validate(badStatus)).toBe(false)
 
     // A missing `hasDrift` fails validation.
-    const { hasDrift: _hasDrift, ...withoutHasDrift } = output as { hasDrift: unknown }
+    const { hasDrift: _hasDrift, ...withoutHasDrift } = output
     expect(validate(withoutHasDrift)).toBe(false)
 
     // An unknown additional top-level key still validates — the forward-compatibility promise.
