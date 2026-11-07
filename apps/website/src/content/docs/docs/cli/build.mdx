@@ -4,18 +4,23 @@ description: Wipe the project tree and rebuild from blueprints. Destructive.
 ---
 
 ```bash
-pjt build --force [--force-dirty] [--yes]
+pjt build --force [--force-dirty] [--yes] [--json]
 ```
 
 **Destructive.** Deletes every file under the project root except a small preserved set (see below), then runs `pjt remodel` to rebuild from the current blueprint plan. Intended for fresh greenfield scaffolds and one-shot migrations off another generator. **Not for day-to-day use** — that's what `pjt remodel` is for.
 
 ## Required + optional flags
 
-| Flag            | Description                                                                                                      |
-| --------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `--force`       | **Required.** Without it, `pjt build` refuses to run. The wipe is too destructive to fire by accident.           |
-| `--force-dirty` | Allow wiping even when `git status --porcelain` shows uncommitted changes. Default is to refuse on a dirty tree. |
-| `--yes`         | Skip the interactive confirmation prompt. Use this in scripts; otherwise the human at the keyboard confirms.     |
+| Flag            | Description                                                                                                          |
+| --------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `--force`       | **Required.** Without it, `pjt build` refuses to run. The wipe is too destructive to fire by accident.               |
+| `--force-dirty` | Allow wiping even when `git status --porcelain` shows uncommitted changes. Default is to refuse on a dirty tree.     |
+| `--yes`         | Skip the interactive confirmation prompt. Use this in scripts; otherwise the human at the keyboard confirms.         |
+| `--json`        | Print the result as `{ wiped, remodel }`. On failure, print `{ "error": { ... } }` with the error's `id` and fields. |
+
+## Post-apply commands
+
+After the files are rebuilt, `pjt build` runs the blueprints' post-apply commands in a final phase, exactly as [`pjt remodel`](/docs/cli/remodel/#post-apply-commands) does: sequentially, deduplicated, only if every file operation succeeded, and each one must be named by its blueprint's `exec` permissions. The wipe has already happened by then, so a failing or refused command leaves the rebuilt files in place and `pjt build` exits nonzero with `pjt.exec.command-failed` or `pjt.exec.command-not-permitted`.
 
 ## What gets preserved
 
@@ -48,6 +53,8 @@ Wiped 4 entries:
   scratch.md
 Rebuilt 1 file from the plan:
   .gitignore
+Ran 1 command:
+  pnpm exec prettier --write .
 ```
 
 Or, when the user declines the confirmation:
