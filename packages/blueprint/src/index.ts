@@ -3,7 +3,7 @@
  *
  * Authoring SDK for blueprint packages. Blueprint authors compose these primitives — the
  * `BlueprintFileSystem` service for FS access, the four ownership-mode constructors
- * (`regionFile` / `jsonMerge` / `ownFile` / `seedFile`), the section helpers
+ * (`regionFile` / `jsonMerge` / `ownFile` / `seedFile`), the post-apply `exec` constructor, the section helpers
  * (`markdownSection`, `ignoreSection`), the `directory` scope transform, and detectors for
  * common project introspection.
  *

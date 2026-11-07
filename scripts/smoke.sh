@@ -801,8 +801,9 @@ $BIN build --force --force-dirty --yes 2>&1 | grep -q "Wiped" && pass "build wip
 [ -f package.json ] && pass "package.json preserved"|| fail "package.json wiped"
 
 echo "=== 9b. post-apply commands run after the files; a denied command fails ==="
-# A throwaway blueprint returns a hand-built Exec op (the authoring SDK has no constructor for it).
-# The command is a quoted `node -e` so no script file has to survive the wipe.
+# A throwaway blueprint written with the SDK's `exec` helper plus an ownFile for the file operation.
+# The fix is a quoted `node -e` so no script file has to survive the wipe. The denied case spreads the
+# real helper's blueprint and drops its exec permissions, so the planned op is still the helper's.
 EXECDIR="$(mktemp -d -t pjt-exec.XXXXXX)"
 cp -r "${SMOKE}/node_modules" "${EXECDIR}/"
 cd "$EXECDIR"
@@ -811,31 +812,24 @@ git config user.email t@t
 git config user.name t
 echo '{"name":"smoke-exec","version":"0.0.0","private":true,"type":"module"}' > package.json
 write_exec_blueprint() {
-  cat > .pjt.ts <<EOF
-import { Effect } from "effect"
+  cat > .pjt.ts <<EOT
+import { exec, ownFile } from "@projitect/blueprint"
 import { pjt } from "projitect/cli"
 
-const command = "node -e \"require('node:fs').writeFileSync('marker.txt', 'ran')\""
+const fix = "node -e \"require('node:fs').writeFileSync('marker.txt', 'ran')\""
+const check = "node -e \"process.exit(require('node:fs').existsSync('marker.txt') ? 0 : 1)\""
+const formatter = exec({ id: "smoke:post-apply", version: "1.0.0", check, fix })
 
 export default pjt({
   blueprints: [
-    {
-      id: "smoke:post-apply",
-      version: "1.0.0",
-      permissions: [$1],
-      plan: Effect.succeed({
-        operations: [
-          { _tag: "Owned", ownerId: "smoke:post-apply", path: "owned.txt", content: "owned\n" },
-          { _tag: "Exec", ownerId: "smoke:post-apply", command },
-        ],
-      }),
-    },
+    ownFile({ id: "smoke:owned", version: "1.0.0", path: "owned.txt", content: "owned\n" }),
+    $1,
   ],
 })
-EOF
+EOT
 }
 
-write_exec_blueprint '{ kind: "write", glob: "owned.txt" }, { kind: "exec", command }'
+write_exec_blueprint 'formatter'
 node node_modules/projitect/bin/pjt.mjs build --force --force-dirty --yes > /tmp/exec-ok.out 2>&1
 EXEC_OK=$?
 [ $EXEC_OK -eq 0 ] && pass "build with a permitted post-apply command exits 0" || fail "permitted build exited $EXEC_OK"
@@ -846,7 +840,7 @@ node node_modules/projitect/bin/pjt.mjs inspect > /tmp/exec-inspect.out 2>&1
 [ $? -ne 0 ] && grep -q "pjt.inspect.operation-unsupported" /tmp/exec-inspect.out && pass "inspect fails closed on post-apply commands" || fail "inspect did not fail closed"
 
 rm -f marker.txt
-write_exec_blueprint '{ kind: "write", glob: "owned.txt" }'
+write_exec_blueprint '{ ...formatter, permissions: [] }'
 node node_modules/projitect/bin/pjt.mjs build --force --force-dirty --yes --json > /tmp/exec-denied.out 2>&1
 EXEC_DENIED=$?
 [ $EXEC_DENIED -ne 0 ] && pass "build with a denied command exits nonzero" || fail "denied build exited 0"
