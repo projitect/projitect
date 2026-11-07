@@ -1,9 +1,12 @@
-import { Effect, Exit, Schema } from "effect"
+import { mkdtempSync, readFileSync } from "node:fs"
+import { tmpdir } from "node:os"
+import path from "node:path"
+import { Effect, Exit, Fiber, Option, Schema } from "effect"
 import { describe, expect, it } from "vitest"
 import { Errors } from "@projitect/core"
 import type { Permission } from "@projitect/core"
 import { isPermitted } from "../src/permissions.js"
-import { runCommand } from "../src/platform/process-runner.js"
+import { nodeSpawner, parseArgv, runCommand } from "../src/platform/process-runner.js"
 import type { ProcessSpawner } from "../src/platform/process-runner.js"
 
 const exec = (command: string): readonly Permission.Permission[] => [{ kind: "exec", command }]
@@ -124,5 +127,64 @@ describe("runCommand", () => {
       _tag: "CommandNotPermitted",
       command: "x",
     })
+  })
+})
+
+describe("argv contract", () => {
+  it("splits on unquoted whitespace and keeps quoted arguments whole", () => {
+    expect(parseArgv("prettier --check 'src/a b/**/*.ts' \"x y\"  z")).toEqual(
+      Option.some(["prettier", "--check", "src/a b/**/*.ts", "x y", "z"]),
+    )
+    expect(parseArgv("echo ''")).toEqual(Option.some(["echo", ""]))
+  })
+
+  it("rejects empty commands and unterminated quotes", () => {
+    for (const command of ["", "   ", "echo 'oops", '"']) {
+      expect(Option.isNone(parseArgv(command))).toBe(true)
+    }
+  })
+
+  it("passes quoted arguments to the spawner and permits only the raw string", async () => {
+    const command = "fmt 'a b' c"
+    const { calls, spawner } = fakeSpawner(Effect.succeed({ exitCode: 0, stdout: "", stderr: "" }))
+    await run(exec(command), command, spawner)
+    expect(calls).toEqual([{ program: "fmt", args: ["a b", "c"], cwd: "/proj" }])
+    const denied = failureOf(await run(exec(command), "fmt a b c", spawner))
+    expect(denied).toBeInstanceOf(Errors.CommandNotPermitted)
+  })
+
+  it("fails with CommandFailed, without spawning, on unsupported syntax", async () => {
+    const { calls, spawner } = fakeSpawner(Effect.succeed({ exitCode: 0, stdout: "", stderr: "" }))
+    const error = failureOf(await run(exec("echo 'oops"), "echo 'oops", spawner))
+    expect(error).toBeInstanceOf(Errors.CommandFailed)
+    expect(calls).toHaveLength(0)
+  })
+})
+
+describe("nodeSpawner cancellation", () => {
+  it("kills the owned child when the fiber is interrupted", async () => {
+    const pidFile = path.join(mkdtempSync(path.join(tmpdir(), "pjt-runner-")), "pid")
+    const script = `require("fs").writeFileSync(${JSON.stringify(pidFile)}, String(process.pid)); setTimeout(() => {}, 60000)`
+    const fiber = Effect.runFork(nodeSpawner("node", ["-e", script], tmpdir()))
+    const pid = await new Promise<number>((resolve, reject) => {
+      const started = Date.now()
+      const poll = () => {
+        try {
+          resolve(Number(readFileSync(pidFile, "utf8")))
+        } catch {
+          if (Date.now() - started > 10_000) {
+            reject(new Error("child never started"))
+            return
+          }
+          setTimeout(poll, 20)
+        }
+      }
+      poll()
+    })
+    await Effect.runPromise(Fiber.interrupt(fiber))
+    await new Promise((resolve) => {
+      setTimeout(resolve, 200)
+    })
+    expect(() => process.kill(pid, 0)).toThrow()
   })
 })
