@@ -1,8 +1,7 @@
 import { promises as fs } from "node:fs"
 import * as os from "node:os"
 import path from "node:path"
-import { Effect } from "effect"
-import type { Layer } from "effect"
+import { Effect, Layer } from "effect"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import { BlueprintFileSystem } from "@projitect/core"
 import { makeInMemoryLayer } from "@projitect/test-kit"
@@ -272,6 +271,38 @@ describe("applyRemovals — owned dir pruning (disk)", () => {
       { _tag: "Owned", path: "skills/c/gone.md", ownerId: "pjt:s", ownedDir: "skills/c" },
     ])
     expect(await present("skills/c/keep.md")).toBe(true)
+  })
+
+  it("keeps an entry that appears just before the directory is removed", async () => {
+    await put("skills/c/gone.md", "g")
+    const base = await Effect.runPromise(
+      Effect.provide(
+        Effect.gen(function* () {
+          return yield* BlueprintFileSystem
+        }),
+        makeProjectRootLayer(root),
+      ),
+    )
+    // The unmanaged file lands after the caller last looked, right before the directory removal.
+    const racing = Layer.succeed(BlueprintFileSystem, {
+      ...base,
+      removeEmptyDir: (dir) =>
+        Effect.flatMap(
+          Effect.promise(() => put(`${dir}/late.md`, "user")),
+          () => base.removeEmptyDir(dir),
+        ),
+    })
+    await Effect.runPromise(
+      Effect.provide(
+        applyRemovals({
+          removals: [
+            { _tag: "Owned", path: "skills/c/gone.md", ownerId: "pjt:s", ownedDir: "skills/c" },
+          ],
+        }),
+        racing,
+      ),
+    )
+    expect(await present("skills/c/late.md")).toBe(true)
   })
 
   it("prunes nothing when the op names no owned dir", async () => {

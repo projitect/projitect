@@ -44,6 +44,20 @@ export const makeInMemoryLayer = (
       Effect.sync(() => {
         state.delete(path)
       }),
+    removeEmptyDir: (path) =>
+      Effect.suspend(() => {
+        const prefix = `${path}/`
+        return Array.from(state.keys()).some((k) => k.startsWith(prefix))
+          ? Effect.fail(
+              new Errors.FsWriteFailed({
+                id: "pjt.fs.write-failed",
+                path,
+                cause: "ENOTEMPTY",
+                message: `In-memory FS: ${path} is not empty`,
+              }),
+            )
+          : Effect.void
+      }),
     mkdir: (_path) => Effect.void,
     listDir: (prefix) =>
       Effect.sync(() => Array.from(state.keys()).filter((k) => k.startsWith(prefix))),

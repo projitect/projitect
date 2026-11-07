@@ -175,6 +175,23 @@ const makeDiskLayer = (config: {
           }),
         ),
       ),
+    // Non-recursive on purpose: `rmdir` is atomic about emptiness, so an entry created after the
+    // caller last looked is never deleted.
+    removeEmptyDir: (p) =>
+      resolvePath(p, "removeEmptyDir").pipe(
+        Effect.flatMap((full) =>
+          Effect.tryPromise({
+            try: () => fs.rmdir(full),
+            catch: (e) =>
+              new Errors.FsWriteFailed({
+                id: "pjt.fs.write-failed",
+                path: p,
+                cause: e instanceof Error ? e.message : String(e),
+                message: `Failed to remove empty directory ${p}`,
+              }),
+          }),
+        ),
+      ),
     mkdir: (p) =>
       resolvePath(p, "mkdir").pipe(
         Effect.flatMap((full) =>

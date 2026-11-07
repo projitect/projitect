@@ -25,6 +25,9 @@ const respond = (shape: BlueprintFileSystemShape, request: Request): Effect.Effe
     Match.tag("Remove", ({ id, path }) =>
       Effect.map(shape.remove(path), (): Response => ({ _tag: "RemoveOk", id })),
     ),
+    Match.tag("RemoveEmptyDir", ({ id, path }) =>
+      Effect.map(shape.removeEmptyDir(path), (): Response => ({ _tag: "RemoveEmptyDirOk", id })),
+    ),
     Match.tag("Mkdir", ({ id, path }) =>
       Effect.map(shape.mkdir(path), (): Response => ({ _tag: "MkdirOk", id })),
     ),

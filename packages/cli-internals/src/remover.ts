@@ -119,11 +119,8 @@ const pruneEmptyDirs = (
       return
     }
     const fs = yield* BlueprintFileSystem
-    const entries = yield* fs.listDir(dir)
-    if (Array.isReadonlyArrayNonEmpty(entries)) {
-      return
-    }
-    yield* fs.remove(dir)
+    // Atomic: fails (and stops the climb) if `dir` holds any entry, however recently it appeared.
+    yield* fs.removeEmptyDir(dir)
     if (dir !== ownedDir) {
       yield* pruneEmptyDirs(parentDir(dir), ownedDir)
     }

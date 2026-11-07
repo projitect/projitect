@@ -65,7 +65,7 @@ const globToRegex = (glob: string): RegExp => new RegExp(`^${globToPattern(glob)
 
 const matchesGlob = (path: string, glob: string): boolean => globToRegex(glob).test(path)
 
-export type FsOp = "read" | "write" | "exists" | "remove" | "mkdir" | "listDir"
+export type FsOp = "read" | "write" | "exists" | "remove" | "removeEmptyDir" | "mkdir" | "listDir"
 
 const opCategory = (op: FsOp): "read" | "write" =>
   op === "read" || op === "exists" || op === "listDir" ? "read" : "write"
@@ -73,7 +73,7 @@ const opCategory = (op: FsOp): "read" | "write" =>
 /**
  * Returns `true` if the declared permissions cover the requested operation on the given path.
  * `read`-permissioned globs cover `read | exists | listDir`. `write`-permissioned globs cover all
- * write-side operations (`write | remove | mkdir`) **and implicitly** the read operations on the
+ * write-side operations (`write | remove | removeEmptyDir | mkdir`) **and implicitly** the read operations on the
  * same path — a blueprint that writes a file naturally needs to read it back for region updates.
  */
 export const isPermitted = (

@@ -17,7 +17,15 @@ export class FsPermissionDenied extends Schema.TaggedError<FsPermissionDenied>()
   {
     id: Schema.Literal("pjt.fs.permission-denied"),
     path: Schema.String,
-    operation: Schema.Literals(["read", "write", "exists", "remove", "mkdir", "listDir"]),
+    operation: Schema.Literals([
+      "read",
+      "write",
+      "exists",
+      "remove",
+      "removeEmptyDir",
+      "mkdir",
+      "listDir",
+    ]),
     blueprintId: Schema.String,
     message: Schema.String,
   },
