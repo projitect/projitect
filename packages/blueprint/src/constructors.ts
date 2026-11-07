@@ -101,6 +101,8 @@ export interface OwnFileSpec {
   readonly description?: string
   readonly path: string
   readonly content: string
+  /** Directory the file's owner manages; empty directories are pruned up to it on removal. */
+  readonly ownedDir?: string
   readonly extraPermissions?: readonly Permission.Permission[]
 }
 
@@ -115,6 +117,7 @@ export const ownFile = (spec: OwnFileSpec): Blueprint.Blueprint => ({
         ownerId: spec.id,
         path: spec.path,
         content: spec.content,
+        ...StructX.defined("ownedDir", spec.ownedDir),
       }),
     ),
   ),

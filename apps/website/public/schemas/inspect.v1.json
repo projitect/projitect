@@ -125,6 +125,16 @@
               },
               "ownerId": {
                 "type": "string"
+              },
+              "ownedDir": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               }
             },
             "required": [

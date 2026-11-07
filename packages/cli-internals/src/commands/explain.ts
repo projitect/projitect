@@ -38,6 +38,8 @@ const ERROR_BLURBS: Readonly<Record<Errors.ErrorId, string>> = {
     "Two blueprints claim the same JSON key in the same file. Coordinate ownership.",
   "pjt.plan.conflict-owned":
     "Two blueprints both claim full ownership of one file. Only one `ownFile` per path is allowed.",
+  "pjt.skills.invalid-path":
+    "A skill name, target root or file path is empty, absolute, or tries to leave the skills directory — or a skill has no `SKILL.md`.",
   "pjt.region.missing-end":
     "A region start marker was found without a matching end marker. The file has been hand-edited and the closing marker removed.",
   "pjt.region.duplicate": "Multiple start markers for the same region in one file. Hand-edited?",

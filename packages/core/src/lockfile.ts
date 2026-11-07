@@ -25,6 +25,7 @@ export const LockMergeOp = Schema.TaggedStruct("Merge", {
 export const LockOwnedOp = Schema.TaggedStruct("Owned", {
   path: Schema.String,
   ownerId: Schema.String,
+  ownedDir: Schema.optional(Schema.String),
 })
 
 export const LockSeedOp = Schema.TaggedStruct("Seed", {

@@ -495,3 +495,18 @@ describe("diffLockfile", () => {
     expect(out.upgrades).toEqual([{ blueprintId: "pjt:stay", from: "0.9.0", to: "1.0.0" }])
   })
 })
+
+describe("diffLockfile — owned files dropped by a still-present blueprint", () => {
+  const entry = (version: string, paths: readonly string[]): PjtLock.BlueprintLockEntry => ({
+    version,
+    operations: paths.map((path) => ({ _tag: "Owned" as const, path, ownerId: "pjt:a" })),
+  })
+
+  it("reports owned paths missing from the new version as removals", () => {
+    const { removals } = diffLockfile({
+      previous: { version: 1, blueprints: { "pjt:a": entry("1.0.0", ["keep.md", "old.md"]) } },
+      current: { "pjt:a": entry("1.1.0", ["keep.md", "new.md"]) },
+    })
+    expect(removals.map((r) => r.path)).toEqual(["old.md"])
+  })
+})

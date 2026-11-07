@@ -1,0 +1,68 @@
+---
+title: Agent skills
+description: Share, install, update and remove agent skills as versioned blueprint packages.
+sidebar:
+  label: Agent skills
+---
+
+`@projitect/blueprint-skills` manages agent skills the way other blueprints manage config files:
+versioned, drift-checked, and confined to the permissions the blueprint declares.
+
+## Layout
+
+Each skill lives at `<target>/<skill-name>/SKILL.md`, beside its referenced files, which may be
+nested:
+
+```
+.claude/skills/
+  release-notes/
+    SKILL.md
+    scripts/collect.sh
+    assets/templates/notes.md
+```
+
+`<target>` defaults to `.claude/skills`. Set `target` to place skills elsewhere, for example
+`.agents/skills`; the layout beneath it is identical.
+
+```ts
+skills({ id: "acme:skills", version: "1.0.0", target: ".agents/skills", skills: [...] })
+```
+
+## Authoring a skill package
+
+Export a blueprint built with `skills({ id, version, skills })`; see the
+[skills-package example](/examples/skills-package/).
+
+| Option    | Meaning                                                                                        |
+| --------- | ---------------------------------------------------------------------------------------------- |
+| `skills`  | List of `{ name, files }`. `files` maps relative paths to content and must include `SKILL.md`. |
+| `id`      | Required. Stable, namespaced owner id such as `acme:skills`; every skill package has its own.  |
+| `version` | Required. The package's own version; `pjt inspect` reports upgrades from the lockfile.         |
+| `target`  | Skills root. Default `.claude/skills`. Literal path only: glob characters are rejected.        |
+
+Skill names are a single path segment. File paths are `/`-separated and relative. Empty values,
+absolute paths, glob characters in `target`, `.` or `..` segments, backslashes and separators inside a name fail with
+[`pjt.skills.invalid-path`](/errors/pjt.skills.invalid-path/), and nothing is written.
+
+The blueprint declares write permission for `<target>/**` only, so the
+[sandbox](/docs/concepts/sandbox/) refuses any write outside the skills directory.
+
+## Consuming
+
+Add the package to `.pjt.ts` and run `pjt remodel`. Every file is written in
+[owned mode](/docs/concepts/ownership-modes/), so `pjt inspect` exits nonzero when someone edits an
+installed skill file and `pjt remodel` restores the declared content (see
+[drift detection](/docs/concepts/drift-detection/)).
+
+- **Update.** Bump the package version and run `pjt remodel`. Changed files are rewritten, new
+  files are added, and files the new version no longer ships are deleted.
+- **Swap.** Replace one package with another in `.pjt.ts` and remodel. The old package's files are
+  removed and the new package's files installed.
+- **Remove.** Delete the entry from `.pjt.ts` and remodel. Only that package's files are deleted,
+  along with that skill's directory once it is empty. Directories above the skill's own, such as the
+  skills root, are never removed. A file that another package now claims is never deleted.
+
+Unrelated skills and files in the same directory are never touched. Two packages claiming the same
+file fail with [`pjt.plan.conflict-owned`](/errors/pjt.plan.conflict-owned/).
+
+See the [authoring guide](/docs/authoring/) for the general blueprint model.

@@ -46,6 +46,7 @@ import { gitignores } from "@projitect/blueprint-gitignore"
 import { vitest } from "@projitect/blueprint-vitest"
 import { changesets } from "@projitect/blueprint-changesets"
 import { markdownSnippets } from "@projitect/blueprint-markdown"
+import { acmeSkills } from "@acme/agent-skills"
 import { tsconfig } from "@projitect/blueprint-tsconfig"
 
 export default pjt({
@@ -57,6 +58,7 @@ export default pjt({
     vitest(), // vitest.config.ts + scripts + devDeps + coverage/ in .gitignore
     changesets(), // .changeset/config.json + release scripts + @changesets/cli
     markdownSnippets.agentsVerification(), // a versioned snippet in AGENTS.md
+    acmeSkills, // a skill package built with skills(): installed under .claude/skills, drift-checked
   ],
 })
 ```

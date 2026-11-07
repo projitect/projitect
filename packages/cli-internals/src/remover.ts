@@ -1,6 +1,6 @@
 import { promises as fs } from "node:fs"
 import path from "node:path"
-import { Array, Effect, Match, Option } from "effect"
+import { Array, Effect, Match, Option, Predicate } from "effect"
 import { PredicateX, RecordX, StringX } from "@nunofyobiz/effect-extras"
 import type { Errors, PjtLock } from "@projitect/core"
 import { findRegion } from "./region.js"
@@ -17,8 +17,13 @@ export const applyRemovals = (params: {
   readonly projectRoot: string
 }): Effect.Effect<readonly string[], Errors.RegionMissingEnd | Errors.RegionDuplicate> =>
   Effect.forEach(params.removals, (op) =>
-    Effect.map(applyOne({ op, full: path.resolve(params.projectRoot, op.path) }), (mutated) =>
-      mutated ? Option.some(op.path) : Option.none<string>(),
+    Effect.map(
+      applyOne({
+        op,
+        full: path.resolve(params.projectRoot, op.path),
+        projectRoot: params.projectRoot,
+      }),
+      (mutated) => (mutated ? Option.some(op.path) : Option.none<string>()),
     ),
   ).pipe(Effect.map(Array.getSomes))
 
@@ -31,11 +36,20 @@ const readIfExists = (full: string): Promise<string | null> =>
 const applyOne = (params: {
   readonly op: PjtLock.LockOperation
   readonly full: string
+  readonly projectRoot: string
 }): Effect.Effect<boolean, Errors.RegionMissingEnd | Errors.RegionDuplicate> =>
   Match.valueTags(params.op, {
     Region: (op) => removeRegion(params.full, op),
     Merge: (op) => Effect.promise(() => removeMergeKeys(params.full, op.ownedKeys)),
-    Owned: () => Effect.promise(() => removeFile(params.full)),
+    Owned: (op) =>
+      Effect.promise(() =>
+        removeFile(
+          params.full,
+          Predicate.isNotUndefined(op.ownedDir)
+            ? path.resolve(params.projectRoot, op.ownedDir)
+            : undefined,
+        ),
+      ),
     // Seed is write-once; we never delete the file when a seed blueprint leaves.
     Seed: () => Effect.succeed(false),
   })
@@ -97,11 +111,28 @@ const removeMergeKeys = async (full: string, keys: readonly string[]): Promise<b
   return true
 }
 
-const removeFile = async (full: string): Promise<boolean> => {
+const removeFile = async (full: string, ownedDir: string | undefined): Promise<boolean> => {
   try {
     await fs.rm(full, { force: true })
+    if (Predicate.isNotUndefined(ownedDir)) {
+      await pruneEmptyDirs(path.dirname(full), ownedDir)
+    }
     return true
   } catch {
     return false
+  }
+}
+
+/** Remove empty directories upward from `dir` to `ownedDir` inclusive, never above it. */
+const pruneEmptyDirs = async (dir: string, ownedDir: string): Promise<void> => {
+  if (dir !== ownedDir && !dir.startsWith(`${ownedDir}${path.sep}`)) {
+    return
+  }
+  const removed = await fs.rmdir(dir).then(
+    () => true,
+    () => false,
+  )
+  if (removed && dir !== ownedDir) {
+    await pruneEmptyDirs(path.dirname(dir), ownedDir)
   }
 }
