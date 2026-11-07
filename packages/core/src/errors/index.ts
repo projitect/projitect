@@ -242,6 +242,33 @@ export class LockVersionMismatch extends Schema.TaggedError<LockVersionMismatch>
 ) {}
 
 // ---------------------------------------------------------------------------
+// Worker errors — a confined blueprint worker process failed to deliver a result
+// ---------------------------------------------------------------------------
+
+export class WorkerCrashed extends Schema.TaggedError<WorkerCrashed>()("WorkerCrashed", {
+  id: Schema.Literal("pjt.worker.crashed"),
+  exitCode: Schema.optional(Schema.Number),
+  signal: Schema.optional(Schema.String),
+  message: Schema.String,
+}) {}
+
+export class WorkerTimedOut extends Schema.TaggedError<WorkerTimedOut>()("WorkerTimedOut", {
+  id: Schema.Literal("pjt.worker.timed-out"),
+  timeoutMs: Schema.Number,
+  message: Schema.String,
+}) {}
+
+export class WorkerExitedEarly extends Schema.TaggedError<WorkerExitedEarly>()(
+  "WorkerExitedEarly",
+  {
+    id: Schema.Literal("pjt.worker.exited-early"),
+    exitCode: Schema.optional(Schema.Number),
+    signal: Schema.optional(Schema.String),
+    message: Schema.String,
+  },
+) {}
+
+// ---------------------------------------------------------------------------
 // Union of every error a Blueprint's `plan` Effect or the CLI engine can produce
 // ---------------------------------------------------------------------------
 
@@ -270,6 +297,8 @@ export type PmError = PmNotDetected | PmInstallFailed
 
 export type AddError = AddMarkersMissing
 
+export type WorkerError = WorkerCrashed | WorkerTimedOut | WorkerExitedEarly
+
 export type ProjitectError =
   | BlueprintError
   | LoaderError
@@ -281,6 +310,7 @@ export type ProjitectError =
   | GitError
   | PmError
   | AddError
+  | WorkerError
   | DriftDetected
 
 /**
@@ -313,6 +343,9 @@ export const ERROR_IDS = [
   "pjt.pm.not-detected",
   "pjt.pm.install-failed",
   "pjt.add.markers-missing",
+  "pjt.worker.crashed",
+  "pjt.worker.timed-out",
+  "pjt.worker.exited-early",
 ] as const
 
 export type ErrorId = (typeof ERROR_IDS)[number]

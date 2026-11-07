@@ -1,0 +1,13 @@
+---
+title: pjt.worker.exited-early
+slug: errors/pjt.worker.exited-early
+description: The worker process that runs blueprint code exited before it finished.
+sidebar:
+  label: pjt.worker.exited-early
+---
+
+**What**: The worker process running blueprint code exited cleanly (or was stopped) before it had delivered all of its results.
+
+**Why**: Blueprint code called `process.exit`, or the worker's channel to projitect closed while work was still pending.
+
+**How to fix**: Remove any `process.exit` call from blueprint code and its dependencies, then re-run. The exit code or signal is included in the message.

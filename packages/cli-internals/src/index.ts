@@ -42,3 +42,4 @@ export {
 } from "./pm.js"
 export type { ProjitectPackageMetadata } from "@projitect/blueprint"
 export { isGitRepo, gitStatus, ensureGitRepo } from "./git.js"
+export * as Ipc from "./ipc/index.js"

@@ -1,0 +1,13 @@
+---
+title: pjt.worker.crashed
+slug: errors/pjt.worker.crashed
+description: The worker process that runs blueprint code crashed.
+sidebar:
+  label: pjt.worker.crashed
+---
+
+**What**: The worker process running blueprint code terminated abnormally (a nonzero exit code or a fatal signal) before it returned a result.
+
+**Why**: Blueprint code or one of its dependencies threw an uncaught exception, ran out of memory, or was killed by the operating system.
+
+**How to fix**: Re-run with the same command and read the exit code or signal in the message. Look for a blueprint or dependency that crashes the process, and update or remove it.
