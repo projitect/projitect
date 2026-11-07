@@ -1,0 +1,55 @@
+---
+title: Roadmap
+description: What projitect ships today and what is planned, grouped in tiers.
+---
+
+The roadmap groups work into ordered tiers. Tier placement is a maintainer judgment and carries no
+release dates. A version appears only where another page already states one.
+
+## Shipped
+
+Blueprints:
+
+- `gitignore` — composable `.gitignore` sections
+- `tsconfig` — managed `tsconfig.json`
+- `vitest` — managed Vitest config
+- `changesets` — managed Changesets config, scripts and devDependency
+
+Engine and CLI:
+
+- All four [ownership modes](/docs/concepts/ownership-modes/): region, merge, owned and seed
+- `pjt init`, `pjt build`, `pjt remodel`, `pjt inspect`, `pjt explain` and `pjt add`
+- `pjt inspect --json` — see [`pjt inspect`](/docs/cli/inspect/)
+
+## Next
+
+Next leads with outcomes for project owners. These are built and awaiting their first release:
+
+- Versioned Markdown snippets for `AGENTS.md` and `README.md`
+- Shareable agent skills
+- Simple onboarding for humans, agents and CI, covering the upgrade, swap, remove and drift
+  lifecycle
+
+After those:
+
+- The `react` and `next` framework blueprints, followed by the wider blueprint catalog
+- `exec` as post-apply operations in a blueprint's ChangeSet. See
+  [the sandbox](/docs/concepts/sandbox/).
+
+## Later
+
+- The worker-process sandbox — planned. See [the sandbox](/docs/concepts/sandbox/).
+- The `binaryFile` ownership mode, which tracks binary files by content hash — planned. See
+  [ownership modes](/docs/concepts/ownership-modes/).
+
+## Unscheduled
+
+Planned first-party blueprints:
+
+- `eslint`
+- `husky`
+- `lint-staged`
+
+Planned tooling:
+
+- The interactive in-browser demo
