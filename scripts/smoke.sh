@@ -275,7 +275,8 @@ $BIN inspect > /dev/null 2>&1 && pass "clean after hook repair" || fail "hook dr
 grep -q "tampered" .husky/pre-commit && fail "hook edit survived remodel" || pass "hook content restored"
 
 # Drift: editing an owned package.json key is reported and repaired the same way.
-sed -i 's/"prepare": "husky"/"prepare": "echo drifted"/' package.json
+sed -i.bak 's/"prepare": "husky"/"prepare": "echo drifted"/' package.json
+rm package.json.bak
 $BIN inspect > /dev/null 2>&1 && fail "inspect missed prepare edit" || pass "inspect reports owned-key drift"
 $BIN remodel > /dev/null
 $BIN inspect > /dev/null 2>&1 && pass "clean after owned-key repair" || fail "owned-key drift survived remodel"
