@@ -6,6 +6,7 @@ import { chooseSectionsInteractive } from "@projitect/blueprint"
 import type { SectionStrategy } from "@projitect/blueprint"
 import { parseEnv, resolveConfig } from "../config-cascade.js"
 import { inspect, renderInspectJson } from "./inspect.js"
+import { InspectJsonSchemaUrl } from "./inspect-json.js"
 import { remodel } from "./remodel.js"
 import { build } from "./build.js"
 import { init } from "./init.js"
@@ -140,7 +141,7 @@ const inspectCmd = Command.make(
     json: Flag.boolean("json").pipe(
       Flag.withDefault(false),
       Flag.withDescription(
-        "Emit machine-readable JSON output { hasDrift, files, removals, upgrades }. Exit code still 1 on drift.",
+        `Emit machine-readable JSON output conforming to ${InspectJsonSchemaUrl}. Exit code still 1 on drift.`,
       ),
     ),
   },

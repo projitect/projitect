@@ -46,7 +46,9 @@ Human-readable by default:
 
 The `-` line is **lockfile-driven removal**: the previous `.pjt.lock` recorded `gitignore:windows`, but the current `.pjt.ts` no longer imports it, so `remodel` will clean up the orphaned region.
 
-Pass `--json` for machine-readable output (planned for v0.1.1; currently the same human format).
+Pass `--json` for machine-readable output: `{ $schema, hasDrift, files, removals, upgrades }`,
+validated against a published, versioned [JSON Schema](/schemas/inspect.v1.json). See the
+[`--json` schema section](/docs/cli/inspect#schema) for the versioning rule.
 
 ## The `.pjt.lock` file
 

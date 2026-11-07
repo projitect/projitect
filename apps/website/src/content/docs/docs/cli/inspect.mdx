@@ -40,6 +40,7 @@ Four kinds of lines:
 
 ```json
 {
+  "$schema": "https://projitect.dev/schemas/inspect.v1.json",
   "hasDrift": true,
   "files": [
     {
@@ -61,8 +62,17 @@ Four kinds of lines:
 }
 ```
 
-Keys are stable across minor versions; new keys may be added (consumers should ignore unknown
-keys). The schema is the same one rendered for `--json` output across the v0.x line.
+### Schema
+
+Every `--json` output carries a `$schema` key naming the published contract:
+[`/schemas/inspect.v1.json`](/schemas/inspect.v1.json), a [JSON Schema draft
+2020-12](https://json-schema.org/draft/2020-12) document generated directly from the type
+`pjt` encodes the output through — it can't drift from the code that produces it.
+
+Versioning rule: new keys may be added within `v1` at any point (consumers should ignore
+unknown keys — the schema itself allows additional properties). Renaming or removing a key is
+a breaking change and ships as `inspect.v2.json` in a major release, alongside the existing
+`v1` file.
 
 ## Use in CI
 

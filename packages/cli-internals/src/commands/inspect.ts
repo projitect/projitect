@@ -1,4 +1,4 @@
-import { Effect } from "effect"
+import { Effect, Schema } from "effect"
 import type { Errors, PjtLock, ProjitectConfig } from "@projitect/core"
 import { loadBlueprintFile, isEffectTree } from "../loader.js"
 import type { BlueprintTree } from "../loader.js"
@@ -8,6 +8,7 @@ import { diffPlan, renderInspectReport } from "../differ.js"
 import type { FileDiff } from "../differ.js"
 import { makeRealLayer } from "../filesystem-impl.js"
 import { readLockfile } from "../lockfile.js"
+import { InspectJson, InspectJsonSchemaUrl } from "./inspect-json.js"
 
 /**
  * Result of `pjt inspect`. `output` is the human-readable rendering; the structured fields
@@ -68,21 +69,24 @@ export const inspect = (params: {
   })
 
 /**
- * Render the inspect result as a stable JSON object for CI / scripting. The shape is:
+ * Render the inspect result as a stable JSON object for CI / scripting, conforming to the
+ * published JSON Schema at {@link InspectJsonSchemaUrl} (also published at
+ * `apps/website/public/schemas/inspect.v1.json`). The `$schema` key names that contract.
  *
- *   { hasDrift, files: [{ path, status, summary }], removals: [...LockOperation], upgrades: [...] }
- *
- * Stable means: keys won't be renamed or removed without a major bump. New keys may be added at
- * either level (consumers should ignore unknown keys).
+ * Stable means: keys won't be renamed or removed without a major bump (and a new schema
+ * version). New keys may be added at either level within a version; consumers should ignore
+ * unknown keys. Encoding through {@link InspectJson} ties this output to the same definition the
+ * schema is generated from, so the two can't drift apart.
  */
 export const renderInspectJson = (result: InspectResult): string =>
   `${JSON.stringify(
-    {
+    Schema.encodeSync(InspectJson)({
+      $schema: InspectJsonSchemaUrl,
       hasDrift: result.hasDrift,
       files: result.files,
       removals: result.removals,
       upgrades: result.upgrades,
-    },
+    }),
     null,
     2,
   )}\n`
