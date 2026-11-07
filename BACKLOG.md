@@ -4,6 +4,9 @@ Remaining work, tracked as atomic user-story-level items. Each story is independ
 and lists acceptance criteria as checkboxes. Format:
 
 ```
+## Epic: <name>
+Sequencing: none | priority <note> | Not before: <ID/epic>
+
 ### ID — Title
 _As a <role>, I want <capability>, so that <benefit>._
 - [ ] acceptance criterion
@@ -16,9 +19,32 @@ Roles: **maintainer** (works on projitect itself) · **author** (publishes bluep
 Already-shipped work is tracked too — see the **Shipped (v0 → v0.3)** section at the bottom,
 checked off as a record of what's in code. Everything above it is still pending.
 
+## Ordering convention
+
+How stories map onto board or factory tasks. The kanban and factory intake follow it.
+
+1. **Source of truth.** BACKLOG.md owns story ids, `Depends on:` edges and shipped status. The
+   board or factory decides only _when_ an already-unblocked story gets worked; it never overrides
+   a dependency edge.
+2. **Provenance.** A task filed from a story carries the story id (e.g. `ARG-2`) in its title or
+   body, copies the story's `Depends on:` line verbatim, and is linked as a dependency to any
+   prerequisite tasks already on the board.
+3. **Satisfied dependency.** A dependency is satisfied only when every acceptance checkbox of the
+   prerequisite story is `[x]`, or the story sits in the Shipped section. Merged code alone is not
+   enough.
+4. **Promotion.** A story whose `Depends on:` entries are not all satisfied is not promoted into
+   active work. At admit and refine, the reviewer checks the copied `Depends on:` line against this
+   file and holds or parks the task if a prerequisite is unmet.
+5. **Epic sequencing.** Every epic carries a one-line `Sequencing:` note: `none`, a relative
+   priority, or a `Not before:` marker. Orderings between epics are written there, not implied.
+
+Automated enforcement at the factory's admit step is factory-side tooling, not covered here.
+
 ---
 
 ## Epic: Agent guidance & skills
+
+Sequencing: priority early — before every other epic; raises the floor for how later tickets run.
 
 Bring projitect's `AGENTS.md` and `.claude/skills/` up to the depth of the sibling StoryCut repo
 (`/Users/kapil/Github/StoryCut/StoryCut`), which has a 61 KB `AGENTS.md` and 15 skills vs
@@ -55,6 +81,8 @@ Approach: copy the generic skills nearly verbatim; rewrite the scaffolding skill
 ---
 
 ## Epic: Manual / owner actions
+
+Sequencing: none (but gates Release readiness — the first public release needs these owner actions).
 
 **Not automatable by an agent** — these need you, signed into GitHub / npm / Vercel / a DNS
 registrar, clicking through dashboards or holding credentials. Grouped here so there's one
@@ -154,6 +182,8 @@ _As a maintainer, I want a LICENSE at the repo root, so that the MIT declaration
 
 ## Epic: Release readiness
 
+Sequencing: first priority among the epics that ship code — REL-6 lands before Sandbox hardening and before epics that publish new packages.
+
 Automatable code/release work for the first public npm release. The manual blockers live in the
 **Manual / owner actions** epic above.
 
@@ -209,6 +239,8 @@ _As a maintainer, I want the release workflow to comment on the issues and PRs i
 
 ## Epic: Schema-driven blueprint arguments
 
+Sequencing: ARG-1 first; the `npx` and blueprint-blueprint epics build on it.
+
 Make every blueprint declare its argument shape with Effect Schema. Validated when called as a
 function today; reusable for parsing untrusted input (CLI prompts, JSON config) tomorrow. This
 epic is the foundation the generated `add` CLI (NPX) builds on.
@@ -258,6 +290,8 @@ _As a maintainer, I want gitignore / vitest / tsconfig / the projitect blueprint
 ---
 
 ## Epic: Generated `npx <package> add` CLI
+
+Sequencing: Not before: ARG-3 (for NPX-4) and NPX-1 (for the later NPX stories).
 
 A blueprint package ships a bin so users can run `npx @org/blueprint-foo add`. The CLI selects a
 blueprint (if the package exports several), prompts for args (driven by ARG-3), validates, and
@@ -334,6 +368,8 @@ _As a maintainer, I want the `add` CLI and the existing `"projitect"` metadata c
 
 ## Epic: The blueprint blueprint (self-maintaining packages)
 
+Sequencing: Not before: ARG-1; BB-3 Not before: NPX-6.
+
 A blueprint that keeps blueprint _packages_ coherent — the way the projitect bootstrap blueprint
 keeps a consuming project coherent. An author adds it to their package's own `.pjt.ts`; it
 maintains the package.json shape, the bin shim, peer deps, and exports map. Handles packages that
@@ -398,6 +434,8 @@ _As a maintainer, I want gitignore / vitest / tsconfig to be maintained by the b
 
 ## Epic: Engine capabilities
 
+Sequencing: none.
+
 Core-pipeline features that unlock new blueprint shapes. Distinct from the catalog (which is
 blueprints built _on_ the engine).
 
@@ -419,6 +457,8 @@ _As an author, I want a blueprint to declare a command that runs after all file 
 ---
 
 ## Epic: Framework blueprint catalog
+
+Sequencing: Not before: ENG-1 for the prettier and eslint stories; otherwise none.
 
 More first-party blueprints. Each is a self-contained package following the vitest/tsconfig
 pattern: a few ops, unit tests, a smoke section, an example page, a landing-page mention. The
@@ -479,6 +519,8 @@ _As a user, I want `changesets()` to scaffold `.changeset/config.json` + scripts
 
 ## Epic: Sandbox hardening
 
+Sequencing: Not before: REL-6.
+
 ### SBX-1 — Worker-process sandbox
 
 _As a user, I want blueprints to run in an isolated worker process, so that a malicious or buggy blueprint can't touch the disk outside its declared permissions even by bypassing the soft Layer._
@@ -493,6 +535,8 @@ _As a user, I want blueprints to run in an isolated worker process, so that a ma
 
 ## Epic: Interactive docs & demo
 
+Sequencing: none.
+
 ### DEMO-1 — In-browser `pjt` demo on the marketing site
 
 _As a prospective user, I want to run `pjt inspect` against a fake project in the browser, so that I can feel the drift-detection loop before installing._
@@ -505,6 +549,8 @@ _As a prospective user, I want to run `pjt inspect` against a fake project in th
 ---
 
 ## Epic: Contributor documentation (docs/)
+
+Sequencing: none.
 
 Repo-level docs for people working **on** projitect — distinct from the end-user marketing site
 under `apps/website`. The first file (`docs/agents-signing.md`) shipped with the commit-signing
@@ -523,6 +569,8 @@ _As a new contributor, I want `docs/` to explain how to build, how the codebase 
 ---
 
 ## Epic: Polish & ergonomics
+
+Sequencing: Not before: ARG-1 for the metadata story; otherwise none.
 
 ### DX-1 — Publish a JSON Schema for `pjt inspect --json`
 
@@ -559,6 +607,8 @@ _As an author, I want `{a,b}` brace expansion in permission globs, so that I can
 ---
 
 ## Epic: Security & maintenance
+
+Sequencing: Not before: OPS-7 for the story that names it; otherwise none.
 
 ### SEC-1 — Triage the open Dependabot alerts
 

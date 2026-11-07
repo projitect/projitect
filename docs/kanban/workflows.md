@@ -22,6 +22,7 @@ point that matches your situation — you don't need to run them in order.
 | Push a specific card to Done              | `/kanban-run <id>`                                      | [§8](#8-push-a-specific-ticket-all-the-way-through-you-know-what-you-want-next) |
 | Take a raw idea all the way to Done       | dump → triage → refine → run                            | [§9](#9-chase-an-idea-cold-from-brain-dump-to-done-in-one-sitting)              |
 | Watch a card ship with minimal effort     | `/kanban-run <id>` + quick approvals                    | [§10](#10-watch-with-minimal-involvement-you-trust-the-agents-on-this-card)     |
+| Promote a BACKLOG story to a card         | copy id + `Depends on:`, hold if unmet                  | [Promoting BACKLOG stories](#promoting-backlog-stories-to-cards)                |
 
 ---
 
@@ -198,6 +199,17 @@ real concern. Read the comment trail and pick the appropriate roll-back option.
 
 ---
 
+## Promoting BACKLOG stories to cards
+
+When a card comes from a story in [BACKLOG.md](../../BACKLOG.md), follow its
+[Ordering convention](../../BACKLOG.md#ordering-convention): BACKLOG.md owns story ids, `Depends on:`
+edges and shipped status; the board never overrides an edge. Triage (§5), refine (§7) and run (§8)
+copy the story id and the `Depends on:` line verbatim into the card, link prerequisite cards already
+on the board, and hold the card if a prerequisite is not satisfied (all its checkboxes `[x]`, or in
+Shipped).
+
+---
+
 ## Rhythms
 
 Suggested cadences (adjust to taste):
@@ -219,6 +231,7 @@ Suggested cadences (adjust to taste):
   refinement or produce a vague plan you'll reject at Plan Review. Refine first.
 - **Click-through-approving on a card you don't trust.** The gates are your filter — use
   them. If you're tempted to bypass them, the card needed more refinement.
+- **Promoting a story before its prerequisites are `[x]`.** Merged code is not enough; hold the card until BACKLOG.md says the dependency is satisfied.
 - **Triaging during capture.** Splits attention. Capture is a separate moment from triage.
 - **Grilling something you already understand.** `/grill-me` is for fuzzy ideas. If you
   already have the thesis, dump.
