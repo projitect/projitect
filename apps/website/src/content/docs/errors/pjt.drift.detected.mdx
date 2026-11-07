@@ -8,4 +8,4 @@ sidebar:
 
 **What**: This isn't really an error in the throw sense — it's the nonzero exit code from `pjt inspect` when at least one managed file diverges from the blueprint.
 
-**How to fix**: Run `pjt remodel` locally to bring the project back in sync. If your CI run failed with this, that's the point: someone hand-edited a managed file. Get them to run remodel, then push.
+**How to fix**: Run `pjt remodel` locally to bring the project back in sync, then `pjt inspect` to confirm it exits 0. If your CI run failed with this, that's the point: someone hand-edited a managed file. Get them to run remodel, then push.

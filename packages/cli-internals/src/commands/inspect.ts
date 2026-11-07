@@ -61,12 +61,15 @@ export const inspect = (params: {
     const hasDrift = diff.hasDrift || removals.length > 0
     return {
       hasDrift,
-      output: renderInspectReport({ diff, removals, upgrades }),
+      output: withNextStep(renderInspectReport({ diff, removals, upgrades }), hasDrift),
       files: diff.files,
       removals,
       upgrades,
     }
   })
+
+const withNextStep = (report: string, hasDrift: boolean): string =>
+  hasDrift ? `${report}\n\nDrift detected. Run \`pjt remodel\` to apply the blueprints.` : report
 
 /**
  * Render the inspect result as a stable JSON object for CI / scripting, conforming to the

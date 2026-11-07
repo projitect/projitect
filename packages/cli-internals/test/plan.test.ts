@@ -293,6 +293,7 @@ describe("buildPlan — conflict detection", () => {
     ]
     const err = runError(buildPlan({ tree, projectRoot: ROOT }))
     expect(err._tag).toBe("PlanConflictOwned")
+    expect(err.message).toContain("run `pjt remodel`")
   })
 
   it("rejects two regions with identical ownerId on the same file", () => {
@@ -324,6 +325,7 @@ describe("buildPlan — conflict detection", () => {
     ]
     const err = runError(buildPlan({ tree, projectRoot: ROOT }))
     expect(err._tag).toBe("PlanConflictRegion")
+    expect(err.message).toContain("run `pjt remodel`")
   })
 
   it("rejects two merge ops that both claim the same dotted key", () => {
@@ -355,6 +357,7 @@ describe("buildPlan — conflict detection", () => {
     ]
     const err = runError(buildPlan({ tree, projectRoot: ROOT }))
     expect(err._tag).toBe("PlanConflictMerge")
+    expect(err.message).toContain("run `pjt remodel`")
   })
 
   it("rejects two `owned` blueprints on the same file", () => {

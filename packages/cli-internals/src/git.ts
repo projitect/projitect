@@ -82,6 +82,6 @@ export const ensureGitRepo = (params: {
     return yield* new Errors.GitNotARepo({
       id: "pjt.git.not-a-repo",
       projectRoot: params.projectRoot,
-      message: `No \`.git\` directory at ${params.projectRoot}. \`pjt build --force\` requires a git repository so destructive operations are recoverable.`,
+      message: `No \`.git\` directory at ${params.projectRoot}. \`pjt build --force\` requires a git repository so destructive operations are recoverable. Run \`git init\` (or \`pjt init --yes\`), commit, then re-run.`,
     })
   })

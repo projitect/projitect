@@ -305,13 +305,8 @@ const addCmd = Command.make(
           lines.push(`Added to ${config.blueprintFile}.`)
         }
         lines.push("Run `pjt remodel` to apply.")
-      } else if (result.selectionCancelled) {
-        lines.push(`No sections selected; ${config.blueprintFile} was not changed.`)
       } else {
-        lines.push(
-          `${result.pkg} has no \`"projitect"\` metadata in its package.json, so we can't auto-splice into ${config.blueprintFile}.`,
-          "Edit it by hand, then run `pjt remodel`.",
-        )
+        lines.push(`No sections selected; ${config.blueprintFile} was not changed.`)
       }
       yield* display(`${lines.join("\n")}\n`)
     }),

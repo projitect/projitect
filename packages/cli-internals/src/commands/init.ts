@@ -76,7 +76,7 @@ const ensureGit = (
       return yield* new Errors.InitGitMissing({
         id: "pjt.init.git-missing",
         message:
-          "No `.git` directory found. Run `git init` first, then re-run `pjt init` — or pass `--yes` to auto-bootstrap.",
+          "No `.git` directory found. Run `git init` and then `pjt init` again, or run `pjt init --yes` to create the repository for you.",
       })
     }
     yield* Effect.promise(

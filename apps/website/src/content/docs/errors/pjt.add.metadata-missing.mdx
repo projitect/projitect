@@ -1,0 +1,13 @@
+---
+title: pjt.add.metadata-missing
+slug: errors/pjt.add.metadata-missing
+description: The package passed to pjt add has no projitect metadata, so it can't be spliced into .pjt.ts.
+sidebar:
+  label: pjt.add.metadata-missing
+---
+
+**What**: `pjt add <package>` installed the package, then looked for a `"projitect"` field in its `package.json`. That field tells `pjt add` which import and call lines to splice into `.pjt.ts`. The package has none, so nothing was spliced and the command exits with code 1. The package itself stays installed.
+
+**Why**: Either the package isn't a projitect blueprint, or its author didn't publish the `"projitect"` metadata.
+
+**How to fix**: If the package is a blueprint, import it in `.pjt.ts` yourself and add its call to the `blueprints` array, then run `pjt remodel`. If it isn't a blueprint, remove it with your package manager (`pnpm remove <package>`).

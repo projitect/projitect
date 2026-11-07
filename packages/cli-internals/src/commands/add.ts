@@ -1,5 +1,6 @@
 import { Effect } from "effect"
-import type { Errors, ProjitectConfig } from "@projitect/core"
+import { Errors } from "@projitect/core"
+import type { ProjitectConfig } from "@projitect/core"
 import { computeSplice, resolveSections } from "@projitect/blueprint"
 import type { ProjitectPackageMetadata, SectionStrategy } from "@projitect/blueprint"
 import { detect, installDev as installDevelopment, readProjitectMetadata } from "../pm.js"
@@ -8,7 +9,7 @@ import { splice } from "../edit-pjt.js"
 export interface AddResult {
   readonly pm: string
   readonly pkg: string
-  readonly metadata: ProjitectPackageMetadata | null
+  readonly metadata: ProjitectPackageMetadata
   readonly sectionsAdded: readonly string[]
   readonly splicedIntoBlueprintFile: boolean
   /** The user picked no sections (or quit the prompt); `.pjt.ts` was left untouched. */
@@ -25,8 +26,8 @@ export interface AddResult {
  *      - If present and `type: "blueprint-set"`: section selection resolves per `strategy`
  *        (all / explicit / ask).
  *      - If present and `type: "blueprint"`: a single call line, strategy ignored.
- *      - If absent: install-only behavior. The caller (dispatcher) prints a hint about editing
- *        `.pjt.ts` by hand.
+ *      - If absent: fails with `pjt.add.metadata-missing`. The package stays installed; the
+ *        message tells the user to import it in `.pjt.ts` by hand and run `pjt remodel`.
  *   4. Splice the import + call lines into `.pjt.ts` between the convention markers
  *      (`pjt:imports` and `pjt:blueprints`).
  */
@@ -44,14 +45,14 @@ export const add = <R = never>(params: {
     })
 
     if (metadata === null) {
-      return {
-        pm,
+      return yield* new Errors.AddMetadataMissing({
+        id: "pjt.add.metadata-missing",
         pkg: params.pkg,
-        metadata: null,
-        sectionsAdded: [],
-        splicedIntoBlueprintFile: false,
-        selectionCancelled: false,
-      }
+        blueprintFile: params.config.blueprintFile,
+        message:
+          `${params.pkg} was installed but has no \`"projitect"\` metadata in its package.json, so \`pjt add\` can't splice it into ${params.config.blueprintFile}. ` +
+          `Import it in ${params.config.blueprintFile} by hand, then run \`pjt remodel\`.`,
+      })
     }
 
     const selection = yield* resolveSections({ metadata, strategy: params.strategy })

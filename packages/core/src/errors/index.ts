@@ -214,6 +214,16 @@ export class AddMarkersMissing extends Schema.TaggedError<AddMarkersMissing>()(
   },
 ) {}
 
+export class AddMetadataMissing extends Schema.TaggedError<AddMetadataMissing>()(
+  "AddMetadataMissing",
+  {
+    id: Schema.Literal("pjt.add.metadata-missing"),
+    pkg: Schema.String,
+    blueprintFile: Schema.String,
+    message: Schema.String,
+  },
+) {}
+
 // ---------------------------------------------------------------------------
 // Git errors
 // ---------------------------------------------------------------------------
@@ -332,7 +342,7 @@ export type ExecError = CommandFailed | CommandNotPermitted
 
 export type PmError = PmNotDetected | PmInstallFailed
 
-export type AddError = AddMarkersMissing
+export type AddError = AddMarkersMissing | AddMetadataMissing
 
 export type WorkerError = WorkerCrashed | WorkerTimedOut | WorkerExitedEarly
 
@@ -384,6 +394,7 @@ export const ERROR_IDS = [
   "pjt.pm.not-detected",
   "pjt.pm.install-failed",
   "pjt.add.markers-missing",
+  "pjt.add.metadata-missing",
   "pjt.worker.crashed",
   "pjt.worker.timed-out",
   "pjt.worker.exited-early",
