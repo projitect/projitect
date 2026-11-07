@@ -8,11 +8,13 @@
  * the user can't accidentally drift it. If a project needs overrides projitect can't model
  * (e.g. `compilerOptions.paths`), the answer is: configure projitect's options here, then
  * compose a second TS config file (`tsconfig.local.json`) that extends this one and adds the
- * overrides. Don't hand-edit the owned file.
+ * overrides. Don't hand-edit the owned file. Project `references` are the exception: TypeScript
+ * never inherits them through `extends`, so declare them with the `references` option here.
  */
 
 import { ownFile } from "@projitect/blueprint"
 import type { Blueprint } from "@projitect/core"
+import { Array } from "effect"
 
 const PACKAGE_VERSION = "0.0.0"
 
@@ -54,6 +56,13 @@ export interface TsconfigOptions {
    * Output directory. Defaults to `"./dist"`.
    */
   readonly outDir?: string
+  /**
+   * Paths to referenced projects (a directory or a tsconfig file), emitted in the given order as
+   * top-level `references: [{ path }]` entries. Paths are kept exactly as written. Each referenced
+   * project must set `composite: true` in its own tsconfig. Omitted or empty emits no
+   * `references` key.
+   */
+  readonly references?: readonly string[]
 }
 
 /**
@@ -78,6 +87,7 @@ const renderTsconfig = (options: TsconfigOptions): string => {
   const rootDir = options.rootDir ?? "./src"
   const outDir = options.outDir ?? "./dist"
   const jsx = options.jsx ?? null
+  const references = options.references ?? []
 
   const config: Record<string, unknown> = {
     compilerOptions: {
@@ -109,6 +119,9 @@ const renderTsconfig = (options: TsconfigOptions): string => {
     },
     include: [`${stripDot(rootDir)}/**/*`],
     exclude: ["node_modules", stripDot(outDir)],
+    ...(Array.isReadonlyArrayNonEmpty(references) && {
+      references: references.map((path) => ({ path })),
+    }),
   }
 
   return `${JSON.stringify(config, null, 2)}\n`
