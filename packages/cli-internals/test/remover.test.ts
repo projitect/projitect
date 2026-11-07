@@ -1,8 +1,11 @@
 import { promises as fs } from "node:fs"
 import * as os from "node:os"
 import path from "node:path"
-import { Effect } from "effect"
+import { Effect, Layer } from "effect"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
+import { BlueprintFileSystem } from "@projitect/core"
+import { makeInMemoryLayer } from "@projitect/test-kit"
+import { makeProjectRootLayer } from "../src/filesystem-impl.js"
 import { applyRemovals } from "../src/remover.js"
 
 /**
@@ -21,30 +24,23 @@ import { applyRemovals } from "../src/remover.js"
  *  - touched-paths return value lists exactly the paths actually mutated
  */
 
-const ROOT = path.join(os.tmpdir(), "projitect-test-remover")
+let layer: Layer.Layer<BlueprintFileSystem>
 
-let cwd: string
-
-beforeEach(async () => {
-  cwd = await fs.mkdtemp(`${ROOT}-`)
+beforeEach(() => {
+  layer = makeInMemoryLayer()
 })
 
-afterEach(async () => {
-  await fs.rm(cwd, { recursive: true, force: true })
-})
+const run = <A, E>(effect: Effect.Effect<A, E, BlueprintFileSystem>): Promise<A> =>
+  Effect.runPromise(Effect.provide(effect, layer))
 
-const writeFile = (relative: string, content: string) =>
-  fs.writeFile(path.join(cwd, relative), content, "utf8")
+const writeFile = (relative: string, content: string): Promise<void> =>
+  run(Effect.flatMap(BlueprintFileSystem, (fs) => fs.writeFile(relative, content)))
 
-const readFile = (relative: string) => fs.readFile(path.join(cwd, relative), "utf8")
+const readFile = (relative: string): Promise<string> =>
+  run(Effect.flatMap(BlueprintFileSystem, (fs) => fs.readFile(relative)))
 
-const exists = (relative: string) =>
-  fs.access(path.join(cwd, relative)).then(
-    () => true,
-    () => false,
-  )
-
-const run = <A>(effect: Effect.Effect<A>): Promise<A> => Effect.runPromise(effect)
+const exists = (relative: string): Promise<boolean> =>
+  run(Effect.flatMap(BlueprintFileSystem, (fs) => fs.exists(relative)))
 
 describe("applyRemovals — region", () => {
   it("removes the marker pair + body, preserving surrounding content", async () => {
@@ -63,7 +59,6 @@ describe("applyRemovals — region", () => {
 
     const touched = await run(
       applyRemovals({
-        projectRoot: cwd,
         removals: [
           {
             _tag: "Region",
@@ -82,7 +77,6 @@ describe("applyRemovals — region", () => {
   it("is silent when the file doesn't exist (already cleaned up)", async () => {
     const touched = await run(
       applyRemovals({
-        projectRoot: cwd,
         removals: [{ _tag: "Region", path: "nope.txt", ownerId: "pjt:x", commentPrefix: "#" }],
       }),
     )
@@ -93,7 +87,6 @@ describe("applyRemovals — region", () => {
     await writeFile(".gitignore", "user-written\n.env\n")
     const touched = await run(
       applyRemovals({
-        projectRoot: cwd,
         removals: [{ _tag: "Region", path: ".gitignore", ownerId: "pjt:gone", commentPrefix: "#" }],
       }),
     )
@@ -119,7 +112,6 @@ describe("applyRemovals — merge", () => {
 
     const touched = await run(
       applyRemovals({
-        projectRoot: cwd,
         removals: [
           {
             _tag: "Merge",
@@ -147,7 +139,6 @@ describe("applyRemovals — merge", () => {
 
     await run(
       applyRemovals({
-        projectRoot: cwd,
         removals: [{ _tag: "Merge", path: "package.json", ownedKeys: ["scripts.pjt"] }],
       }),
     )
@@ -160,7 +151,6 @@ describe("applyRemovals — merge", () => {
     await writeFile("package.json", `${JSON.stringify({ name: "x" }, null, 2)}\n`)
     const touched = await run(
       applyRemovals({
-        projectRoot: cwd,
         removals: [{ _tag: "Merge", path: "package.json", ownedKeys: ["scripts.pjt"] }],
       }),
     )
@@ -171,7 +161,6 @@ describe("applyRemovals — merge", () => {
     await writeFile("package.json", "{not json")
     const touched = await run(
       applyRemovals({
-        projectRoot: cwd,
         removals: [{ _tag: "Merge", path: "package.json", ownedKeys: ["scripts.pjt"] }],
       }),
     )
@@ -185,7 +174,6 @@ describe("applyRemovals — owned", () => {
     await writeFile("generated.ts", "// generated\n")
     const touched = await run(
       applyRemovals({
-        projectRoot: cwd,
         removals: [{ _tag: "Owned", path: "generated.ts", ownerId: "pjt:gen" }],
       }),
     )
@@ -193,62 +181,24 @@ describe("applyRemovals — owned", () => {
     expect(await exists("generated.ts")).toBe(false)
   })
 
-  it("prunes empty directories up to the owned dir, but not above it", async () => {
-    await fs.mkdir(path.join(cwd, "agents/skills/a/nested"), { recursive: true })
-    await writeFile("agents/skills/a/nested/x.md", "x")
-    await run(
-      applyRemovals({
-        projectRoot: cwd,
-        removals: [
-          {
-            _tag: "Owned",
-            path: "agents/skills/a/nested/x.md",
-            ownerId: "pjt:s",
-            ownedDir: "agents/skills/a",
-          },
-        ],
-      }),
-    )
-    expect(await exists("agents/skills/a")).toBe(false)
-    expect(await exists("agents/skills")).toBe(true)
-    expect(await exists("agents")).toBe(true)
-  })
-
-  it("keeps the owned dir while it still holds other files", async () => {
-    await fs.mkdir(path.join(cwd, "skills/c"), { recursive: true })
-    await writeFile("skills/c/keep.md", "k")
-    await writeFile("skills/c/gone.md", "g")
-    await run(
-      applyRemovals({
-        projectRoot: cwd,
-        removals: [
-          { _tag: "Owned", path: "skills/c/gone.md", ownerId: "pjt:s", ownedDir: "skills/c" },
-        ],
-      }),
-    )
-    expect(await exists("skills/c/keep.md")).toBe(true)
-  })
-
-  it("prunes nothing when the op names no owned dir", async () => {
-    await fs.mkdir(path.join(cwd, "pre/existing"), { recursive: true })
-    await writeFile("pre/existing/f.md", "f")
-    await run(
-      applyRemovals({
-        projectRoot: cwd,
-        removals: [{ _tag: "Owned", path: "pre/existing/f.md", ownerId: "pjt:s" }],
-      }),
-    )
-    expect(await exists("pre/existing")).toBe(true)
-  })
-
   it("is fine when the owned file is already missing", async () => {
     const touched = await run(
       applyRemovals({
-        projectRoot: cwd,
         removals: [{ _tag: "Owned", path: "already-gone.ts", ownerId: "pjt:gen" }],
       }),
     )
     expect(touched).toEqual(["already-gone.ts"])
+  })
+
+  it("keeps user content when the owned path is now a directory", async () => {
+    await writeFile("generated/user.md", "u")
+    const touched = await run(
+      applyRemovals({
+        removals: [{ _tag: "Owned", path: "generated", ownerId: "pjt:gen" }],
+      }),
+    )
+    expect(touched).toEqual([])
+    expect(await exists("generated/user.md")).toBe(true)
   })
 })
 
@@ -257,7 +207,6 @@ describe("applyRemovals — seed", () => {
     await writeFile(".pjt.ts", "export default pjt({ blueprints: [] })\n")
     const touched = await run(
       applyRemovals({
-        projectRoot: cwd,
         removals: [{ _tag: "Seed", path: ".pjt.ts", ownerId: "pjt:projitect:seed" }],
       }),
     )
@@ -273,7 +222,6 @@ describe("applyRemovals — touched-paths return value", () => {
 
     const touched = await run(
       applyRemovals({
-        projectRoot: cwd,
         removals: [
           { _tag: "Region", path: ".gitignore", ownerId: "pjt:a", commentPrefix: "#" },
           { _tag: "Merge", path: "package.json", ownedKeys: ["scripts.x"] },
@@ -282,5 +230,106 @@ describe("applyRemovals — touched-paths return value", () => {
     )
 
     expect(touched).toEqual([".gitignore"])
+  })
+})
+
+/**
+ * Directory pruning needs real directories (the in-memory layer has no directory entries), so
+ * these run against the project-root Node layer in a temp dir.
+ */
+describe("applyRemovals — owned dir pruning (disk)", () => {
+  let root: string
+
+  beforeEach(async () => {
+    root = await fs.mkdtemp(path.join(os.tmpdir(), "projitect-test-remover-"))
+  })
+
+  afterEach(async () => {
+    await fs.rm(root, { recursive: true, force: true })
+  })
+
+  const put = async (relative: string, content: string) => {
+    await fs.mkdir(path.dirname(path.join(root, relative)), { recursive: true })
+    await fs.writeFile(path.join(root, relative), content, "utf8")
+  }
+  const present = (relative: string) =>
+    fs.access(path.join(root, relative)).then(
+      () => true,
+      () => false,
+    )
+  const remove = (removals: Parameters<typeof applyRemovals>[0]["removals"]) =>
+    Effect.runPromise(Effect.provide(applyRemovals({ removals }), makeProjectRootLayer(root)))
+
+  it("prunes empty directories up to the owned dir, but not above it", async () => {
+    await put("agents/skills/a/nested/x.md", "x")
+    await remove([
+      {
+        _tag: "Owned",
+        path: "agents/skills/a/nested/x.md",
+        ownerId: "pjt:s",
+        ownedDir: "agents/skills/a",
+      },
+    ])
+    expect(await present("agents/skills/a")).toBe(false)
+    expect(await present("agents/skills")).toBe(true)
+    expect(await present("agents")).toBe(true)
+  })
+
+  it("keeps the owned dir while it still holds other files", async () => {
+    await put("skills/c/keep.md", "k")
+    await put("skills/c/gone.md", "g")
+    await remove([
+      { _tag: "Owned", path: "skills/c/gone.md", ownerId: "pjt:s", ownedDir: "skills/c" },
+    ])
+    expect(await present("skills/c/keep.md")).toBe(true)
+  })
+
+  it("keeps an entry that appears just before the directory is removed", async () => {
+    await put("skills/c/gone.md", "g")
+    const base = await Effect.runPromise(
+      Effect.provide(
+        Effect.gen(function* () {
+          return yield* BlueprintFileSystem
+        }),
+        makeProjectRootLayer(root),
+      ),
+    )
+    // The unmanaged file lands after the caller last looked, right before the directory removal.
+    const racing = Layer.succeed(BlueprintFileSystem, {
+      ...base,
+      removeEmptyDir: (dir) =>
+        Effect.flatMap(
+          Effect.promise(() => put(`${dir}/late.md`, "user")),
+          () => base.removeEmptyDir(dir),
+        ),
+    })
+    await Effect.runPromise(
+      Effect.provide(
+        applyRemovals({
+          removals: [
+            { _tag: "Owned", path: "skills/c/gone.md", ownerId: "pjt:s", ownedDir: "skills/c" },
+          ],
+        }),
+        racing,
+      ),
+    )
+    expect(await present("skills/c/late.md")).toBe(true)
+  })
+
+  it("keeps user content when the formerly owned path is now a directory", async () => {
+    await put("skills/c/gone.md/user.md", "u")
+    await put("skills/c/gone.md/deep/more.md", "m")
+    const touched = await remove([
+      { _tag: "Owned", path: "skills/c/gone.md", ownerId: "pjt:s", ownedDir: "skills/c" },
+    ])
+    expect(touched).toEqual([])
+    expect(await present("skills/c/gone.md/user.md")).toBe(true)
+    expect(await present("skills/c/gone.md/deep/more.md")).toBe(true)
+  })
+
+  it("prunes nothing when the op names no owned dir", async () => {
+    await put("pre/existing/f.md", "f")
+    await remove([{ _tag: "Owned", path: "pre/existing/f.md", ownerId: "pjt:s" }])
+    expect(await present("pre/existing")).toBe(true)
   })
 })

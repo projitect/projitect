@@ -9,6 +9,7 @@ import { diffPlan } from "../src/differ.js"
 import { applyPlan } from "../src/applier.js"
 import { readLockfile, writeLockfile } from "../src/lockfile.js"
 import { buildPlan, diffLockfile } from "../src/plan.js"
+import { makeProjectRootLayer } from "../src/filesystem-impl.js"
 import { applyRemovals } from "../src/remover.js"
 
 /**
@@ -55,12 +56,14 @@ const remodelTree = (tree: readonly Blueprint.Blueprint[], root = cwd) =>
   Effect.runPromise(
     Effect.gen(function* () {
       const { plan, byBlueprint } = yield* buildPlan({ tree, projectRoot: root })
-      const previous = yield* readLockfile({ projectRoot: root })
-      const { removals } = diffLockfile({ previous, current: byBlueprint })
-      const written = yield* applyPlan({ plan, projectRoot: root })
-      const removed = yield* applyRemovals({ removals, projectRoot: root })
-      yield* writeLockfile({ projectRoot: root, lock: { version: 1, blueprints: byBlueprint } })
-      return { written, removed }
+      return yield* Effect.gen(function* () {
+        const previous = yield* readLockfile
+        const { removals } = diffLockfile({ previous, current: byBlueprint })
+        const written = yield* applyPlan({ plan })
+        const removed = yield* applyRemovals({ removals })
+        yield* writeLockfile({ lock: { version: 1, blueprints: byBlueprint } })
+        return { written, removed }
+      }).pipe(Effect.provide(makeProjectRootLayer(root)))
     }),
   )
 
@@ -68,10 +71,12 @@ const inspectTree = (tree: readonly Blueprint.Blueprint[]) =>
   Effect.runPromise(
     Effect.gen(function* () {
       const { plan, byBlueprint } = yield* buildPlan({ tree, projectRoot: cwd })
-      const previous = yield* readLockfile({ projectRoot: cwd })
-      const { removals, upgrades } = diffLockfile({ previous, current: byBlueprint })
-      const diff = yield* diffPlan({ plan, projectRoot: cwd })
-      return { hasDrift: diff.hasDrift || removals.length > 0, files: diff.files, upgrades }
+      return yield* Effect.gen(function* () {
+        const previous = yield* readLockfile
+        const { removals, upgrades } = diffLockfile({ previous, current: byBlueprint })
+        const diff = yield* diffPlan({ plan })
+        return { hasDrift: diff.hasDrift || removals.length > 0, files: diff.files, upgrades }
+      }).pipe(Effect.provide(makeProjectRootLayer(cwd)))
     }),
   )
 
@@ -82,7 +87,7 @@ const written = (tree: readonly Blueprint.Blueprint[]) =>
   remodelTree(tree).then((result) => result.written)
 
 const lockEntry = async (id: string): Promise<PjtLock.BlueprintLockEntry | undefined> => {
-  const lock = await Effect.runPromise(readLockfile({ projectRoot: cwd }))
+  const lock = await Effect.runPromise(Effect.provide(readLockfile, makeProjectRootLayer(cwd)))
   return lock?.blueprints[id]
 }
 

@@ -89,6 +89,8 @@ export const makeClient = (transport: Transport): BlueprintFileSystemShape => {
         onlyDenied,
       ),
     remove: (path) => call((id) => ({ _tag: "Remove", id, path })).pipe(Effect.asVoid, noRead),
+    removeEmptyDir: (path) =>
+      call((id) => ({ _tag: "RemoveEmptyDir", id, path })).pipe(Effect.asVoid, noRead),
     mkdir: (path) => call((id) => ({ _tag: "Mkdir", id, path })).pipe(Effect.asVoid, noRead),
     listDir: (path) =>
       call((id) => ({ _tag: "ListDir", id, path })).pipe(

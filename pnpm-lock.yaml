@@ -338,6 +338,9 @@ importers:
       '@projitect/core':
         specifier: workspace:*
         version: link:../core
+      '@projitect/test-kit':
+        specifier: workspace:*
+        version: link:../test-kit
       '@types/node':
         specifier: 22.19.19
         version: 22.19.19

@@ -6,7 +6,7 @@ import type { BlueprintTree } from "../loader.js"
 import { buildPlan, diffLockfile } from "../plan.js"
 import { applyPlan } from "../applier.js"
 import { applyRemovals } from "../remover.js"
-import { makeRealLayer } from "../filesystem-impl.js"
+import { makeProjectRootLayer, makeRealLayer } from "../filesystem-impl.js"
 import { readLockfile, writeLockfile } from "../lockfile.js"
 import { runPostApply } from "../post-apply.js"
 import type { ProcessSpawner } from "../platform/process-runner.js"
@@ -51,20 +51,22 @@ export const remodel = (params: {
       tree,
       projectRoot: params.config.projectRoot,
     })
-    const previous = yield* readLockfile({ projectRoot: params.config.projectRoot })
-    const { removals } = diffLockfile({ previous, current: byBlueprint })
+    return yield* Effect.gen(function* () {
+      const previous = yield* readLockfile
+      const { removals } = diffLockfile({ previous, current: byBlueprint })
 
-    const written = yield* applyPlan({ plan, projectRoot: params.config.projectRoot })
-    const removed = yield* applyRemovals({ removals, projectRoot: params.config.projectRoot })
+      const written = yield* applyPlan({ plan })
+      const removed = yield* applyRemovals({ removals })
 
-    const nextLock: PjtLock.PjtLock = { version: 1, blueprints: byBlueprint }
-    yield* writeLockfile({ projectRoot: params.config.projectRoot, lock: nextLock })
+      const nextLock: PjtLock.PjtLock = { version: 1, blueprints: byBlueprint }
+      yield* writeLockfile({ lock: nextLock })
 
-    const ran = yield* runPostApply({
-      commands: plan.commands,
-      projectRoot: params.config.projectRoot,
-      ...StructX.defined("spawner", params.spawner),
-    })
+      const ran = yield* runPostApply({
+        commands: plan.commands,
+        projectRoot: params.config.projectRoot,
+        ...StructX.defined("spawner", params.spawner),
+      })
 
-    return { written, removed, ran }
+      return { written, removed, ran }
+    }).pipe(Effect.provide(makeProjectRootLayer(params.config.projectRoot)))
   })

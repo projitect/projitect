@@ -1,34 +1,31 @@
-import { promises as fs } from "node:fs"
-import path from "node:path"
 import { Effect, Match } from "effect"
 import { RecordX } from "@nunofyobiz/effect-extras"
+import { BlueprintFileSystem } from "@projitect/core"
 import type { Errors } from "@projitect/core"
 import type { FilePlan, ProjectPlan, RegionPlanFile, MergePlanFile } from "./plan.js"
+import { readIfExists } from "./project-file.js"
 import { findRegion, renderRegion, upsertRegion } from "./region.js"
 
-const readIfExists = (full: string): Promise<string | null> =>
-  fs.readFile(full, "utf8").then(
-    (s) => s,
-    () => null,
-  )
-
-const writeFile = (full: string, content: string): Promise<void> =>
-  fs.mkdir(path.dirname(full), { recursive: true }).then(() => fs.writeFile(full, content, "utf8"))
-
 /**
- * Apply a plan to disk. Used by `pjt remodel` (non-destructive) and `pjt build` (after wiping
+ * Apply a plan through the project `BlueprintFileSystem` (which creates parent directories). Used by `pjt remodel` (non-destructive) and `pjt build` (after wiping
  * the project tree). Returns the list of paths actually written.
  */
 export const applyPlan = (params: {
   readonly plan: ProjectPlan
-  readonly projectRoot: string
-}): Effect.Effect<readonly string[], Errors.RegionMissingEnd | Errors.RegionDuplicate> => {
-  const { plan, projectRoot } = params
+}): Effect.Effect<
+  readonly string[],
+  | Errors.RegionMissingEnd
+  | Errors.RegionDuplicate
+  | Errors.FsWriteFailed
+  | Errors.FsPermissionDenied,
+  BlueprintFileSystem
+> => {
+  const { plan } = params
   return Effect.gen(function* () {
+    const fs = yield* BlueprintFileSystem
     const written: string[] = []
     for (const file of plan.files) {
-      const full = path.resolve(projectRoot, file.path)
-      const current = yield* Effect.promise(() => readIfExists(full))
+      const current = yield* readIfExists(file.path)
       const next = yield* nextContent({ file, current })
       if (next === null) {
         continue
@@ -36,7 +33,7 @@ export const applyPlan = (params: {
       if (next === current) {
         continue
       } // Already in sync
-      yield* Effect.promise(() => writeFile(full, next))
+      yield* fs.writeFile(file.path, next)
       written.push(file.path)
     }
     return written

@@ -1,8 +1,8 @@
-import { promises as fs } from "node:fs"
-import * as os from "node:os"
-import path from "node:path"
 import { Effect } from "effect"
-import { afterEach, beforeEach, describe, expect, it } from "vitest"
+import type { Layer } from "effect"
+import { beforeEach, describe, expect, it } from "vitest"
+import { BlueprintFileSystem } from "@projitect/core"
+import { makeInMemoryLayer } from "@projitect/test-kit"
 import type { PjtLock } from "@projitect/core"
 import { blueprintIds, readLockfile, writeLockfile } from "../src/lockfile.js"
 
@@ -16,17 +16,20 @@ import { blueprintIds, readLockfile, writeLockfile } from "../src/lockfile.js"
  * v0.1 plan said had to fire on the right inputs.
  */
 
-const ROOT = path.join(os.tmpdir(), "projitect-test-lockfile")
+let layer: Layer.Layer<BlueprintFileSystem>
 
-let cwd: string
-
-beforeEach(async () => {
-  cwd = await fs.mkdtemp(`${ROOT}-`)
+beforeEach(() => {
+  layer = makeInMemoryLayer()
 })
 
-afterEach(async () => {
-  await fs.rm(cwd, { recursive: true, force: true })
-})
+const run = <A, E>(effect: Effect.Effect<A, E, BlueprintFileSystem>): Promise<A> =>
+  Effect.runPromise(Effect.provide(effect, layer))
+
+const writeFile = (relative: string, content: string): Promise<void> =>
+  run(Effect.flatMap(BlueprintFileSystem, (fs) => fs.writeFile(relative, content)))
+
+const readFile = (relative: string): Promise<string> =>
+  run(Effect.flatMap(BlueprintFileSystem, (fs) => fs.readFile(relative)))
 
 const lockfile = (overrides: Partial<PjtLock.PjtLock> = {}): PjtLock.PjtLock => ({
   version: 1,
@@ -46,25 +49,25 @@ const lockfile = (overrides: Partial<PjtLock.PjtLock> = {}): PjtLock.PjtLock => 
   ...overrides,
 })
 
-const runError = <E>(effect: Effect.Effect<unknown, E>): Promise<E> =>
-  Effect.runPromise(Effect.flip(effect))
+const runError = <E>(effect: Effect.Effect<unknown, E, BlueprintFileSystem>): Promise<E> =>
+  Effect.runPromise(Effect.provide(Effect.flip(effect), layer))
 
 describe("readLockfile / writeLockfile round-trip", () => {
   it("returns null when no lockfile exists (fresh project)", async () => {
-    const out = await Effect.runPromise(readLockfile({ projectRoot: cwd }))
+    const out = await run(readLockfile)
     expect(out).toBeNull()
   })
 
   it("writes a lockfile and reads it back unchanged", async () => {
     const original = lockfile()
-    await Effect.runPromise(writeLockfile({ projectRoot: cwd, lock: original }))
-    const out = await Effect.runPromise(readLockfile({ projectRoot: cwd }))
+    await run(writeLockfile({ lock: original }))
+    const out = await run(readLockfile)
     expect(out).toEqual(original)
   })
 
   it("writes the lockfile with trailing newline and 2-space indent", async () => {
-    await Effect.runPromise(writeLockfile({ projectRoot: cwd, lock: lockfile() }))
-    const raw = await fs.readFile(path.join(cwd, ".pjt.lock"), "utf8")
+    await run(writeLockfile({ lock: lockfile() }))
+    const raw = await readFile(".pjt.lock")
     expect(raw.endsWith("\n")).toBe(true)
     expect(raw).toContain('  "version": 1')
   })
@@ -87,8 +90,8 @@ describe("readLockfile / writeLockfile round-trip", () => {
         },
       },
     }
-    await Effect.runPromise(writeLockfile({ projectRoot: cwd, lock: original }))
-    const out = await Effect.runPromise(readLockfile({ projectRoot: cwd }))
+    await run(writeLockfile({ lock: original }))
+    const out = await run(readLockfile)
     expect(out).toEqual(original)
   })
 
@@ -111,8 +114,8 @@ describe("readLockfile / writeLockfile round-trip", () => {
         },
       },
     }
-    await fs.writeFile(path.join(cwd, ".pjt.lock"), `${JSON.stringify(raw, null, 2)}\n`, "utf8")
-    const out = await Effect.runPromise(readLockfile({ projectRoot: cwd }))
+    await writeFile(".pjt.lock", `${JSON.stringify(raw, null, 2)}\n`)
+    const out = await run(readLockfile)
     expect(out).not.toBeNull()
     expect(out?.blueprints["pjt:old"]?.operations[0]).toEqual({
       _tag: "Region",
@@ -146,37 +149,32 @@ describe("readLockfile / writeLockfile round-trip", () => {
         },
       },
     }
-    await Effect.runPromise(writeLockfile({ projectRoot: cwd, lock: original }))
-    const out = await Effect.runPromise(readLockfile({ projectRoot: cwd }))
+    await run(writeLockfile({ lock: original }))
+    const out = await run(readLockfile)
     expect(out).toEqual(original)
   })
 })
 
 describe("readLockfile — error paths", () => {
   it("fails with pjt.lock.parse-failed on corrupted JSON", async () => {
-    await fs.writeFile(path.join(cwd, ".pjt.lock"), "{ not json", "utf8")
-    const err = await runError(readLockfile({ projectRoot: cwd }))
+    await writeFile(".pjt.lock", "{ not json")
+    const err = await runError(readLockfile)
     expect(err._tag).toBe("LockParseFailed")
     expect(err.id).toBe("pjt.lock.parse-failed")
   })
 
   it("fails with pjt.lock.parse-failed when the JSON doesn't match the schema", async () => {
-    await fs.writeFile(
-      path.join(cwd, ".pjt.lock"),
+    await writeFile(
+      ".pjt.lock",
       JSON.stringify({ version: 1, blueprints: { x: { version: "1" /* Missing operations */ } } }),
-      "utf8",
     )
-    const err = await runError(readLockfile({ projectRoot: cwd }))
+    const err = await runError(readLockfile)
     expect(err._tag).toBe("LockParseFailed")
   })
 
   it("fails with pjt.lock.version-mismatch when written by a newer projitect", async () => {
-    await fs.writeFile(
-      path.join(cwd, ".pjt.lock"),
-      JSON.stringify({ version: 999, blueprints: {} }),
-      "utf8",
-    )
-    const err = await runError(readLockfile({ projectRoot: cwd }))
+    await writeFile(".pjt.lock", JSON.stringify({ version: 999, blueprints: {} }))
+    const err = await runError(readLockfile)
     expect(err._tag).toBe("LockVersionMismatch")
     expect(err.id).toBe("pjt.lock.version-mismatch")
   })

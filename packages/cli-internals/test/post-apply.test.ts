@@ -11,6 +11,7 @@ import { build, renderBuildResult } from "../src/commands/build.js"
 import { explain } from "../src/commands/explain.js"
 import { inspect } from "../src/commands/inspect.js"
 import { remodel } from "../src/commands/remodel.js"
+import { makeProjectRootLayer } from "../src/filesystem-impl.js"
 import { applyPlan } from "../src/applier.js"
 import { diffPlan } from "../src/differ.js"
 import { buildPlan } from "../src/plan.js"
@@ -193,12 +194,13 @@ describe("buildPlan with Exec ops", () => {
       const { plan } = await Effect.runPromise(
         buildPlan({ tree: [blueprint("a", [execOp("a", "fmt")])], projectRoot: root }),
       )
-      expect(await Effect.runPromise(applyPlan({ plan, projectRoot: root }))).toEqual([])
-      const diff = await Effect.runPromise(diffPlan({ plan, projectRoot: root }))
+      const layer = makeProjectRootLayer(root)
+      expect(await Effect.runPromise(Effect.provide(applyPlan({ plan }), layer))).toEqual([])
+      const diff = await Effect.runPromise(Effect.provide(diffPlan({ plan }), layer))
       expect(diff.hasDrift).toBe(false)
-      expect(await Effect.runPromise(applyRemovals({ removals: [], projectRoot: root }))).toEqual(
-        [],
-      )
+      expect(
+        await Effect.runPromise(Effect.provide(applyRemovals({ removals: [] }), layer)),
+      ).toEqual([])
       expect(await fs.readdir(root)).toEqual([])
     } finally {
       await fs.rm(root, { recursive: true, force: true })

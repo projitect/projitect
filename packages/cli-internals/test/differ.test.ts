@@ -1,8 +1,8 @@
-import { promises as fs } from "node:fs"
-import * as os from "node:os"
-import path from "node:path"
 import { Effect } from "effect"
-import { afterEach, beforeEach, describe, expect, it } from "vitest"
+import type { Layer } from "effect"
+import { beforeEach, describe, expect, it } from "vitest"
+import { BlueprintFileSystem } from "@projitect/core"
+import { makeInMemoryLayer } from "@projitect/test-kit"
 import { diffPlan, renderInspectReport, renderPlanDiff } from "../src/differ.js"
 import type { ProjectPlan } from "../src/plan.js"
 
@@ -21,22 +21,19 @@ import type { ProjectPlan } from "../src/plan.js"
  *  - renderPlanDiff: short-circuits to "in sync" when nothing drifted
  */
 
-const ROOT = path.join(os.tmpdir(), "projitect-test-differ")
+let layer: Layer.Layer<BlueprintFileSystem>
 
-let cwd: string
-
-beforeEach(async () => {
-  cwd = await fs.mkdtemp(`${ROOT}-`)
+beforeEach(() => {
+  layer = makeInMemoryLayer()
 })
 
-afterEach(async () => {
-  await fs.rm(cwd, { recursive: true, force: true })
-})
+const run = <A, E>(effect: Effect.Effect<A, E, BlueprintFileSystem>): Promise<A> =>
+  Effect.runPromise(Effect.provide(effect, layer))
 
-const writeFile = (relative: string, content: string) =>
-  fs.writeFile(path.join(cwd, relative), content, "utf8")
+const writeFile = (relative: string, content: string): Promise<void> =>
+  run(Effect.flatMap(BlueprintFileSystem, (fs) => fs.writeFile(relative, content)))
 
-const runPlan = (plan: ProjectPlan) => Effect.runPromise(diffPlan({ plan, projectRoot: cwd }))
+const runPlan = (plan: ProjectPlan) => run(diffPlan({ plan }))
 
 describe("diffPlan — region kind", () => {
   it("reports create when the file is absent", async () => {

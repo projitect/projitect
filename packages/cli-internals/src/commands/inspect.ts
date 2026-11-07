@@ -7,7 +7,7 @@ import { buildPlan, diffLockfile } from "../plan.js"
 import type { UpgradeRecord } from "../plan.js"
 import { diffPlan, renderInspectReport } from "../differ.js"
 import type { FileDiff } from "../differ.js"
-import { makeRealLayer } from "../filesystem-impl.js"
+import { makeProjectRootLayer, makeRealLayer } from "../filesystem-impl.js"
 import { readLockfile } from "../lockfile.js"
 import { InspectJson, InspectJsonSchemaUrl } from "./inspect-json.js"
 
@@ -64,17 +64,19 @@ export const inspect = (params: {
         message: `\`pjt inspect\` cannot check post-apply commands, and ${plan.commands.length === 1 ? "1 is" : `${plan.commands.length} are`} declared (first: \`${plan.commands[0].command}\`).`,
       })
     }
-    const previous = yield* readLockfile({ projectRoot: params.config.projectRoot })
-    const { removals, upgrades } = diffLockfile({ previous, current: byBlueprint })
-    const diff = yield* diffPlan({ plan, projectRoot: params.config.projectRoot })
-    const hasDrift = diff.hasDrift || removals.length > 0
-    return {
-      hasDrift,
-      output: withNextStep(renderInspectReport({ diff, removals, upgrades }), hasDrift),
-      files: diff.files,
-      removals,
-      upgrades,
-    }
+    return yield* Effect.gen(function* () {
+      const previous = yield* readLockfile
+      const { removals, upgrades } = diffLockfile({ previous, current: byBlueprint })
+      const diff = yield* diffPlan({ plan })
+      const hasDrift = diff.hasDrift || removals.length > 0
+      return {
+        hasDrift,
+        output: withNextStep(renderInspectReport({ diff, removals, upgrades }), hasDrift),
+        files: diff.files,
+        removals,
+        upgrades,
+      }
+    }).pipe(Effect.provide(makeProjectRootLayer(params.config.projectRoot)))
   })
 
 const withNextStep = (report: string, hasDrift: boolean): string =>

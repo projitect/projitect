@@ -22,6 +22,11 @@ export interface BlueprintFileSystemShape {
   ) => Effect.Effect<void, FsWriteFailed | FsPermissionDenied>
   readonly exists: (path: string) => Effect.Effect<boolean, FsPermissionDenied>
   readonly remove: (path: string) => Effect.Effect<void, FsWriteFailed | FsPermissionDenied>
+  /**
+   * Remove a directory only if it is empty — never recursive. Fails with `FsWriteFailed` when the
+   * directory is missing or holds any entry, so an entry that appears concurrently survives.
+   */
+  readonly removeEmptyDir: (path: string) => Effect.Effect<void, FsWriteFailed | FsPermissionDenied>
   readonly mkdir: (path: string) => Effect.Effect<void, FsWriteFailed | FsPermissionDenied>
   readonly listDir: (
     path: string,

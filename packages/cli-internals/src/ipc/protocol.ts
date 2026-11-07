@@ -16,6 +16,7 @@ export const Request = Schema.Union([
   }),
   Schema.TaggedStruct("Exists", { id: Schema.Number, path: Schema.String }),
   Schema.TaggedStruct("Remove", { id: Schema.Number, path: Schema.String }),
+  Schema.TaggedStruct("RemoveEmptyDir", { id: Schema.Number, path: Schema.String }),
   Schema.TaggedStruct("Mkdir", { id: Schema.Number, path: Schema.String }),
   Schema.TaggedStruct("ListDir", { id: Schema.Number, path: Schema.String }),
 ])
@@ -33,6 +34,7 @@ export const Response = Schema.Union([
   Schema.TaggedStruct("WriteFileOk", { id: Schema.Number }),
   Schema.TaggedStruct("ExistsOk", { id: Schema.Number, value: Schema.Boolean }),
   Schema.TaggedStruct("RemoveOk", { id: Schema.Number }),
+  Schema.TaggedStruct("RemoveEmptyDirOk", { id: Schema.Number }),
   Schema.TaggedStruct("MkdirOk", { id: Schema.Number }),
   Schema.TaggedStruct("ListDirOk", { id: Schema.Number, value: Schema.Array(Schema.String) }),
   Schema.TaggedStruct("Failure", { id: Schema.Number, error: FsError }),

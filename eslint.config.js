@@ -309,6 +309,32 @@ export default tseslint.config(
     rules: { "no-restricted-syntax": ["error", ...firstPartyVersionSelectors] },
   },
 
+  // ===== cli-internals engine modules stay Node-free =====
+  //
+  // The planner, differ, lockfile, applier and remover read and write only through the
+  // `BlueprintFileSystem` service, so the engine can run against the in-memory layer (and later
+  // in a browser). The Node-only modules (loader, git, pm, edit-pjt, filesystem-impl, platform/*,
+  // commands/build.ts, commands/init.ts) are deliberately not listed and stay exempt.
+  {
+    files: [
+      "packages/cli-internals/src/{plan,region,permissions,config-cascade,lockfile,differ,applier,remover,project-file}.ts",
+    ],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              regex: "^node:",
+              message:
+                "Engine modules must not import node:* — read and write through `BlueprintFileSystem` so the engine runs without Node.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+
   // ===== @projitect/core stays runtime-pure =====
   //
   // Core is types + Schema + error definitions; it must work in any JS runtime. Banning

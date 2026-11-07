@@ -37,6 +37,7 @@
     "@projitect/blueprint-markdown": "workspace:*",
     "@projitect/blueprint-react": "workspace:*",
     "@projitect/core": "workspace:*",
+    "@projitect/test-kit": "workspace:*",
     "@types/node": "22.19.19",
     "effect": "4.0.0-rc.111",
     "typescript": "5.9.3"
