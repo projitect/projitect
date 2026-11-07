@@ -97,6 +97,10 @@ const region = (text: string, ownerId: string): string => {
   return from === -1 || to === -1 ? "" : text.slice(from, to + `<!-- ${ownerId} end -->\n`.length)
 }
 
+// The default version is read from the package manifest, so tests never hardcode it.
+const BASE_VERSION = markdownSnippets.agentsVerification().version
+const UPGRADED_VERSION = "99.0.0"
+
 const VERIFICATION = "pjt:markdown:agents:verification"
 const COMMITS = "pjt:markdown:agents:commits"
 const NO_SHORTCUTS = "pjt:markdown:agents:no-destructive-shortcuts"
@@ -104,7 +108,7 @@ const LICENSE = "pjt:markdown:readme:license"
 
 const upgradedVerification = () =>
   markdownSnippets.agentsVerification({
-    version: "1.1.0",
+    version: UPGRADED_VERSION,
     content: "## Verification\n\nRun the full check, every time.\n",
   })
 
@@ -132,8 +136,8 @@ describe("blueprint-markdown lifecycle", () => {
     expect(region(agents, COMMITS)).not.toBe("")
     expect(unmanaged(agents)).toBe(AGENTS_SEED)
     expect(unmanaged(await readFile("README.md"))).toBe(README_SEED)
-    expect(await lockEntry(VERIFICATION)).toMatchObject({ version: "0.0.0" })
-    expect(await lockEntry(COMMITS)).toMatchObject({ version: "0.0.0" })
+    expect(await lockEntry(VERIFICATION)).toMatchObject({ version: BASE_VERSION })
+    expect(await lockEntry(COMMITS)).toMatchObject({ version: BASE_VERSION })
 
     // A human edits outside the regions: text after the regions, and a paragraph between them.
     const verificationBlock = region(agents, VERIFICATION)
@@ -164,7 +168,9 @@ describe("blueprint-markdown lifecycle", () => {
     ]
     const drifted = await inspectTree(tree)
     expect(drifted.hasDrift).toBe(true)
-    expect(drifted.upgrades).toEqual([{ blueprintId: VERIFICATION, from: "0.0.0", to: "1.1.0" }])
+    expect(drifted.upgrades).toEqual([
+      { blueprintId: VERIFICATION, from: BASE_VERSION, to: UPGRADED_VERSION },
+    ])
     expect(drifted.files.filter((f) => f.status !== "ok").map((f) => f.path)).toEqual(["AGENTS.md"])
 
     // 5. Remodel updates only the upgraded snippet's region; the lockfile records the version.
@@ -181,8 +187,8 @@ describe("blueprint-markdown lifecycle", () => {
     expect(region(afterUpgrade, COMMITS)).toBe(region(snapshot.agents, COMMITS))
     expect(unmanaged(afterUpgrade)).toBe(humanText)
     expect(await readFile("README.md")).toBe(snapshot.readme)
-    expect(await lockEntry(VERIFICATION)).toMatchObject({ version: "1.1.0" })
-    expect(await lockEntry(COMMITS)).toMatchObject({ version: "0.0.0" })
+    expect(await lockEntry(VERIFICATION)).toMatchObject({ version: UPGRADED_VERSION })
+    expect(await lockEntry(COMMITS)).toMatchObject({ version: BASE_VERSION })
     expect(await hasDrift(tree)).toBe(false)
 
     // 6. Hand-edit inside a managed region: inspect names the file, remodel restores it.
@@ -213,7 +219,7 @@ describe("blueprint-markdown lifecycle", () => {
     expect(region(afterSwap, VERIFICATION)).toBe(region(clean, VERIFICATION))
     expect(unmanaged(afterSwap)).toBe(humanText)
     expect(await lockEntry(COMMITS)).toBeUndefined()
-    expect(await lockEntry(NO_SHORTCUTS)).toMatchObject({ version: "0.0.0" })
+    expect(await lockEntry(NO_SHORTCUTS)).toMatchObject({ version: BASE_VERSION })
     expect(await hasDrift(tree)).toBe(false)
 
     // 8. Remove a snippet: only its region is deleted.

@@ -34,7 +34,7 @@ describe("markdownSnippets — identity", () => {
   it.each(names)("%s has a stable namespaced id and targets its file", (name) => {
     const blueprint = markdownSnippets[name]()
     expect(blueprint.id).toBe(EXPECTED[name].id)
-    expect(blueprint.version).toBe("0.0.0")
+    expect(blueprint.version).toBe(manifest.version)
   })
 
   it("exposes exactly the snippets the package manifest advertises to `pjt add --section`", () => {
