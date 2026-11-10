@@ -518,7 +518,6 @@ npm install --no-package-lock --silent \
   "file:${PKG}/blueprint" \
   "file:${PKG}/cli-internals" \
   "file:${PKG}/projitect" \
-  "file:${PKG}/blueprint-skills" \
   "effect@rc" "tsx" 2>&1 | tail -1
 printf '@projitect:registry=http://127.0.0.1:%s/\n@acme:registry=http://127.0.0.1:%s/\n' "$(cat "$REG/port")" "$(cat "$REG/port")" > .npmrc
 $BIN init > /dev/null 2>&1
@@ -607,9 +606,6 @@ $BIN remodel > /dev/null
 cmp -s AGENTS.md AGENTS.all && cmp -s README.md README.all && cmp -s .pjt.lock lock.all && cmp -s .pjt.ts pjt.all && pass "explicit --section run gives the same bytes as the all-sections run" || fail "explicit and implicit installs differ"
 
 # The unedited default call of the real skills blueprint must be valid: add, remodel, inspect.
-# Drop the local file: dependency so the add installs the registry tarball (npm cannot re-home it).
-npm pkg delete dependencies.@projitect/blueprint-skills devDependencies.@projitect/blueprint-skills > /dev/null 2>&1
-rm -rf node_modules/@projitect/blueprint-skills
 $BIN add @projitect/blueprint-skills < /dev/null > /dev/null 2>&1
 grep -q "skills({ id:" .pjt.ts && pass "pjt add spliced the default skills call into .pjt.ts" || fail "default skills call not spliced"
 $BIN remodel > /dev/null 2>&1 && pass "remodel of the unedited default skills call exits 0" || fail "remodel of the default skills call failed"
