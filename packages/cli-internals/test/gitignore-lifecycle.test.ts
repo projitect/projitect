@@ -4,7 +4,7 @@ import path from "node:path"
 import { Effect } from "effect"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import { gitignores } from "@projitect/blueprint-gitignore"
-import { makeProjectRootLayer } from "../src/filesystem-impl.js"
+import { makeProjectRootLayer, makeRealLayer } from "../src/filesystem-impl.js"
 import { diffPlan } from "../src/differ.js"
 import { applyPlan } from "../src/applier.js"
 import { readLockfile, writeLockfile } from "../src/lockfile.js"
@@ -32,7 +32,11 @@ describe("blueprint-gitignore lifecycle", () => {
 
     await run(
       Effect.gen(function* () {
-        const { plan, byBlueprint } = yield* buildPlan({ tree, projectRoot: cwd })
+        const { plan, byBlueprint } = yield* buildPlan({
+          tree,
+          projectRoot: cwd,
+          layerFor: makeRealLayer,
+        })
         yield* applyPlan({ plan })
         yield* writeLockfile({ lock: { version: 1, blueprints: byBlueprint } })
       }).pipe(Effect.provide(makeProjectRootLayer(cwd))),
@@ -46,7 +50,11 @@ describe("blueprint-gitignore lifecycle", () => {
 
     const report = await run(
       Effect.gen(function* () {
-        const { plan, byBlueprint } = yield* buildPlan({ tree, projectRoot: cwd })
+        const { plan, byBlueprint } = yield* buildPlan({
+          tree,
+          projectRoot: cwd,
+          layerFor: makeRealLayer,
+        })
         const previous = yield* readLockfile
         const { removals } = diffLockfile({ previous, current: byBlueprint })
         const diff = yield* diffPlan({ plan })

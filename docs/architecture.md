@@ -40,6 +40,8 @@ Alongside, `lockfile.ts` records what was applied and `remover.ts` removes orpha
 
 A browser has no native TypeScript stripping or `tsx`, so `evaluatePjt` transpiles the `.pjt.ts` text with `sucrase` and runs it against a registry of importable modules; `@projitect/cli-internals/browser-blueprints` ships one holding the first-party blueprint packages. Failures (syntax error, unknown import, throwing top level, wrong default export) come back as a typed `PjtEvalFailure` and never throw. The restricted blueprint-list alternative was rejected because it needs its own parser and breaks pasting a real `.pjt.ts`.
 
+`evaluatePjt` executes the text as JavaScript in the calling realm (`new Function`) and the registry only limits what `import` resolves, so it is **not a security sandbox**: top-level code can reach the page's globals, network and storage. Evaluate only text the user wrote in their own tab; a host that evaluates untrusted or shared snippets must isolate them itself, for example in a sandboxed iframe or a Worker.
+
 ## Ownership modes
 
 | Mode     | Meaning                                                         |

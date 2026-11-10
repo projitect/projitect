@@ -12,7 +12,9 @@ import type { BlueprintTree, ProjitectFile } from "./config-file.js"
  * the specifiers in a caller-supplied registry — `@projitect/cli-internals/browser-blueprints`
  * ships one holding the first-party blueprint packages.
  *
- * Not a security boundary: it runs the user's own text in the user's own tab. `sucrase` strips
+ * Not a security sandbox: this executes the text as JavaScript in the calling realm, and the registry
+ * only limits what `import` resolves. Evaluate only text the user wrote in their own tab; a host that
+ * evaluates untrusted or shared snippets must isolate them (a sandboxed iframe or a Worker). `sucrase` strips
  * types without checking them, so only syntax and runtime failures surface here.
  */
 export type ModuleRegistry = Readonly<Record<string, unknown>>
