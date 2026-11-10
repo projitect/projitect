@@ -87,6 +87,8 @@ Five kinds of lines:
 
 `commands` holds one entry per failing check, separate from `files`. `exitCode` is absent when the
 check could not be started; `stderr` then carries the reason.
+The current CLI always emits this array. Earlier `v1` reports may omit it and remain valid
+against the same schema.
 
 ## Post-apply checks
 
@@ -94,7 +96,8 @@ A blueprint that declares a [post-apply command](/docs/authoring/) may give it a
 runs each distinct check from the project root, in blueprint order, after the file comparison; a
 check several blueprints declare runs once, and a command without a `check` is not run. Every check
 must be covered by the blueprint's `exec` permissions, matched as exact strings, before any starts.
-Checks must not change the project: inspect is read-only.
+Check authors must keep checks side-effect-free. The engine does not sandbox a permitted
+check's filesystem or network access; the same process-runner limits apply as for post-apply fixes.
 
 Inspect no longer returns the `pjt.inspect.operation-unsupported` error: a failing check is drift
 and the same command's fix, run by `pjt remodel`, clears it.

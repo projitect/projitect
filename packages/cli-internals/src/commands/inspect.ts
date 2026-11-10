@@ -43,15 +43,15 @@ export const inspect = (params: {
 }): Effect.Effect<InspectResult, Errors.ProjitectError> =>
   Effect.gen(function* () {
     const { plan, byBlueprint } = yield* loadProjectPlan(params.config)
-    const commands = yield* runChecks({
-      commands: plan.commands,
-      projectRoot: params.config.projectRoot,
-      ...StructX.defined("spawner", params.spawner),
-    })
     return yield* Effect.gen(function* () {
       const previous = yield* readLockfile
       const { removals, upgrades } = diffLockfile({ previous, current: byBlueprint })
       const diff = yield* diffPlan({ plan })
+      const commands = yield* runChecks({
+        commands: plan.commands,
+        projectRoot: params.config.projectRoot,
+        ...StructX.defined("spawner", params.spawner),
+      })
       const hasDrift =
         diff.hasDrift || removals.length > 0 || Array.isReadonlyArrayNonEmpty(commands)
       return {

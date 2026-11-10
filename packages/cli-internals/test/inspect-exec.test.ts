@@ -126,6 +126,56 @@ describe("pjt inspect with Exec ops", () => {
     expect(calls).toEqual(["fmt:check"])
     expect(result.hasDrift).toBe(false)
   })
+
+  it("checks every owner's permission before starting even a permitted duplicate check", async () => {
+    declare([
+      { id: "a", permissions: [exec("fmt:check")], operations: [execOp("a", "fmt", "fmt:check")] },
+      { id: "b", operations: [execOp("b", "fmt", "fmt:check")] },
+    ])
+    const { calls, spawner } = fakeSpawner({})
+    const result = await Effect.runPromiseExit(inspect({ config: config(), spawner }))
+    expect(Exit.isFailure(result) ? Cause.squash(result.cause) : undefined).toBeInstanceOf(
+      Errors.CommandNotPermitted,
+    )
+    expect(calls).toEqual([])
+  })
+
+  it("rejects an invalid lockfile before starting any checks", async () => {
+    declare([
+      { id: "a", permissions: [exec("fmt:check")], operations: [execOp("a", "fmt", "fmt:check")] },
+    ])
+    await fs.writeFile(path.join(cwd, ".pjt.lock"), "not valid JSON")
+    const { calls, spawner } = fakeSpawner({})
+    const result = await Effect.runPromiseExit(inspect({ config: config(), spawner }))
+    expect(Exit.isFailure(result) ? Cause.squash(result.cause) : undefined).toBeInstanceOf(
+      Errors.LockParseFailed,
+    )
+    expect(calls).toEqual([])
+  })
+
+  it("reports a check that could not start as drift and still runs later checks", async () => {
+    declare([
+      { id: "a", permissions: [exec("missing")], operations: [execOp("a", "fix-a", "missing")] },
+      {
+        id: "b",
+        permissions: [exec("available")],
+        operations: [execOp("b", "fix-b", "available")],
+      },
+    ])
+    const calls: string[] = []
+    const spawner: ProcessSpawner = (program) => {
+      calls.push(program)
+      return program === "missing"
+        ? Effect.fail("executable not found")
+        : Effect.succeed({ exitCode: 0, stdout: "", stderr: "" })
+    }
+    const result = await Effect.runPromise(inspect({ config: config(), spawner }))
+    expect(calls).toEqual(["missing", "available"])
+    expect(result.hasDrift).toBe(true)
+    expect(result.commands).toEqual([
+      { ownerId: "a", check: "missing", stdout: "", stderr: "executable not found" },
+    ])
+  })
 })
 
 describe("pjt explain with no error id", () => {
