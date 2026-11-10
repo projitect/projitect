@@ -36,6 +36,17 @@ const tryEffect = <A>(
 ): Effect.Effect<A, PlatformError.PlatformError> =>
   Effect.tryPromise({ try: p, catch: (e) => sysError(method, e) })
 
+// Compatibility shim: older Node versions (22.12) reject an array `exclude` and only accept a
+// predicate. A predicate gives the same matches on every version, so we always pass one. Delete
+// this once support for the Node versions that reject an array `exclude` is dropped, and pass the
+// patterns straight through.
+const excludeOption = (
+  patterns: readonly string[] | undefined,
+): ((path: string) => boolean) | undefined =>
+  patterns === undefined || patterns.length === 0
+    ? undefined
+    : (path) => patterns.some((pattern) => nodePath.matchesGlob(path, pattern))
+
 const dieNotImpl = <A>(method: string): Effect.Effect<A, PlatformError.PlatformError> =>
   Effect.die(
     new Error(
@@ -58,7 +69,7 @@ const make = FileSystem.make({
       const paths: string[] = []
       for await (const path of nodeFs.glob(pattern, {
         cwd: options?.root,
-        exclude: options?.exclude,
+        exclude: excludeOption(options?.exclude),
       })) {
         paths.push(path)
       }
