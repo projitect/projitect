@@ -235,6 +235,18 @@ is the only one that ever existed, and **the PR that lands a code change also la
 docs follow-up PRs. A plan that introduces a user-facing change lists the marketing pages it will
 touch. The triggers, per-phase gates and CI checks are in [Marketing site](docs/marketing-site.md).
 
+## Browser demo boundary
+
+A planned in-browser `pjt` demo on the website is judged against these rules; the full list is in
+[Browser demo boundary](docs/architecture.md#browser-demo-boundary-planned):
+
+- In-memory filesystem and bundled first-party blueprints only — no remote code execution, no Node
+  capabilities, no `node:*` imports in the browser bundle.
+- Only `core`, `blueprint`, `test-kit`, first-party blueprints and the plan/diff/lockfile subset of
+  `cli-internals` may be bundled.
+- `apps/website` stays Astro Starlight; no separate Vite app.
+- No numeric bundle-size budget yet; it is proposed from the measured demo bundle in the demo PR.
+
 ## Kanban workflow
 
 Day-to-day work can flow through an optional Trello board with `/kanban-*` skills and a human

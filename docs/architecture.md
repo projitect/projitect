@@ -48,3 +48,15 @@ Details: [File ownership modes](./blueprint-authoring.md#file-ownership-modes) a
 ## Soft sandbox
 
 Blueprints never touch the disk directly. They use `BlueprintFileSystem`, which `cli-internals` gates by the `Permission`s each blueprint declares. ESLint backs this up with import bans: blueprint packages cannot import `@effect/platform`'s `FileSystem` or any `node:*`; `core` and `test-kit` cannot import `node:*`. Node-backed `pjt add` code lives in `cli-internals`, not in blueprint packages; see [Where the `pjt add` CLI code lives](./blueprint-authoring.md#where-the-pjt-add-cli-code-lives). See [Blueprint authoring rules](./blueprint-authoring.md#blueprint-authoring-rules) and [ESLint absorbs Prettier](./tooling.md#eslint-absorbs-prettier).
+
+## Browser demo boundary (planned)
+
+The marketing site plans an interactive in-browser `pjt` demo. This section is the boundary a plan for it is judged against. The browser-safe engine entry (commit 38e8277) is unmerged and not on `main`; confirm the module list below against `main` before relying on it.
+
+- **Runtime model.** An in-memory filesystem and bundled first-party blueprints only. No arbitrary remote code execution and no Node capabilities.
+- **May be bundled.** `core`, `blueprint`, `test-kit`, the first-party `blueprint-*` packages, and a browser-safe subset of `cli-internals` limited to plan, diff and lockfile logic (candidates: `plan`, `differ`, `lockfile`; the planned browser entry fixes the exact list). `applier` and `remover` write files, and `region`, `permissions` and `config-cascade` are not plan, diff or lockfile logic, so none of them is a candidate even though they are Node-free today.
+- **Must stay out.** The `cli-internals` commands, loader, git, package-manager, edit-pjt, filesystem-impl and `platform/*` layers, and any `node:*` import.
+- **Guard.** `no-restricted-imports` bans `node:*` in `core`, `blueprint*`, `test-kit` and the engine modules listed in `eslint.config.js` (see [Tooling](./tooling.md#eslint-absorbs-prettier)). No guard yet stops a browser entry from importing the Node-only modules above; the demo PR should add one ([Reach for ESLint first](./tooling.md#reach-for-eslint-first)).
+- **Website tooling.** `apps/website` stays Astro Starlight. No separate Vite app is added; bundler configuration goes through Astro's own Vite integration.
+- **Where it lives.** The demo source is a component under `apps/website`. Its worked example lives under `apps/website/examples/` and is covered by `pnpm --filter website check:examples`. The demo's marketing pages ship in the same PR as the demo ([Marketing site](./marketing-site.md)).
+- **Bundle size.** No numeric budget is set yet. The budget is proposed from the measured size of the real demo bundle and added in the demo PR; that measurement owns the number.
