@@ -1,5 +1,5 @@
 ---
-"projitect": minor
+"@projitect/cli": minor
 ---
 
 `pjt inspect` runs the check command of every post-apply `Exec` operation through the
