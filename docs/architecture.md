@@ -34,6 +34,12 @@ A map of the monorepo. [AGENTS.md](../AGENTS.md) is the index; see also [getting
 
 Alongside, `lockfile.ts` records what was applied and `remover.ts` removes orphans the lockfile no longer claims.
 
+### Browser entry
+
+`@projitect/cli-internals/browser` re-exports the planner, differ, applier, remover and lockfile functions plus the `.pjt.ts` evaluator, and nothing that reaches `node:*` (commands, git, package manager, platform layers and the loader stay out). The planner takes its per-blueprint filesystem layer as `layerFor`: the CLI passes `makeRealLayer`, a browser passes `makeGatedLayer` over an in-memory layer such as `@projitect/test-kit`'s. `test/browser-bundle.test.ts` bundles both browser entries and test-kit for the browser and fails if any `node:*` module enters the graph.
+
+A browser has no native TypeScript stripping or `tsx`, so `evaluatePjt` transpiles the `.pjt.ts` text with `sucrase` and runs it against a registry of importable modules; `@projitect/cli-internals/browser-blueprints` ships one holding the first-party blueprint packages. Failures (syntax error, unknown import, throwing top level, wrong default export) come back as a typed `PjtEvalFailure` and never throw. The restricted blueprint-list alternative was rejected because it needs its own parser and breaks pasting a real `.pjt.ts`.
+
 ## Ownership modes
 
 | Mode     | Meaning                                                         |

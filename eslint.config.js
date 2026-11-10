@@ -312,12 +312,13 @@ export default tseslint.config(
   // ===== cli-internals engine modules stay Node-free =====
   //
   // The planner, differ, lockfile, applier and remover read and write only through the
-  // `BlueprintFileSystem` service, so the engine can run against the in-memory layer (and later
-  // in a browser). The Node-only modules (loader, git, pm, edit-pjt, filesystem-impl, platform/*,
-  // commands/build.ts, commands/init.ts) are deliberately not listed and stay exempt.
+  // `BlueprintFileSystem` service, so the engine runs against the in-memory layer in a browser. The
+  // browser entries, the `.pjt.ts` evaluator and the gated layer are part of that graph. The
+  // Node-only modules (loader, git, pm, edit-pjt, filesystem-impl, platform/*, commands/*) are
+  // deliberately not listed and stay exempt; `test/browser-bundle.test.ts` proves the whole graph.
   {
     files: [
-      "packages/cli-internals/src/{plan,region,permissions,config-cascade,lockfile,differ,applier,remover,project-file}.ts",
+      "packages/cli-internals/src/{plan,region,permissions,config-cascade,lockfile,differ,applier,remover,project-file,config-file,gated-layer,evaluate-pjt,browser,browser-blueprints}.ts",
     ],
     rules: {
       "no-restricted-imports": [

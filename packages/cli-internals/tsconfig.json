@@ -10,6 +10,14 @@
   "exclude": ["dist", "node_modules"],
   "references": [
     { "path": "../core" },
-    { "path": "../blueprint" }
+    { "path": "../blueprint" },
+    { "path": "../blueprint-changesets" },
+    { "path": "../blueprint-gitignore" },
+    { "path": "../blueprint-husky-lint-staged" },
+    { "path": "../blueprint-markdown" },
+    { "path": "../blueprint-react" },
+    { "path": "../blueprint-skills" },
+    { "path": "../blueprint-tsconfig" },
+    { "path": "../blueprint-vitest" }
   ]
 }
