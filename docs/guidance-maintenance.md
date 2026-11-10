@@ -32,7 +32,7 @@ Skills here were adapted from sibling repositories such as StoryCut and ampm. Ad
 - Put a one-line note in the skill's own text ("Adapted from `<repo>/<path>`") or in the commit message; keep it out of the `description` frontmatter.
 - Before adopting, check the source repo's LICENSE file, the `license` field in its `package.json`, and the git provenance (author and commit) of the source file. Preserve any copyright or licence notice the licence requires.
 - Licence evidence for the StoryCut sources is missing: the readable sources have no LICENSE file and their `package.json` says `"UNLICENSED"`. Several existing skills (such as `create-commit` and `push-pr`) were adapted from them without attribution.
-- When evidence is missing, record that precise gap, ask the repository owner, and never infer a copyright holder or a permission. The placement and rewrite rules below still apply.
+- When evidence is missing, record that precise gap, ask the repository owner, and never infer a copyright holder or a permission. Rewriting or rewording does not replace permission from the source owner; the rules below govern placement and fit only.
 
 **Rewrite the skill to satisfy this repo's rules:**
 
@@ -41,7 +41,7 @@ Skills here were adapted from sibling repositories such as StoryCut and ampm. Ad
 - The `[kanban #<id>]` card suffix when a card shipped.
 - pnpm only.
 - The permission-prompt posture: one command per call, `-m` or `-F` commits, no heredoc.
-- No auto mode: a human approves each transition.
+- For the optional Trello `/kanban` workflow only: no auto mode, a human approves each transition. This does not restrict user-authorized ampm Autopilot or autonomous routine work.
 - The board-scope guard, for any skill that mutates cards (`.claude/skills/kanban/shared.md`).
 
 **Changeset.** The Versioning rule in AGENTS.md requires one only when a published package changes. A skill under `.claude/skills/` is not published, so it needs none; a skill shipped through `@projitect/blueprint-skills` is a package change and does.

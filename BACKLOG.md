@@ -50,8 +50,8 @@ Automated enforcement at the factory's admit step is factory-side tooling, not c
 Sequencing: priority after consumer Markdown/skills onboarding; does not gate other epics or bonus catalog work.
 
 Bring projitect's `AGENTS.md` and `.claude/skills/` up to the depth of the sibling StoryCut repo
-(`StoryCut/StoryCut`; licence evidence for it is missing, see [Adopt a skill](docs/guidance-maintenance.md#adopt-a-skill-from-another-repository)), which has a 61 KB `AGENTS.md` and 15 skills vs
-projitect's thinner guide and single `release-bump` skill. Do this early — it raises the floor for
+(`StoryCut/StoryCut`; licence evidence for it is missing, see [Adopt a skill](docs/guidance-maintenance.md#adopt-a-skill-from-another-repository)), which (at the time this epic was written, now dated) had a 61 KB `AGENTS.md` and 15 skills vs
+projitect's then-thinner guide and single `release-bump` skill (a historical baseline; much of it has since shipped). Do this early — it raises the floor for
 how every later ticket gets executed.
 
 ### GUIDE-1 — Adopt StoryCut's general-engineering AGENTS.md sections
@@ -72,7 +72,7 @@ Approach: **adopt and rewrite to fit**, per the Adopt a skill section of docs/gu
 ### GUIDE-2 — Adopt + adapt StoryCut's skills
 
 _As a maintainer, I want the workflow and scaffolding skills projitect is missing, so that common multi-step chores are codified rather than improvised._
-Approach: adopt and rewrite to fit, per the Adopt a skill section of docs/guidance-maintenance.md; keep StoryCut's skill shape/format.
+Approach: adopt and rewrite to fit, per the Adopt a skill section of docs/guidance-maintenance.md (rewriting does not replace source permission); keep StoryCut's skill shape/format.
 
 - [x] Adapt the workflow skills to pnpm and this repo: `create-commit`, `verify-commit`, `push-pr`, `rebase-main`
 - [x] Adapt StoryCut's scaffolding skills (`new-module` / `new-domain-model` / `new-repository` / `new-domain-action`) into projitect equivalents the v0 plan named but never created: **`new-package`** (scaffold a workspace package: package.json + tsconfig + test/tsconfig + root-tsconfig ref), **`new-blueprint`** (scaffold a blueprint module inside an existing blueprint package), **`new-error-code`** (new `Schema.TaggedError` in core + export + matching `errors/<id>.mdx`, per the existing AGENTS.md recipe)
