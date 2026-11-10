@@ -153,6 +153,26 @@ export const reactConfig = (opts: { typescript: boolean }): Blueprint.Blueprint 
 You get the full Effect surface area: `Effect.if`, `Effect.when`, `Effect.forEach`, error
 handling via `Effect.catchTag`, custom Layers for shared services, and so on.
 
+## Owning `package.json` keys
+
+A merge-mode blueprint (`jsonMerge`) owns the dotted keys it lists in `ownedKeys`, such as
+`scripts.prepare` or `devDependencies.husky`. List leaves, not a whole parent like `scripts`, and
+keep `ownedKeys` identical to the keys in `value`.
+
+| Situation                                      | Result                                                                      |
+| ---------------------------------------------- | --------------------------------------------------------------------------- |
+| Two blueprints list the same key               | `pjt.plan.conflict-merge` at plan time; one owner per key, no composition   |
+| Different keys under the same parent           | Both apply (`scripts.changeset` and `scripts.prepare`)                      |
+| Merge mixed with `owned` or `seed` on the file | `pjt.plan.conflict-owned`                                                   |
+| Keys you added yourself                        | Preserved by `pjt build` and `pjt remodel`; removal deletes only owned keys |
+| An owned key edited by hand                    | `pjt inspect` reports `~ modify package.json (JSON merge)`; remodel resets  |
+| A key you set that a blueprint also owns       | The blueprint's value wins                                                  |
+
+The husky blueprint is the only first-party owner of `scripts.prepare` (`husky`). The framework
+blueprints own `dev`/`build`/`preview` (React) and `dev`/`build`/`start`/`lint` (Next.js), so
+the two conflict on `scripts.build`; Vitest owns `test` and `test:watch`; Changesets owns
+`changeset` and `version-packages`.
+
 ## Permissions
 
 Every blueprint declares what it needs:
