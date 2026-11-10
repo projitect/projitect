@@ -1,6 +1,6 @@
 {
   "name": "@projitect/core",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "Shared contracts for projitect — Blueprint, ChangeSet, Permission, ProjitectConfig, and the error catalog.",
   "repository": {
     "type": "git",

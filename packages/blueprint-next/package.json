@@ -1,6 +1,6 @@
 {
   "name": "@projitect/blueprint-next",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "Next.js App Router + TypeScript app blueprint for projitect — composes tsconfig, gitignore and vitest, owns next.config.ts and the package.json scaffolding, seeds the starter source.",
   "repository": {
     "type": "git",
