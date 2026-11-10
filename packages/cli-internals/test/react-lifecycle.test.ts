@@ -9,8 +9,9 @@ import { makeProjectRootLayer } from "../src/filesystem-impl.js"
 import { diffPlan } from "../src/differ.js"
 import { applyPlan } from "../src/applier.js"
 import { readLockfile, writeLockfile } from "../src/lockfile.js"
-import { buildPlan, diffLockfile } from "../src/plan.js"
+import { diffLockfile } from "../src/plan.js"
 import { applyRemovals } from "../src/remover.js"
+import { planTree } from "./support/plan-tree.js"
 
 /**
  * End-to-end lifecycle for `@projitect/blueprint-react` in a clean temporary project:
@@ -65,7 +66,7 @@ const readPackageJson = async () =>
 const remodelTree = (tree: readonly Blueprint.Blueprint[]) =>
   Effect.runPromise(
     Effect.gen(function* () {
-      const { plan, byBlueprint } = yield* buildPlan({ tree, projectRoot: cwd })
+      const { plan, byBlueprint } = yield* planTree(tree, cwd)
       const previous = yield* readLockfile
       const { removals } = diffLockfile({ previous, current: byBlueprint })
       const written = yield* applyPlan({ plan })
@@ -78,7 +79,7 @@ const remodelTree = (tree: readonly Blueprint.Blueprint[]) =>
 const inspectTree = (tree: readonly Blueprint.Blueprint[]) =>
   Effect.runPromise(
     Effect.gen(function* () {
-      const { plan, byBlueprint } = yield* buildPlan({ tree, projectRoot: cwd })
+      const { plan, byBlueprint } = yield* planTree(tree, cwd)
       const previous = yield* readLockfile
       const { removals } = diffLockfile({ previous, current: byBlueprint })
       const diff = yield* diffPlan({ plan })

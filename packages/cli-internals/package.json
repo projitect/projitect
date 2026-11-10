@@ -31,7 +31,7 @@
   },
   "dependencies": {
     "@nunofyobiz/effect-extras": "3.2.0",
-    "esbuild": "0.28.0"
+    "esbuild": "0.28.1"
   },
   "devDependencies": {
     "@projitect/blueprint": "workspace:*",
