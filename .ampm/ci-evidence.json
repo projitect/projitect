@@ -6,6 +6,7 @@
     { "name": "test (node 22)", "app": "github-actions" },
     { "name": "test (node 24)", "app": "github-actions" },
     { "name": "knip", "app": "github-actions" },
+    { "name": "guidance", "app": "github-actions" },
     { "name": "build-packages", "app": "github-actions" },
     { "name": "build-website", "app": "github-actions" },
     { "name": "check-errors", "app": "github-actions" },
