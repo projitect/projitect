@@ -8,4 +8,6 @@ sidebar:
 
 **What**: The dynamic `import()` of your blueprint file threw. Common causes: syntax errors, missing dependencies, or a TypeScript feature the loader can't handle.
 
+`pjt build` reports this error during preflight, before deleting project files, including when `--force --yes` is supplied.
+
 **How to fix**: Run `node --experimental-strip-types .pjt.ts` to see the raw error, or run with the `tsx` CLI to confirm the file parses. Install any missing packages.

@@ -8,4 +8,6 @@ sidebar:
 
 **What**: The CLI looked for `.pjt.ts` (or whatever `--blueprint-file` points at) and didn't find it.
 
+`pjt build` reports this error during preflight, before deleting project files, including when `--force --yes` is supplied.
+
 **How to fix**: Run `pjt init` to create a starter `.pjt.ts`, or pass `--blueprint-file <path>` if your blueprint file lives elsewhere.

@@ -1,9 +1,9 @@
 import path from "node:path"
 import { promises as fs } from "node:fs"
 import { pathToFileURL } from "node:url"
-import { Array, Effect, Match, Predicate } from "effect"
+import { Array, Effect, Match, Predicate, Schema } from "effect"
 import { PredicateX, StructX } from "@nunofyobiz/effect-extras"
-import { Errors } from "@projitect/core"
+import { Errors, Permission } from "@projitect/core"
 import type { BlueprintFileSystem, Blueprint } from "@projitect/core"
 import type { DirectoryBlueprint } from "@projitect/blueprint"
 
@@ -30,8 +30,7 @@ export interface ProjitectFile {
  *
  *   export default pjt({ blueprints: [...] })
  *
- * It's an identity tag — we only inspect the default export for the `_tag` marker so we can
- * distinguish accidental other exports from a real projitect config.
+ * It's an identity tag. The loader validates the literal tree without running its Effects.
  */
 export const pjt = (input: {
   readonly blueprints: ProjitectFile["blueprints"]
@@ -46,7 +45,7 @@ export const pjt = (input: {
 export const isEffectTree = (
   v: ProjitectFile["blueprints"],
 ): v is Effect.Effect<BlueprintTree, Errors.BlueprintError, BlueprintFileSystem> =>
-  !Array.isArray(v)
+  Effect.isEffect(v)
 
 /**
  * Dynamic-import the user's `.pjt.ts` and return the typed default export.
@@ -103,13 +102,46 @@ export const loadBlueprintFile = (params: {
 }
 
 const isProjitectFile = (v: unknown): v is ProjitectFile =>
-  PredicateX.unsafeIsRecord(v) && v["_tag"] === "ProjitectConfig"
+  PredicateX.unsafeIsRecord(v) &&
+  v["_tag"] === "ProjitectConfig" &&
+  (Predicate.isUndefined(v["config"]) || PredicateX.unsafeIsRecord(v["config"])) &&
+  (Effect.isEffect(v["blueprints"]) || isBlueprintTree(v["blueprints"]))
+
+/** Validate literal structure only. Effects are deliberately evaluated against the post-wipe FS. */
+const isBlueprintTree = (
+  value: unknown,
+  ancestors: ReadonlySet<unknown> = new Set(),
+): value is BlueprintTree =>
+  Array.isArray(value) &&
+  !ancestors.has(value) &&
+  [...value].every((entry) => {
+    if (!PredicateX.unsafeIsRecord(entry)) {
+      return false
+    }
+    if (Predicate.hasProperty(entry, "_tag")) {
+      return (
+        entry._tag === "Directory" &&
+        Predicate.hasProperty(entry, "name") &&
+        Predicate.isString(entry.name) &&
+        Predicate.hasProperty(entry, "children") &&
+        isBlueprintTree(entry.children, new Set([...ancestors, value]))
+      )
+    }
+    return (
+      Predicate.isString(entry["id"]) &&
+      Predicate.isString(entry["version"]) &&
+      (Predicate.isUndefined(entry["description"]) || Predicate.isString(entry["description"])) &&
+      Array.isArray(entry["permissions"]) &&
+      [...entry["permissions"]].every(Schema.is(Permission.Permission)) &&
+      Effect.isEffect(entry["plan"])
+    )
+  })
 
 const describe = (v: unknown): string =>
   Match.value(v).pipe(
     Match.when(Predicate.isUndefined, () => "undefined"),
     Match.when(Predicate.isNull, () => "null"),
     Match.when(Array.isArray, () => "Array"),
-    Match.when(PredicateX.unsafeIsRecord, () => 'object without `_tag: "ProjitectConfig"`'),
+    Match.when(PredicateX.unsafeIsRecord, () => "object with an invalid configuration shape"),
     Match.orElse((value) => typeof value),
   )

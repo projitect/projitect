@@ -78,6 +78,8 @@ const ERROR_BLURBS: Readonly<Record<Errors.ErrorId, string>> = {
   "pjt.region.duplicate": "Multiple start markers for the same region in one file. Hand-edited?",
   "pjt.apply.dirty-git":
     "`build` requires a clean git working tree. Commit or stash first, then retry.",
+  "pjt.apply.confirmation-required":
+    "`build --force` cannot prompt on non-interactive input. Pass --yes only when you intend to delete and rebuild the project tree.",
   "pjt.init.git-missing":
     "`pjt init` requires a git repository. Run `git init` first, or rerun with --yes.",
   "pjt.init.package-json-missing":

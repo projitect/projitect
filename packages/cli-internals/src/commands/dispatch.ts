@@ -1,4 +1,4 @@
-import { Effect, Match, Option, Terminal } from "effect"
+import { Effect, Match, Option, Predicate, Terminal } from "effect"
 import type { Prompt } from "effect/unstable/cli"
 import { Argument, Command, Flag } from "effect/unstable/cli"
 import type { Errors, ProjitectConfig } from "@projitect/core"
@@ -213,7 +213,9 @@ const buildCmd = Command.make(
     ),
     yes: Flag.boolean("yes").pipe(
       Flag.withDefault(false),
-      Flag.withDescription("Skip the interactive confirmation prompt."),
+      Flag.withDescription(
+        "Authorize deletion without a prompt. Required for non-interactive input.",
+      ),
     ),
     json: jsonFlag("Emit the result, or the error with its id and fields, as JSON."),
   },
@@ -225,6 +227,8 @@ const buildCmd = Command.make(
         force: input.force,
         forceDirty: input.forceDirty,
         yes: input.yes,
+        // Redirected streams return undefined despite Node's boolean declaration.
+        interactive: Predicate.isTruthy(process.stdin.isTTY),
       }).pipe(
         Effect.matchEffect({
           onSuccess: (r) => Effect.succeed(r),

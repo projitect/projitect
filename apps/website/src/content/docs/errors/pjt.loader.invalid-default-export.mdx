@@ -8,4 +8,6 @@ sidebar:
 
 **What**: The file imported successfully but its default export isn't a `ProjitectConfig` object — i.e. `export default pjt({...})` is missing or replaced with something else.
 
-**How to fix**: Ensure `.pjt.ts` contains `export default pjt({ blueprints: [...] })`. Other exports are allowed but ignored.
+`pjt build` reports this error during preflight, before deleting project files, including when `--force --yes` is supplied.
+
+**How to fix**: Ensure `.pjt.ts` contains `export default pjt({ blueprints: [...] })`. Literal blueprint entries need a string id and version, valid permissions and an Effect plan. Directory entries need a name and valid children. An Effect-valued blueprint tree is supported and evaluates after a build wipe. Other exports are allowed but ignored.

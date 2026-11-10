@@ -7,7 +7,7 @@ description: Wipe the project tree and rebuild from blueprints. Destructive.
 pjt build --force [--force-dirty] [--yes] [--json]
 ```
 
-**Destructive.** Deletes every file under the project root except a small preserved set (see below), then runs `pjt remodel` to rebuild from the current blueprint plan. Intended for fresh greenfield scaffolds and one-shot migrations off another generator. **Not for day-to-day use** — that's what `pjt remodel` is for.
+**Destructive.** Deletes every file under the project root except a small preserved set (see below), then applies the blueprint plan against the fresh tree. Intended for fresh greenfield scaffolds and one-shot migrations off another generator. **Not for day-to-day use** — that's what `pjt remodel` is for.
 
 ## Required + optional flags
 
@@ -15,7 +15,7 @@ pjt build --force [--force-dirty] [--yes] [--json]
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | `--force`       | **Required.** Without it, `pjt build` refuses to run. The wipe is too destructive to fire by accident.                          |
 | `--force-dirty` | Allow wiping even when `git status --porcelain` shows uncommitted changes. Default is to refuse on a dirty tree.                |
-| `--yes`         | Skip the interactive confirmation prompt. Use this in scripts; otherwise the human at the keyboard confirms.                    |
+| `--yes`         | Authorize deletion without a prompt. Required when stdin is not a terminal, including scripts and agents.                       |
 | `--json`        | Print the result as `{ cancelled, wiped, remodel }`. On failure, print `{ "error": { ... } }` with the error's `id` and fields. |
 
 ## Post-apply commands
@@ -37,13 +37,25 @@ The rationale: keep the manifest, the blueprint spec, the lockfile, the dependen
 
 ## Prerequisites
 
-| Check                             | Failure code                                          |
-| --------------------------------- | ----------------------------------------------------- |
-| Project root has `.git/`          | `pjt.git.not-a-repo`                                  |
-| `git status --porcelain` is empty | `pjt.apply.dirty-git` (override with `--force-dirty`) |
-| `--force` flag is present         | `pjt.apply.dirty-git` (with a clarifying message)     |
+| Check                                                    | Failure code                                                                                             |
+| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Project root has `.git/`                                 | `pjt.git.not-a-repo`                                                                                     |
+| `git status --porcelain` is empty                        | `pjt.apply.dirty-git` (override with `--force-dirty`)                                                    |
+| `--force` flag is present                                | `pjt.apply.dirty-git` (with a clarifying message)                                                        |
+| Non-interactive input has `--yes`                        | `pjt.apply.confirmation-required`                                                                        |
+| Blueprint file imports and has a valid literal structure | `pjt.config.blueprint-file-not-found`, `pjt.loader.import-failed` or `pjt.loader.invalid-default-export` |
 
-If `.pjt.ts` is missing, `pjt build` exits 1 with `pjt.config.blueprint-file-not-found` and tells you to run `pjt init`. It does not create the file. The check runs after the wipe, so run `pjt init` before `pjt build`.
+## Checked before anything is deleted
+
+After the force/git checks, non-interactive input requires `--yes`. Otherwise the command stops promptly with `pjt.apply.confirmation-required` (exit 1), without importing the config or prompting.
+
+The command imports `.pjt.ts` once and validates its default export, literal blueprint entries, permissions and nested directory structure before deletion. A missing file reports `pjt.config.blueprint-file-not-found` and tells you to run `pjt init`. An import failure reports `pjt.loader.import-failed`; a malformed literal configuration reports `pjt.loader.invalid-default-export`. These checks preserve existing files even with `--force --yes`.
+
+In a terminal, confirmation follows preflight unless `--yes` was supplied. Declining preserves files; Ctrl-C cancels with exit130. Back up ignored content as well as committing tracked files: git cannot restore everything the wipe deletes.
+
+## Not rolled back
+
+Configuration-tree Effects and blueprint plans run after the wipe, so they see the fresh filesystem. Failures during their evaluation, plan conflicts, application and post-apply commands can occur after deletion. Build does not roll back the wipe or later partial writes. User module imports can also have their own side effects. Use `pjt remodel` for ordinary incremental updates.
 
 ## Output
 

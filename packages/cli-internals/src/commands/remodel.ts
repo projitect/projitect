@@ -2,7 +2,7 @@ import { Effect } from "effect"
 import { StructX } from "@nunofyobiz/effect-extras"
 import type { Errors, PjtLock, ProjitectConfig } from "@projitect/core"
 import { loadBlueprintFile, isEffectTree } from "../loader.js"
-import type { BlueprintTree } from "../loader.js"
+import type { BlueprintTree, ProjitectFile } from "../loader.js"
 import { buildPlan, diffLockfile } from "../plan.js"
 import { applyPlan } from "../applier.js"
 import { applyRemovals } from "../remover.js"
@@ -35,13 +35,24 @@ export const remodel = (params: {
       blueprintFile: params.config.blueprintFile,
       projectRoot: params.config.projectRoot,
     })
+    return yield* applyLoadedFile({ ...params, file })
+  })
+
+/** Apply an already imported configuration; build calls this only after its fresh-tree wipe. */
+export const applyLoadedFile = (params: {
+  readonly config: ProjitectConfig.ProjitectConfig
+  readonly file: ProjitectFile
+  readonly spawner?: ProcessSpawner
+}): Effect.Effect<RemodelResult, Errors.ProjitectError> =>
+  Effect.gen(function* () {
+    const { file, config, spawner } = params
     const tree: BlueprintTree = isEffectTree(file.blueprints)
       ? yield* file.blueprints.pipe(
           Effect.provide(
             makeRealLayer({
               blueprintId: "pjt:config-loader",
               permissions: [{ kind: "read", glob: "**" }],
-              projectRoot: params.config.projectRoot,
+              projectRoot: config.projectRoot,
             }),
           ),
         )
@@ -49,7 +60,7 @@ export const remodel = (params: {
 
     const { plan, byBlueprint } = yield* buildPlan({
       tree,
-      projectRoot: params.config.projectRoot,
+      projectRoot: config.projectRoot,
     })
     return yield* Effect.gen(function* () {
       const previous = yield* readLockfile
@@ -63,10 +74,10 @@ export const remodel = (params: {
 
       const ran = yield* runPostApply({
         commands: plan.commands,
-        projectRoot: params.config.projectRoot,
-        ...StructX.defined("spawner", params.spawner),
+        projectRoot: config.projectRoot,
+        ...StructX.defined("spawner", spawner),
       })
 
       return { written, removed, ran }
-    }).pipe(Effect.provide(makeProjectRootLayer(params.config.projectRoot)))
+    }).pipe(Effect.provide(makeProjectRootLayer(config.projectRoot)))
   })
