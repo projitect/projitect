@@ -196,6 +196,9 @@ importers:
       '@projitect/core':
         specifier: workspace:*
         version: link:../core
+      '@projitect/test-kit':
+        specifier: workspace:*
+        version: link:../test-kit
       effect:
         specifier: 4.0.0-rc.111
         version: 4.0.0-rc.111
@@ -359,6 +362,9 @@ importers:
       '@projitect/blueprint':
         specifier: workspace:*
         version: link:../blueprint
+      '@projitect/blueprint-gitignore':
+        specifier: workspace:*
+        version: link:../blueprint-gitignore
       '@projitect/blueprint-markdown':
         specifier: workspace:*
         version: link:../blueprint-markdown
