@@ -50,35 +50,35 @@ Automated enforcement at the factory's admit step is factory-side tooling, not c
 Sequencing: priority after consumer Markdown/skills onboarding; does not gate other epics or bonus catalog work.
 
 Bring projitect's `AGENTS.md` and `.claude/skills/` up to the depth of the sibling StoryCut repo
-(`/Users/kapil/Github/StoryCut/StoryCut`), which has a 61 KB `AGENTS.md` and 15 skills vs
-projitect's thinner guide and single `release-bump` skill. Do this early — it raises the floor for
+(`StoryCut/StoryCut`; licence evidence for it is missing, see [Adopt a skill](docs/guidance-maintenance.md#adopt-a-skill-from-another-repository)), which (at the time this epic was written, now dated) had a 61 KB `AGENTS.md` and 15 skills vs
+projitect's then-thinner guide and single `release-bump` skill (a historical baseline; much of it has since shipped). Do this early — it raises the floor for
 how every later ticket gets executed.
 
 ### GUIDE-1 — Adopt StoryCut's general-engineering AGENTS.md sections
 
 _As a maintainer, I want the load-bearing engineering guidance from StoryCut's `AGENTS.md` merged into projitect's, so that agents working here get the same battle-tested discipline without me re-deriving it._
-Approach: **copy/paste, don't rewrite.** Keep adopted sections as close to verbatim as possible; modify only what's needed to fit a pnpm library/CLI monorepo that's Effect-native (vs StoryCut's Next.js + video-domain app). Decide section-by-section from first principles — adopt general engineering discipline, skip StoryCut's app/runtime/domain specifics.
+Approach: **adopt and rewrite to fit**, per the Adopt a skill section of docs/guidance-maintenance.md. Rewrite adopted sections to fit a pnpm library/CLI monorepo that's Effect-native (vs StoryCut's Next.js + video-domain app). Decide section-by-section from first principles — adopt general engineering discipline, skip StoryCut's app/runtime/domain specifics.
 
-- [ ] **Merge into, don't replace** projitect's existing `AGENTS.md` — preserve the projitect-specific sections StoryCut lacks (ESLint-absorbs-Prettier, marketing-site coordination, blueprint authoring rules, ownership modes, region-marker convention, lockstep versioning, Effect LS patch, Renovate)
-- [ ] Adopt the high-value Effect sections, **checking each snippet against Effect v4** (StoryCut is likely v3 — `Schema.optional`, `Data` vs `Schema.TaggedError`, etc. may differ): "Match over if/else", "Predicates for type checks", "Dual functions", "Data-first vs `pipe`", "`Result` over custom discriminated unions", "Quick reference"
-- [ ] Adopt the "FP mindset" cluster (Spotting reuse opportunities · Where utilities live · Check existing utilities first · Designing a good utility) — broadly applicable
-- [ ] Adopt the workflow/discipline sections that are stronger than projitect's current text: "About the Bash tool's fresh subshells", "Forbidden shortcuts when fixing failures", "Atomic, reviewable commits", "Commit identity for agents"
+- [x] **Merge into, don't replace** projitect's existing `AGENTS.md` — preserve the projitect-specific sections StoryCut lacks (ESLint-absorbs-Prettier, marketing-site coordination, blueprint authoring rules, ownership modes, region-marker convention, lockstep versioning, Effect LS patch, Renovate)
+- [x] Adopt the high-value Effect sections, **checking each snippet against Effect v4** (StoryCut is likely v3 — `Schema.optional`, `Data` vs `Schema.TaggedError`, etc. may differ): "Match over if/else", "Predicates for type checks", "Dual functions", "Data-first vs `pipe`", "`Result` over custom discriminated unions", "Quick reference"
+- [x] Adopt the "FP mindset" cluster (Spotting reuse opportunities · Where utilities live · Check existing utilities first · Designing a good utility) — broadly applicable
+- [x] Adopt the workflow/discipline sections that are stronger than projitect's current text: "About the Bash tool's fresh subshells", "Forbidden shortcuts when fixing failures", "Atomic, reviewable commits", "Commit identity for agents"
 - [ ] Adopt the "Tests" guidance (exhaustive coverage for pure utilities; working with existing tests) — now relevant since projitect has a real suite
-- [ ] **Skip** (StoryCut-specific): Architecture/Key layers, Action+Schema, Auth, Database, `nn`, `FormDataX`, `StructX`, Routes object, React/JSX rules, `DateToLocaleString`, Sort orders, Worktree dev env, Local sign-in, Dev server lifecycle, Tech stack, the FCPXML/OTIO/Remotion material
-- [ ] `CLAUDE.md` remains a symlink to `AGENTS.md` (`ln -sf AGENTS.md CLAUDE.md`)
-- [ ] Each adopted section reads cohesively top-to-bottom (no half-merged StoryCut references to features projitect doesn't have)
+- [x] **Skip** (StoryCut-specific): Architecture/Key layers, Action+Schema, Auth, Database, `nn`, `FormDataX`, `StructX`, Routes object, React/JSX rules, `DateToLocaleString`, Sort orders, Worktree dev env, Local sign-in, Dev server lifecycle, Tech stack, the FCPXML/OTIO/Remotion material
+- [x] `CLAUDE.md` remains a symlink to `AGENTS.md` (`ln -sf AGENTS.md CLAUDE.md`)
+- [x] Each adopted section reads cohesively top-to-bottom (no half-merged StoryCut references to features projitect doesn't have)
   > Size: L
 
 ### GUIDE-2 — Adopt + adapt StoryCut's skills
 
 _As a maintainer, I want the workflow and scaffolding skills projitect is missing, so that common multi-step chores are codified rather than improvised._
-Approach: copy the generic skills nearly verbatim; rewrite the scaffolding skills' bodies to projitect's structure while keeping StoryCut's skill shape/format.
+Approach: adopt and rewrite to fit, per the Adopt a skill section of docs/guidance-maintenance.md (rewriting does not replace source permission); keep StoryCut's skill shape/format.
 
-- [ ] Copy the workflow skills largely verbatim (adjust commands to pnpm/this repo): `create-commit`, `verify-commit`, `push-pr`, `rebase-main`
-- [ ] Adapt StoryCut's scaffolding skills (`new-module` / `new-domain-model` / `new-repository` / `new-domain-action`) into projitect equivalents the v0 plan named but never created: **`new-package`** (scaffold a workspace package: package.json + tsconfig + test/tsconfig + root-tsconfig ref), **`new-blueprint`** (scaffold a blueprint module inside an existing blueprint package), **`new-error-code`** (new `Schema.TaggedError` in core + export + matching `errors/<id>.mdx`, per the existing AGENTS.md recipe)
-- [ ] **Skip** the domain-specific skills: `fcpxml-format`, `otio-format`, `validate-fcpxml`, `remotion-player`, `next-client-component`, `preview-flows`
-- [ ] Keep the existing `release-bump` skill untouched
-- [ ] Each new skill's frontmatter/`SKILL.md` matches the format the harness expects (verified by it appearing in the skills list)
+- [x] Adapt the workflow skills to pnpm and this repo: `create-commit`, `verify-commit`, `push-pr`, `rebase-main`
+- [x] Adapt StoryCut's scaffolding skills (`new-module` / `new-domain-model` / `new-repository` / `new-domain-action`) into projitect equivalents the v0 plan named but never created: **`new-package`** (scaffold a workspace package: package.json + tsconfig + test/tsconfig + root-tsconfig ref), **`new-blueprint`** (scaffold a blueprint module inside an existing blueprint package), **`new-error-code`** (new `Schema.TaggedError` in core + export + matching `errors/<id>.mdx`, per the existing AGENTS.md recipe)
+- [x] **Skip** the domain-specific skills: `fcpxml-format`, `otio-format`, `validate-fcpxml`, `remotion-player`, `next-client-component`, `preview-flows`
+- [x] Keep the existing `release-bump` skill untouched
+- [x] Each new skill's frontmatter/`SKILL.md` matches the format the harness expects (verified by it appearing in the skills list)
   > Depends on: GUIDE-1 (shared conventions) · Size: M
 
 ---
