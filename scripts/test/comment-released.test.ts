@@ -41,7 +41,7 @@ const base = {
 describe("parseVersion", () => {
   it("takes the version of the first published package", () => {
     expect(
-      parseVersion('[{"name":"projitect","version":"1.2.3"},{"name":"x","version":"1.2.3"}]'),
+      parseVersion('[{"name":"@projitect/cli","version":"1.2.3"},{"name":"x","version":"1.2.3"}]'),
     ).toBe("1.2.3")
   })
 
@@ -51,18 +51,18 @@ describe("parseVersion", () => {
 })
 
 describe("previousTag", () => {
-  const tags = ["projitect@1.2.3", "projitect@1.2.2", "projitect@1.2.1"]
+  const tags = ["@projitect/cli@1.2.3", "@projitect/cli@1.2.2", "@projitect/cli@1.2.1"]
 
   it("finds the tag after the released one", () => {
-    expect(previousTag(tags, "1.2.3")).toBe("projitect@1.2.2")
+    expect(previousTag(tags, "1.2.3")).toBe("@projitect/cli@1.2.2")
   })
 
   it("falls back to the newest other tag when the release tag is missing", () => {
-    expect(previousTag(["projitect@1.2.2"], "1.2.3")).toBe("projitect@1.2.2")
+    expect(previousTag(["@projitect/cli@1.2.2"], "1.2.3")).toBe("@projitect/cli@1.2.2")
   })
 
   it("returns undefined for a first release", () => {
-    expect(previousTag(["projitect@1.2.3"], "1.2.3")).toBeUndefined()
+    expect(previousTag(["@projitect/cli@1.2.3"], "1.2.3")).toBeUndefined()
   })
 })
 

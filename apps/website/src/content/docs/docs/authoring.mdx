@@ -31,7 +31,7 @@ export const myReadmeSection = (): Blueprint.Blueprint =>
 Project maintainers consume it via:
 
 ```ts
-import { pjt } from "projitect/cli"
+import { pjt } from "@projitect/cli"
 import { myReadmeSection } from "@my-org/readme-blueprints"
 
 export default pjt({ blueprints: [myReadmeSection()] })
@@ -207,7 +207,7 @@ Two blueprints that declare exec operations never conflict, because an exec oper
 To re-root a tree of blueprints under a subdirectory:
 
 ```ts
-import { pjt, directory } from "projitect/cli"
+import { pjt, directory } from "@projitect/cli"
 
 export default pjt({
   blueprints: [

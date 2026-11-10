@@ -28,7 +28,7 @@ Run each as a separate call:
 | Subject        | Conventional Commits (`type(scope): summary`), imperative                                                                                                 |
 | One concept    | The diff is explainable by the subject alone; unrelated changes belong in their own commit                                                                |
 | Kanban suffix  | `[kanban #<id>]` present if a card drove the work; absent otherwise                                                                                       |
-| Changeset      | If a published package changed, the branch has a `.changeset/<kebab>.md` with `"projitect": <bump>`                                                       |
+| Changeset      | If a published package changed, the branch has a `.changeset/<kebab>.md` with `"@projitect/cli": <bump>`                                                  |
 | Bump level     | Matches [AGENTS.md → Versioning (lockstep)](../../../AGENTS.md)                                                                                           |
 | Signature      | `%G?` is `G` (good). `N` means unsigned — run `bash scripts/setup-signing.sh` and report it                                                               |
 | Marketing site | User-facing changes touch the pages listed in [Marketing site → coordination](../../../docs/marketing-site.md#marketing-site-coordination-at-every-phase) |

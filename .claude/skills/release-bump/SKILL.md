@@ -83,7 +83,7 @@ Run interactively:
 pnpm changeset
 ```
 
-Pick all public packages (`projitect` + every `@projitect/*` except `@projitect/test-kit` if
+Pick all public packages (every `@projitect/*` except `@projitect/test-kit` if
 it's marked internal). Pick the bump from step 2. Draft the summary using this template:
 
 ```
@@ -112,7 +112,7 @@ Otherwise, push to `main` directly. `changesets/action` will open a "Version Pac
 automatically — merging that PR triggers the actual npm publish via OIDC. Tell the user where
 to watch the workflow. The first release is blocked until the owner completes the npm
 trusted-publisher checklist in `docs/publishing.md`, and it is confirmed only when
-`pnpm view projitect version` returns the released version — a green job is not confirmation.
+`pnpm view @projitect/cli version` returns the released version — a green job is not confirmation.
 
 ## What this skill never does
 

@@ -5,7 +5,7 @@
  * Here, each workspace package gets its own scoped `.gitignore` slice for the Node-specific
  * patterns it cares about, while the root `.gitignore` carries OS-level entries.
  */
-import { pjt, directory } from "projitect/cli"
+import { pjt, directory } from "@projitect/cli"
 import { gitignores } from "@projitect/blueprint-gitignore"
 
 export default pjt({

@@ -1,5 +1,5 @@
 ---
-"projitect": minor
+"@projitect/cli": minor
 ---
 
 New worker error ids — `pjt.worker.crashed`, `pjt.worker.timed-out` and `pjt.worker.exited-early` —

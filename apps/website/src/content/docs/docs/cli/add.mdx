@@ -93,4 +93,4 @@ Edit `.pjt.ts` manually, then run `pjt remodel`. To enable auto-splice for your 
 
 `pjt add` writes between the **convention markers** (`pjt:imports`, `pjt:blueprints`). These are **not** managed regions in the lockfile sense — `pjt inspect` does not check them for drift. They're just splice anchors. If you delete them, `pjt add` fails with [`pjt.add.markers-missing`](/errors/pjt.add.markers-missing/) and tells you how to restore them.
 
-The projitect blueprint's import (`import { pjt } from "projitect/cli"`) lives in a **different** marker pair — `pjt:projitect:imports` — which IS a managed region and IS drift-checked. Don't confuse them.
+The projitect blueprint's import (`import { pjt } from "@projitect/cli"`) lives in a **different** marker pair — `pjt:projitect:imports` — which IS a managed region and IS drift-checked. Don't confuse them.

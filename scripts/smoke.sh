@@ -49,7 +49,7 @@ npm install --no-package-lock --silent \
   "file:${PKG}/blueprint-tsconfig" \
   "effect@rc" "tsx" 2>&1 | tail -1
 
-BIN=node_modules/projitect/bin/pjt.mjs
+BIN=node_modules/@projitect/cli/bin/pjt.mjs
 
 echo "=== 1. CLI surface ==="
 $BIN --help 2>&1 | grep -q "init"    && pass "--help lists init"    || fail "--help missing init"
@@ -61,7 +61,7 @@ echo "=== 2. pjt init ==="
 $BIN init > /dev/null 2>&1
 [ -f .pjt.ts ]   && pass ".pjt.ts created"          || fail ".pjt.ts missing"
 [ -f .pjt.lock ] && pass ".pjt.lock created"        || fail ".pjt.lock missing"
-grep -q '"projitect"' package.json && pass "package.json got projitect devDep" || fail "no projitect devDep"
+grep -q '"@projitect/cli"' package.json && pass "package.json got projitect devDep" || fail "no projitect devDep"
 grep -q '"pjt"'        package.json && pass "package.json got pjt script"      || fail "no pjt script"
 
 echo "=== 3. inspect clean after init ==="
@@ -529,7 +529,7 @@ $BIN remodel > /dev/null
 cmp -s AGENTS.md AGENTS.v1 && cmp -s README.md README.v1 && cmp -s .pjt.lock lock.v1 && pass "second remodel changes no bytes" || fail "second remodel changed files"
 
 # `init` also records `projitect` from the public registry; drop it so reinstalls keep the local build.
-npm pkg delete devDependencies.projitect > /dev/null 2>&1
+npm pkg delete devDependencies.@projitect/cli > /dev/null 2>&1
 
 # Publish 1.1.0 and upgrade with the package manager. Nothing has been remodelled yet.
 publish 1.1.0
@@ -600,7 +600,7 @@ $BIN inspect > /dev/null 2>&1 && pass "clean after installing the skills package
 grep -q "# v1" .claude/skills/acme-skill/SKILL.md && pass "skill 1.0.0 content installed" || fail "skill content missing"
 publish 1.1.0 1.1.0
 # `remodel` records `projitect` again; drop it so the reinstall keeps the local build.
-npm pkg delete devDependencies.projitect > /dev/null 2>&1
+npm pkg delete devDependencies.@projitect/cli > /dev/null 2>&1
 npm install -D --no-package-lock --silent @acme/skills@1.1.0 > /dev/null 2>&1
 SK_JSON=$($BIN inspect --json 2>/dev/null)
 [ $? -eq 1 ] && echo "$SK_JSON" | grep -q ".claude/skills/acme-skill/SKILL.md" && pass "inspect reports the skills upgrade as drift" || fail "inspect missed the skills upgrade"
@@ -686,7 +686,7 @@ $BIN add @projitect/blueprint-gitignore --section node < /dev/null > /dev/null 2
 for s in tsconfig vitest changesets husky-lint-staged; do
   $BIN add "@projitect/blueprint-$s" < /dev/null > /dev/null 2>&1
 done
-npm pkg delete devDependencies.projitect > /dev/null 2>&1
+npm pkg delete devDependencies.@projitect/cli > /dev/null 2>&1
 for s in $FP_PKGS; do
   grep -q '"version": "1.0.0"' "node_modules/@projitect/blueprint-$s/package.json" && pass "$s: pjt add installed 1.0.0" || fail "$s: 1.0.0 not installed"
 done
@@ -723,7 +723,7 @@ node fp-versions.mjs && pass "every first-party factory emits its installed mani
 # Publish 1.1.0 and upgrade with the package manager. Nothing has been remodelled yet.
 fp_state 1.1.0
 # Drop the registry-less devDependencies the blueprints merged into package.json so npm can resolve the tree.
-npm pkg delete devDependencies.projitect devDependencies.effect devDependencies.vitest "devDependencies.@vitest/coverage-v8" "devDependencies.@changesets/cli" devDependencies.husky devDependencies.lint-staged > /dev/null 2>&1
+npm pkg delete devDependencies.@projitect/cli devDependencies.effect devDependencies.vitest "devDependencies.@vitest/coverage-v8" "devDependencies.@changesets/cli" devDependencies.husky devDependencies.lint-staged > /dev/null 2>&1
 npm install -D --no-package-lock --ignore-scripts --silent \
   @projitect/blueprint-gitignore@1.1.0 @projitect/blueprint-tsconfig@1.1.0 @projitect/blueprint-vitest@1.1.0 \
   @projitect/blueprint-changesets@1.1.0 @projitect/blueprint-husky-lint-staged@1.1.0 > /dev/null 2>&1
@@ -759,20 +759,20 @@ echo "$JSON_OUT" | python3 -c "import sys, json; json.loads(sys.stdin.read())" >
 
 echo "=== 7. init refuses without git ==="
 NOGIT="$(mktemp -d -t pjt-nogit.XXXXXX)"
-cp -r "${SMOKE}/node_modules" "${NOGIT}/"
+cp -RP "${SMOKE}/node_modules" "${NOGIT}/"
 cd "$NOGIT"
 echo '{"name":"x","version":"0","private":true}' > package.json
-node node_modules/projitect/bin/pjt.mjs init 2>&1 | grep -q "pjt.init.git-missing" && pass "init refuses without git" || fail "no git error"
+node node_modules/@projitect/cli/bin/pjt.mjs init 2>&1 | grep -q "pjt.init.git-missing" && pass "init refuses without git" || fail "no git error"
 cd "$SMOKE"
 rm -rf "$NOGIT"
 
 echo "=== 7b. init --yes auto-bootstraps missing git + package.json ==="
 YESDIR="$(mktemp -d -t pjt-yes.XXXXXX)"
-cp -r "${SMOKE}/node_modules" "${YESDIR}/"
+cp -RP "${SMOKE}/node_modules" "${YESDIR}/"
 cd "$YESDIR"
 # Neither .git nor package.json present.
 [ ! -d .git ] && [ ! -f package.json ] && pass "yes-test starts clean" || fail "yes-test dirty start"
-node node_modules/projitect/bin/pjt.mjs init --yes > /tmp/init-yes.out 2>&1
+node node_modules/@projitect/cli/bin/pjt.mjs init --yes > /tmp/init-yes.out 2>&1
 INIT_YES_EXIT=$?
 [ $INIT_YES_EXIT -eq 0 ] && pass "init --yes exits 0 (bootstrap succeeded)" || fail "init --yes exited $INIT_YES_EXIT"
 [ -d .git ]            && pass "init --yes ran git init"          || fail "no .git after --yes"
@@ -805,7 +805,7 @@ echo "=== 9b. post-apply commands run after the files; a denied command fails ==
 # The fix is a quoted `node -e` so no script file has to survive the wipe. The denied case spreads the
 # real helper's blueprint and drops its exec permissions, so the planned op is still the helper's.
 EXECDIR="$(mktemp -d -t pjt-exec.XXXXXX)"
-cp -r "${SMOKE}/node_modules" "${EXECDIR}/"
+cp -RP "${SMOKE}/node_modules" "${EXECDIR}/"
 cd "$EXECDIR"
 git init -q
 git config user.email t@t
@@ -814,7 +814,7 @@ echo '{"name":"smoke-exec","version":"0.0.0","private":true,"type":"module"}' > 
 write_exec_blueprint() {
   cat > .pjt.ts <<EOT
 import { exec, ownFile } from "@projitect/blueprint"
-import { pjt } from "projitect/cli"
+import { pjt } from "@projitect/cli"
 
 const fix = "node -e \"require('node:fs').writeFileSync('marker.txt', 'ran')\""
 const check = "node -e \"process.exit(require('node:fs').existsSync('marker.txt') ? 0 : 1)\""
@@ -830,18 +830,18 @@ EOT
 }
 
 write_exec_blueprint 'formatter'
-node node_modules/projitect/bin/pjt.mjs build --force --force-dirty --yes > /tmp/exec-ok.out 2>&1
+node node_modules/@projitect/cli/bin/pjt.mjs build --force --force-dirty --yes > /tmp/exec-ok.out 2>&1
 EXEC_OK=$?
 [ $EXEC_OK -eq 0 ] && pass "build with a permitted post-apply command exits 0" || fail "permitted build exited $EXEC_OK"
 [ -f owned.txt ]  && pass "file operation applied"                 || fail "owned.txt missing"
 [ -f marker.txt ] && pass "build ran the post-apply command"       || fail "marker.txt missing"
 grep -q "Ran 1 command" /tmp/exec-ok.out && pass "build reports the command it ran" || fail "no Ran line"
-node node_modules/projitect/bin/pjt.mjs inspect > /tmp/exec-inspect.out 2>&1
+node node_modules/@projitect/cli/bin/pjt.mjs inspect > /tmp/exec-inspect.out 2>&1
 [ $? -ne 0 ] && grep -q "pjt.inspect.operation-unsupported" /tmp/exec-inspect.out && pass "inspect fails closed on post-apply commands" || fail "inspect did not fail closed"
 
 rm -f marker.txt
 write_exec_blueprint '{ ...formatter, permissions: [] }'
-node node_modules/projitect/bin/pjt.mjs build --force --force-dirty --yes --json > /tmp/exec-denied.out 2>&1
+node node_modules/@projitect/cli/bin/pjt.mjs build --force --force-dirty --yes --json > /tmp/exec-denied.out 2>&1
 EXEC_DENIED=$?
 [ $EXEC_DENIED -ne 0 ] && pass "build with a denied command exits nonzero" || fail "denied build exited 0"
 grep -q '"id": "pjt.exec.command-not-permitted"' /tmp/exec-denied.out && pass "--json carries the not-permitted error id" || fail "no not-permitted error id"
@@ -908,20 +908,20 @@ git config user.email t@t
 git config user.name t
 # pnpm, like the repo itself: npm 10 crashes resolving any vitest 4.1 install ("edgesOut of null").
 PNPM_SPEC="$(node -p "require('${ROOT}/package.json').packageManager")"
-# The projitect blueprint owns `devDependencies.projitect` (a registry range), so an override keeps
+# The projitect blueprint owns `devDependencies.@projitect/cli` (a registry range), so an override keeps
 # resolving that range to the packed CLI tarball across every `build` and `remodel`.
-echo "{\"name\":\"smoke-react\",\"version\":\"0.0.0\",\"private\":true,\"type\":\"module\",\"packageManager\":\"${PNPM_SPEC}\",\"devDependencies\":{\"projitect\":\"^${BASE_VERSION}\"},\"pnpm\":{\"overrides\":{\"projitect\":\"file:${REACTREG}/projitect-${BASE_VERSION}.tgz\"}}}" > package.json
+echo "{\"name\":\"smoke-react\",\"version\":\"0.0.0\",\"private\":true,\"type\":\"module\",\"packageManager\":\"${PNPM_SPEC}\",\"devDependencies\":{\"@projitect/cli\":\"^${BASE_VERSION}\"},\"pnpm\":{\"overrides\":{\"@projitect/cli\":\"file:${REACTREG}/projitect-cli-${BASE_VERSION}.tgz\"}}}" > package.json
 printf 'node_modules/\n' > .gitignore
 write_npmrc() { printf '@projitect:registry=http://127.0.0.1:%s/\n' "$(cat "$REACTREG/port")" > .npmrc; }
 write_npmrc
 # The CLI comes from its packed tarball through the override above.
 EFFECT_VERSION="$(node -p "require('${PKG}/core/package.json').peerDependencies.effect")"
 pnpm add -D "effect@${EFFECT_VERSION}" tsx > /tmp/react-cli-install.out 2>&1 || fail "installing the packed CLI failed: $(tail -5 /tmp/react-cli-install.out)"
-REACT_BIN=node_modules/projitect/bin/pjt.mjs
+REACT_BIN=node_modules/@projitect/cli/bin/pjt.mjs
 # The `pjt init` starter, minus its registry install of projitect: `pjt add` splices at these anchors.
 cat > .pjt.ts <<'EOF'
 // pjt:projitect:imports start
-import { pjt } from "projitect/cli"
+import { pjt } from "@projitect/cli"
 // pjt:projitect:imports end
 
 // pjt:imports start
@@ -1024,14 +1024,14 @@ cd "$NEXTDIR"
 git init -q
 git config user.email t@t
 git config user.name t
-echo "{\"name\":\"smoke-next\",\"version\":\"0.0.0\",\"private\":true,\"type\":\"module\",\"packageManager\":\"${PNPM_SPEC}\",\"devDependencies\":{\"projitect\":\"^${BASE_VERSION}\"},\"pnpm\":{\"overrides\":{\"projitect\":\"file:${REACTREG}/projitect-${BASE_VERSION}.tgz\"}}}" > package.json
+echo "{\"name\":\"smoke-next\",\"version\":\"0.0.0\",\"private\":true,\"type\":\"module\",\"packageManager\":\"${PNPM_SPEC}\",\"devDependencies\":{\"@projitect/cli\":\"^${BASE_VERSION}\"},\"pnpm\":{\"overrides\":{\"@projitect/cli\":\"file:${REACTREG}/projitect-cli-${BASE_VERSION}.tgz\"}}}" > package.json
 printf 'node_modules/\n' > .gitignore
 write_npmrc
 pnpm add -D "effect@${EFFECT_VERSION}" tsx > /tmp/next-cli-install.out 2>&1 || fail "installing the packed CLI failed: $(tail -5 /tmp/next-cli-install.out)"
-NEXT_BIN=node_modules/projitect/bin/pjt.mjs
+NEXT_BIN=node_modules/@projitect/cli/bin/pjt.mjs
 cat > .pjt.ts <<'PJT'
 // pjt:projitect:imports start
-import { pjt } from "projitect/cli"
+import { pjt } from "@projitect/cli"
 // pjt:projitect:imports end
 
 // pjt:imports start

@@ -1,5 +1,5 @@
 ---
-"projitect": minor
+"@projitect/cli": minor
 ---
 
 `pjt build` and `pjt remodel` run a ChangeSet's `Exec` commands in a final phase after every file

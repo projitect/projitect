@@ -19,7 +19,7 @@ collects the resulting `ChangeSet`.
 For most projects, the simple array form is enough:
 
 ```ts
-import { pjt } from "projitect/cli"
+import { pjt } from "@projitect/cli"
 import { gitignores } from "@projitect/blueprint-gitignore"
 
 export default pjt({
@@ -31,7 +31,7 @@ When you need conditional logic — say, only add a `next()` blueprint if `packa
 `next` as a dependency — reach for the **Effect form**:
 
 ```ts
-import { pjt } from "projitect/cli"
+import { pjt } from "@projitect/cli"
 import { gitignores } from "@projitect/blueprint-gitignore"
 import { readPackageJson } from "@projitect/blueprint"
 import { Effect } from "effect"
@@ -57,11 +57,11 @@ Both forms produce the same kind of value — a `ProjitectFile` — so every com
 
 ## The projitect blueprint is auto-prepended
 
-`pjt()` from `projitect/cli` silently prepends one extra blueprint — the **projitect
+`pjt()` from `@projitect/cli` silently prepends one extra blueprint — the **projitect
 blueprint** — to whatever you pass in. It owns:
 
-- `package.json` keys: `scripts.pjt`, `devDependencies.projitect`, `devDependencies.effect`
-- `.pjt.ts` region `pjt:projitect:imports` (the `import { pjt } from "projitect/cli"` line)
+- `package.json` keys: `scripts.pjt`, `devDependencies.@projitect/cli`, `devDependencies.effect`
+- `.pjt.ts` region `pjt:projitect:imports` (the `import { pjt } from "@projitect/cli"` line)
 
 You'll see it in every `pjt inspect` output once you commit your first remodel:
 
@@ -73,7 +73,7 @@ You'll see it in every `pjt inspect` output once you commit your first remodel:
 There's nothing structurally special about this blueprint — it's just a regular `Blueprint`
 that the `pjt()` function adds for you. It flows through the same planner, applier, and
 lockfile pipeline as anything else. The reason it exists is that projitect itself is a
-"framework" the project depends on, and `projitect` + `effect` versions need to track the
+"framework" the project depends on, and `@projitect/cli` + `effect` versions need to track the
 installed package — so the package manages its own consumption, just like every other
 blueprint.
 

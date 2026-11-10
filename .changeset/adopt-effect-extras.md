@@ -1,5 +1,5 @@
 ---
-"projitect": patch
+"@projitect/cli": patch
 ---
 
 projitect's generic `*X` utilities now come entirely from the published `@nunofyobiz/effect-extras`

@@ -23,13 +23,13 @@ paths (`git add <path>`). Never `git add -A` blindly, and never stage `.env.loca
 
 ### 2. Check whether a changeset is needed
 
-If the diff touches a published package (`projitect` or any `@projitect/*` — see the package table in
+If the diff touches a published package (any `@projitect/*` — see the package table in
 AGENTS.md; `apps/website` and `.claude/` do not count), the PR needs a hand-written
 `.changeset/<kebab-name>.md`:
 
 ```md
 ---
-"projitect": minor
+"@projitect/cli": minor
 ---
 
 <one-sentence headline>

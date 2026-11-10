@@ -1,5 +1,5 @@
 ---
-"projitect": minor
+"@projitect/cli": minor
 ---
 
 New `@projitect/blueprint-markdown` package: six composable `AGENTS.md` / `README.md` snippets

@@ -77,5 +77,5 @@ run covers it (see how `blueprint-changesets` is wired).
 
 ### 7. Changeset and commit
 
-New blueprint package → **minor**: `.changeset/add-blueprint-<name>.md` with `"projitect": minor`. Commit
+New blueprint package → **minor**: `.changeset/add-blueprint-<name>.md` with `"@projitect/cli": minor`. Commit
 per [create-commit](../create-commit/SKILL.md).

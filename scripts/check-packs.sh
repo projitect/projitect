@@ -24,8 +24,8 @@ for tgz in "$dest"/*.tgz; do
   manifest="$(tar -xzOf "$tgz" package/package.json)"
   node -e '
     const m = JSON.parse(process.argv[1])
-    const ok = m.license === "MIT" && String(m.repository?.url ?? "").includes("github.com/projitect/projitect")
-    if (!ok) { console.log(m.name + ": bad license or repository"); process.exit(1) }
+    const ok = m.name.startsWith("@projitect/") && m.license === "MIT" && String(m.repository?.url ?? "").includes("github.com/projitect/projitect")
+    if (!ok) { console.log(m.name + ": bad package scope, license or repository"); process.exit(1) }
   ' "$manifest" || fail=1
   versions+="$(node -p 'JSON.parse(process.argv[1]).version' "$manifest")"$'\n'
 done

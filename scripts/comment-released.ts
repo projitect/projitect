@@ -9,7 +9,7 @@ const execFileAsync = promisify(execFile)
 /** Upper bound on PRs commented per release, so a first release (no earlier tag) stays sane. */
 export const MAX_PULL_REQUESTS = 50
 
-const TAG_PREFIX = "projitect@"
+const TAG_PREFIX = "@projitect/cli@"
 
 export interface GithubClient {
   readonly prsForCommit: (sha: string) => Promise<readonly number[]>
@@ -56,7 +56,7 @@ export const markerFor = (version: string): string => `<!-- pjt-release:v${versi
 export const commentBody = (version: string): string =>
   `${markerFor(version)}\nShipped in projitect v${version}.`
 
-/** The newest release tag older than `projitect@<version>`; `tags` is newest-first. */
+/** The newest release tag older than `@projitect/cli@<version>`; `tags` is newest-first. */
 export const previousTag = (tags: readonly string[], version: string): string | undefined => {
   const index = tags.indexOf(`${TAG_PREFIX}${version}`)
   return index === -1 ? tags.find((tag) => tag !== `${TAG_PREFIX}${version}`) : tags[index + 1]

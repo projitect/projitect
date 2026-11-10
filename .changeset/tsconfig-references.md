@@ -1,5 +1,5 @@
 ---
-"projitect": minor
+"@projitect/cli": minor
 ---
 
 `tsconfig()` accepts an optional `references` array of project paths, emitted as top-level

@@ -1,5 +1,5 @@
 {
-  "name": "projitect",
+  "name": "@projitect/cli",
   "version": "0.0.0",
   "description": "Project scaffolding that stays in sync. Like Terraform, for your frontend repo. Drift-aware, idempotent, blueprint-driven.",
   "repository": {

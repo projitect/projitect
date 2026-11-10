@@ -1,5 +1,5 @@
 ---
-"projitect": minor
+"@projitect/cli": minor
 ---
 
 Add the `pjt.exec.command-failed` and `pjt.exec.command-not-permitted` error ids, a process runner,

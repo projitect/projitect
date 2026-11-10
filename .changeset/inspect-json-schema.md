@@ -1,5 +1,5 @@
 ---
-"projitect": minor
+"@projitect/cli": minor
 ---
 
 `pjt inspect --json` now carries a `$schema` key naming a published, versioned JSON Schema

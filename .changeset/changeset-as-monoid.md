@@ -1,5 +1,5 @@
 ---
-"projitect": minor
+"@projitect/cli": minor
 ---
 
 `ChangeSet` is now a first-class monoid: it exports a `ChangeSet.Reducer` (identity `empty`,

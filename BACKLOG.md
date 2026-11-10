@@ -208,14 +208,14 @@ _As a maintainer, I want every `kapilkale/projitect` and `StoryCut/projitect` re
 - [x] Marketing site footer / edit-links point at the new repo
   > Depends on: git remote already moved · Size: S
 
-### REL-6 — Cut v0.1.0
+### REL-6 — Cut the first public lockstep release
 
-_As a maintainer, I want the first lockstep release published, so that `npx pjt init` works for external users._
+_As a maintainer, I want the first lockstep release published, so that `pnpm --package=@projitect/cli dlx pjt init` works for external users._
 
-- [ ] `pnpm changeset` with a minor bump (cite the AGENTS.md rules table)
+- [ ] Pending changesets determine the shared version under the AGENTS.md bump rules (the first release includes major API changes)
 - [ ] "Version Packages" PR merged
 - [ ] CI publishes all packages at one shared version
-- [ ] `npx pjt init` validated in a throwaway dir against the public registry
+- [ ] `pnpm --package=@projitect/cli dlx pjt init` validated in a throwaway dir against the public registry
   > Depends on: REL-1, REL-2, OPS-3, OPS-5, OPS-6 · Size: M
 
 ### REL-7 — Snapshot publishes on PR branches

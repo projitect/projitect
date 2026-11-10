@@ -1,5 +1,5 @@
 ---
-"projitect": minor
+"@projitect/cli": minor
 ---
 
 New `@projitect/blueprint-next` package. `next()` scaffolds a Next.js (App Router) + TypeScript

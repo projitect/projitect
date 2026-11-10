@@ -1,5 +1,5 @@
 ---
-"projitect": patch
+"@projitect/cli": patch
 ---
 
 Every published package now declares a `repository` field pointing at

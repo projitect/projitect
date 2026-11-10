@@ -1,5 +1,5 @@
 ---
-"projitect": minor
+"@projitect/cli": minor
 ---
 
 `@projitect/blueprint` now exports the `.pjt.ts` splice (`spliceBlueprintFile`) and the `pjt add`

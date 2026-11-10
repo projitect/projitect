@@ -1,5 +1,5 @@
 ---
-"projitect": minor
+"@projitect/cli": minor
 ---
 
 `tsconfig()` accepts `noEmit`, `allowJs`, `incremental`, `plugins` and `include` options, for

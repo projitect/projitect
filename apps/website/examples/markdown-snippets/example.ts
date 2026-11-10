@@ -3,7 +3,7 @@
  * your own, built on `markdownSection`. Each snippet owns a comment-fenced region, so they coexist
  * in one file, and everything you write outside the markers stays yours.
  */
-import { pjt } from "projitect/cli"
+import { pjt } from "@projitect/cli"
 import { markdownSection } from "@projitect/blueprint"
 import { markdownSnippets } from "@projitect/blueprint-markdown"
 

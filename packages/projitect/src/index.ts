@@ -1,14 +1,12 @@
 /**
- * `projitect` — main package.
+ * `@projitect/cli` — the CLI package and project configuration entry point.
  *
- * Most users do not import from this entry point directly. They import:
+ * Project configuration imports `pjt` and `directory` from this entry point. Blueprint authors
+ * use `@projitect/blueprint` for the authoring SDK.
  *
- *   - from `projitect/cli` in their `.pjt.ts`
- *   - from `@projitect/blueprint` when authoring blueprints
- *
- * This entry exists to expose the projitect blueprint factory (for tests that want to inspect
- * it without going through `projitect/cli`'s auto-prepend) and a programmatic CLI entry point
- * for embedders.
+ * It also exposes the bootstrap blueprint factory and the programmatic command entry point
+ * for tests and embedders.
  */
 export { projitectBlueprint } from "./projitect-blueprint.js"
+export { pjt, directory } from "./cli.js"
 export { rootCommand, type RootCommand } from "@projitect/cli-internals"
