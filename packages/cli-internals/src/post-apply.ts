@@ -1,4 +1,5 @@
 import { Array, Effect, Option } from "effect"
+import { StructX } from "@nunofyobiz/effect-extras"
 import type { Errors } from "@projitect/core"
 import { isCommandPermitted } from "./permissions.js"
 import type { PlannedCommand } from "./plan.js"
@@ -42,4 +43,62 @@ export const runPostApply = (params: {
       { discard: true },
     )
     return Array.map(unique, (planned) => planned.command)
+  })
+
+/** One check command that failed during `pjt inspect`; `exitCode` is absent when it never started. */
+export interface CheckFailure {
+  readonly ownerId: string
+  readonly check: string
+  readonly exitCode?: number
+  readonly stdout: string
+  readonly stderr: string
+}
+
+/**
+ * The command half of `pjt inspect`: run each distinct `check` of the plan's `Exec` commands, in
+ * tree order, and collect the ones that fail. A command without a `check` is skipped. As in
+ * {@link runPostApply}, every check's permissions are tested before any starts, so a denial fails
+ * the whole run instead of passing silently. A failing check — including one that could not be
+ * started — is drift, not an error: it becomes a {@link CheckFailure} and the remaining checks run.
+ */
+export const runChecks = (params: {
+  readonly commands: readonly PlannedCommand[]
+  readonly projectRoot: string
+  readonly spawner?: ProcessSpawner
+}): Effect.Effect<readonly CheckFailure[], Errors.CommandNotPermitted> =>
+  Effect.gen(function* () {
+    const { commands, projectRoot, spawner = nodeSpawner } = params
+    const checks = Array.flatMap(commands, (planned) =>
+      planned.check === undefined ? [] : [{ planned, check: planned.check }],
+    )
+    const denied = Array.findFirst(
+      checks,
+      ({ planned, check }) => !isCommandPermitted(planned.permissions, check),
+    )
+    if (Option.isSome(denied)) {
+      return yield* commandNotPermitted(denied.value.check)
+    }
+    const unique = Array.dedupeWith(checks, (a, b) => a.check === b.check)
+    const results = yield* Effect.forEach(unique, ({ planned, check }) =>
+      runCommand({
+        permissions: planned.permissions,
+        command: check,
+        cwd: projectRoot,
+        spawner,
+      }).pipe(
+        Effect.as(Option.none<CheckFailure>()),
+        Effect.catchTag("CommandFailed", (failed) =>
+          Effect.succeed(
+            Option.some<CheckFailure>({
+              ownerId: planned.ownerId,
+              check,
+              ...StructX.defined("exitCode", failed.exitCode),
+              stdout: failed.stdout,
+              stderr: failed.stderr === "" ? (failed.cause ?? "") : failed.stderr,
+            }),
+          ),
+        ),
+      ),
+    )
+    return Array.getSomes(results)
   })

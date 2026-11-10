@@ -1,6 +1,7 @@
 import { Array, Effect, Match } from "effect"
 import type { BlueprintFileSystem, PjtLock, Errors } from "@projitect/core"
 import { RecordX } from "@nunofyobiz/effect-extras"
+import type { CheckFailure } from "./post-apply.js"
 import { readIfExists } from "./project-file.js"
 import { findRegion } from "./region.js"
 import type {
@@ -163,17 +164,33 @@ export const renderInspectReport = (params: {
   readonly diff: PlanDiff
   readonly removals: readonly PjtLock.LockOperation[]
   readonly upgrades: readonly UpgradeRecord[]
+  readonly commands?: readonly CheckFailure[]
 }): string => {
-  const { diff, removals, upgrades } = params
+  const { diff, removals, upgrades, commands = [] } = params
   const lines = Array.flatten([
     Array.map(upgrades, (u) => `↑ upgrade ${u.blueprintId} ${u.from} → ${u.to}`),
     Array.map(removals, removalSummary),
     Array.map(diff.files, (f) => f.summary),
+    Array.map(commands, checkSummary),
   ])
   if (lines.length === 0) {
     return "Project is in sync with blueprints. No changes needed."
   }
   return lines.join("\n")
+}
+
+const checkSummary = (failure: CheckFailure): string => {
+  const status = failure.exitCode === undefined ? "could not start" : `exit ${failure.exitCode}`
+  const output = [failure.stdout, failure.stderr]
+    .map((text) => text.trimEnd())
+    .filter((text) => text !== "")
+    .map((text) =>
+      text
+        .split("\n")
+        .map((line) => `    ${line}`)
+        .join("\n"),
+    )
+  return [`! check failed: ${failure.check} (${status})`, ...output].join("\n")
 }
 
 const removalSummary = (op: PjtLock.LockOperation): string =>

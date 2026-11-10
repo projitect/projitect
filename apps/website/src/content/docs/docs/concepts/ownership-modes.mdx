@@ -118,9 +118,8 @@ exec({
 `pjt build` and `pjt remodel` run the `fix` command from the project root, after the file
 operations, in blueprint order; a command declared by several blueprints runs once. A failing
 command stops the run with `pjt.exec.command-failed`. The `check` command reports whether the fix
-is needed and travels in the plan beside it as metadata; build and remodel never run it, and
-`pjt inspect` currently reports `pjt.inspect.operation-unsupported` for a project with exec
-operations. Exec operations are not recorded in the lockfile, so the fix runs on every remodel.
+is needed. Build and remodel never run it; `pjt inspect` runs it and reports a failing check as
+drift, exiting 1. Exec operations are not recorded in the lockfile, so the fix runs on every remodel.
 
 The blueprint declares an `exec` permission for each of the two command lines, matched as exact
 strings. A command outside that list fails with `pjt.exec.command-not-permitted` before anything

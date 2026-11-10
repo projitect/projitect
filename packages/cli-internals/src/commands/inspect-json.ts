@@ -43,6 +43,21 @@ export const InspectJson = Schema.Struct({
   ).annotate({
     description: "Blueprints whose locked version differs from the tree's current version.",
   }),
+  commands: Schema.Array(
+    Schema.Struct({
+      ownerId: Schema.String.annotate({ description: "The blueprint that declared the command." }),
+      check: Schema.String.annotate({ description: "The check command that failed." }),
+      status: Schema.Literal("failed"),
+      exitCode: Schema.optional(Schema.Number).annotate({
+        description: "The exit code; absent when the process never started.",
+      }),
+      stdout: Schema.String,
+      stderr: Schema.String,
+    }),
+  ).annotate({
+    description:
+      "Post-apply commands whose check failed; each one is drift. Separate from `files`.",
+  }),
 }).annotate({
   title: "pjt inspect --json output",
   description:
