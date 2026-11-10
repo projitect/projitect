@@ -59,20 +59,37 @@ terminal.
 
 Needs Node, `npm`, `python3` and built packages (`pnpm build`). Run from the repo root.
 
-1. Pack and serve the blueprint, the way `scripts/smoke.sh` section 5d does:
+**Status: not yet run end to end.** The image this was written in has no `python3`, so the pty
+driver, its 8s initial drain, the key sequences, the "exactly two toggled calls" result and the
+Ctrl-C exit 0 are unverified. Whoever first runs it fixes any failing step and removes this note.
+
+1. Pack and serve the blueprint, the way `scripts/smoke.sh` section 5d does. The registry runs in
+   the background, so its PID goes to a file; every later command re-reads `$REG` from `/tmp/pty-recipe`:
 
    ```bash
    REG=$(mktemp -d); E2E=$(mktemp -d); ROOT=$PWD
+   printf 'REG=%s\nE2E=%s\nROOT=%s\n' $REG $E2E $ROOT > /tmp/pty-recipe
    mkdir -p $REG/pkg/package
    cp -r packages/blueprint-markdown/dist packages/blueprint-markdown/package.json $REG/pkg/package/
-   # strip peerDependencies/devDependencies/scripts from package.json and dist/package.json (see pack_markdown)
+   node -e "
+   const fs = require('fs');
+   for (const f of ['package.json', 'dist/package.json']) {
+     const p = process.argv[1] + '/' + f;
+     const j = JSON.parse(fs.readFileSync(p, 'utf8'));
+     j.version = '1.0.0';
+     for (const k of ['peerDependencies', 'devDependencies', 'scripts']) delete j[k];
+     fs.writeFileSync(p, JSON.stringify(j, null, 2) + '\n');
+   }
+   " $REG/pkg/package
    npm pack $REG/pkg/package --pack-destination $REG --silent
    printf '{"packages":[{"name":"@projitect/blueprint-markdown","latest":"1.0.0","tarballs":{"1.0.0":"%s"}}]}' $REG/projitect-blueprint-markdown-1.0.0.tgz > $REG/state.json
-   node scripts/local-registry.mjs $REG/state.json $REG/port &
+   node scripts/local-registry.mjs $REG/state.json $REG/port & echo $! > $REG/pid
+   for _ in $(seq 1 40); do [ -s $REG/port ] && break; sleep 0.25; done
+   cat $REG/port
    ```
 
-   Wait until `$REG/port` is non-empty. Simplest: copy the `pack_markdown` function out of
-   `scripts/smoke.sh` and call `pack_markdown 1.0.0`.
+   `cat $REG/port` must print a port number. If you run each command in a fresh shell, repeat the
+   `REG=… E2E=… ROOT=…` assignments from `/tmp/pty-recipe` first.
 
 2. Create the scratch project and install the CLI into it:
 
@@ -82,6 +99,7 @@ Needs Node, `npm`, `python3` and built packages (`pnpm build`). Run from the rep
    npm install --no-package-lock --silent file:$ROOT/packages/{core,blueprint,cli-internals,projitect} effect@rc tsx
    printf '@projitect:registry=http://127.0.0.1:%s/\n' $(cat $REG/port) > .npmrc
    node_modules/projitect/bin/pjt.mjs init
+   git add -A && git commit -qm init
    ```
 
 3. Drive `add` through a pseudo-terminal. Save this as `$REG/drive.py` (outside the project):
@@ -121,12 +139,12 @@ Needs Node, `npm`, `python3` and built packages (`pnpm build`). Run from the rep
    `Pick sections to add`, and `.pjt.ts` gains exactly the two toggled calls. Then run
    `node_modules/projitect/bin/pjt.mjs remodel` and `... inspect`; inspect exits 0.
 
-4. Reset `.pjt.ts` (`git checkout .pjt.ts`, or `init` again in a fresh project) and run
-   `python3 $REG/drive.py ctrl-c`. `.pjt.ts` is unchanged and the exit is 0.
+4. Reset `.pjt.ts` to the committed `init` state with `git checkout .pjt.ts`. Run `python3 $REG/drive.py ctrl-c`; the
+   check is `git diff --exit-code .pjt.ts` (exit 0 means unchanged), and the driver prints exit 0.
 
 5. Compare with the non-interactive path: `pjt add @projitect/blueprint-markdown --section <the two names>` installs the same files.
 
-6. Clean up: `kill %1` the registry and remove `$REG` and `$E2E`.
+6. Clean up: `kill $(cat $REG/pid)`, then remove `$REG` and `$E2E`.
 
 Record the date and result in the "Last run" paragraph of the website's `journey.mdx`.
 

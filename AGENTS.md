@@ -16,9 +16,10 @@ binary is `pjt`. Project maintainers declare a list of **blueprints** in `.pjt.t
 scaffolds `.pjt.ts` (`--yes` bootstraps git and `package.json`), `pjt add` installs a blueprint
 package and splices it into `.pjt.ts`, `pjt build` materializes the blueprints, `pjt remodel`
 updates the project to match, and `pjt inspect` reports drift with a nonzero exit for CI. A new
-CLI command is a new public feature: a **minor** bump under the Versioning table below. The repository's canonical GitHub home is
-**github.com/projitect/projitect** — repo links, every published package's `repository` field,
-and the changesets changelog's `repo` option all use that slug.
+CLI command is a new public feature: a **minor** bump under the Versioning table below. The
+repository's canonical GitHub home is **github.com/projitect/projitect** — repo links, every
+published package's `repository` field, and the changesets changelog's `repo` option all use that
+slug.
 
 This is a **pnpm monorepo**. `packages/*` and `apps/*` are the workspaces:
 
