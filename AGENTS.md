@@ -45,19 +45,19 @@ changesets — one shared version, matching Effect v4's own release model.
 
 Pick the row that matches your task and open that document; each is one hop from here.
 
-| If you are…                                                                                | Open                                                                                    |
-| ------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------- |
-| Setting up a clone and getting to a green `pnpm check-all`                                 | [Getting started](docs/getting-started.md)                                              |
-| Learning the packages, the loader → planner → differ → applier pipeline, the soft sandbox  | [Architecture](docs/architecture.md)                                                    |
-| Writing or reviewing Effect code (Services, errors, `Match`, predicates, `dual`, `Result`) | [effect-conventions skill](.claude/skills/effect-conventions/SKILL.md)                  |
-| Writing folds, merges, generic utilities or sorts (`Reducer`, `*X` utilities, `Order`)     | [fp-utilities skill](.claude/skills/fp-utilities/SKILL.md)                              |
-| Touching ESLint, Prettier, hooks, the Effect language service or CI                        | [Tooling](docs/tooling.md)                                                              |
-| Writing a blueprint, region markers, ownership modes, or adding an error id                | [Blueprint authoring](docs/blueprint-authoring.md)                                      |
-| Making a user-facing change (the website must change in the same PR)                       | [Marketing site](docs/marketing-site.md)                                                |
-| Shipping a release, changesets, or dependency upgrades                                     | [Publishing](docs/publishing.md)                                                        |
-| Setting up commit signing                                                                  | [Signed commits](docs/agents-signing.md)                                                |
-| Changing AGENTS.md, docs or skills (where a new rule goes, the guidance check)             | [Guidance maintenance](docs/guidance-maintenance.md), [docs index](docs/README.md)      |
-| Using the Trello kanban workflow (optional)                                                | [Kanban overview](docs/kanban/overview.md), [daily workflows](docs/kanban/workflows.md) |
+| If you are…                                                                                | Open                                                                                                                     |
+| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| Setting up a clone and getting to a green `pnpm check-all`                                 | [Getting started](docs/getting-started.md)                                                                               |
+| Learning the packages, the loader → planner → differ → applier pipeline, the soft sandbox  | [Architecture](docs/architecture.md)                                                                                     |
+| Writing or reviewing Effect code (Services, errors, `Match`, predicates, `dual`, `Result`) | [effect-conventions skill](.claude/skills/effect-conventions/SKILL.md)                                                   |
+| Writing folds, merges, generic utilities or sorts (`Reducer`, `*X` utilities, `Order`)     | [fp-utilities skill](.claude/skills/fp-utilities/SKILL.md)                                                               |
+| Touching ESLint, Prettier, hooks, the Effect language service or CI                        | [Tooling](docs/tooling.md)                                                                                               |
+| Writing a blueprint, region markers, ownership modes, or adding an error id                | [Blueprint authoring](docs/blueprint-authoring.md)                                                                       |
+| Making a user-facing change (the website must change in the same PR)                       | [Marketing site](docs/marketing-site.md)                                                                                 |
+| Shipping a release, changesets, or dependency upgrades                                     | [Publishing](docs/publishing.md), [verify without gh](docs/publishing.md#verifying-release-and-website-state-without-gh) |
+| Setting up commit signing                                                                  | [Signed commits](docs/agents-signing.md)                                                                                 |
+| Changing AGENTS.md, docs or skills (where a new rule goes, the guidance check)             | [Guidance maintenance](docs/guidance-maintenance.md), [docs index](docs/README.md)                                       |
+| Using the Trello kanban workflow (optional)                                                | [Kanban overview](docs/kanban/overview.md), [daily workflows](docs/kanban/workflows.md)                                  |
 
 ## Contributor skills
 
@@ -153,7 +153,9 @@ Pinned in `.nvmrc` to **22.12.0**. The published `engines.node` is `>=22.12.0`. 
 
 Before claiming a task done, run **`pnpm check-all`** from the repo root. It runs, in order:
 
-1. `pnpm tc` — `tsc --build` across all project references
+1. `pnpm tc` — `tsc --build` across all `src` and `test` project references. Type-level assertions
+   in tests (`expectTypeOf`, `@ts-expect-error`) are enforced here, not by Vitest; see
+   [Test files are typechecked](docs/tooling.md#test-files-are-typechecked)
 2. `pnpm lint` — ESLint flat config (covers code style + Prettier formatting via `eslint-plugin-prettier`; no separate `format:check` step)
 3. `pnpm test` — Vitest (unit + integration with the in-memory `BlueprintFileSystem`)
 4. `pnpm knip` — unused exports

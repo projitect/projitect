@@ -17,6 +17,7 @@ import { applyPlan } from "../src/applier.js"
 import { diffPlan } from "../src/differ.js"
 import { buildPlan } from "../src/plan.js"
 import type { PlannedCommand } from "../src/plan.js"
+import { NodePlatformLive } from "../src/platform/index.js"
 import { runPostApply } from "../src/post-apply.js"
 import { applyRemovals } from "../src/remover.js"
 import type { ProcessSpawner } from "../src/platform/process-runner.js"
@@ -323,7 +324,10 @@ describe("remodel / build / inspect with Exec ops", () => {
     execFileSync("git", ["init", "-q"], { cwd })
     const { calls, spawner } = fakeSpawner()
     const result = await Effect.runPromise(
-      build({ config: config(), force: true, forceDirty: true, yes: true, spawner }),
+      Effect.provide(
+        build({ config: config(), force: true, forceDirty: true, yes: true, spawner }),
+        NodePlatformLive,
+      ),
     )
     expect(result.remodel.ran).toEqual(["fmt"])
     expect(calls).toEqual(["fmt"])
@@ -334,7 +338,10 @@ describe("remodel / build / inspect with Exec ops", () => {
     execFileSync("git", ["init", "-q"], { cwd })
     const { calls, spawner } = fakeSpawner()
     const result = await Effect.runPromise(
-      build({ config: config(), force: true, forceDirty: true, yes: true, spawner }),
+      Effect.provide(
+        build({ config: config(), force: true, forceDirty: true, yes: true, spawner }),
+        NodePlatformLive,
+      ),
     )
     expect(calls).toEqual(["fmt"])
     expect(result).toMatchObject({ cancelled: false, wiped: [], remodel: { written: [] } })

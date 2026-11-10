@@ -58,6 +58,27 @@ If you delete `.tsbuildinfo` files or wipe `node_modules` and the patch doesn't 
 
 The `tsconfig.base.json`'s `"plugins": [{ "name": "@effect/language-service" }]` covers the editor / LSP side. The `patch` covers the build / CLI side. Both should be active.
 
+## Test files are typechecked
+
+`pnpm tc` (`tsc --build`, the first step of `pnpm check-all` and the CI `typecheck` job) covers
+every package's `test/` directory, not only `src`. Each `packages/<name>/test/tsconfig.json` is a
+composite project (`emitDeclarationOnly`, output to the gitignored `test/dist`) referenced from the
+root `tsconfig.json`, so a type error in a test fails the build exactly like one in `src`. Vitest's
+own `typecheck` mode is not used.
+
+- **Every `test/tsconfig.json` must be referenced from the root `tsconfig.json`.** An unreferenced
+  test project is silently unchecked; the `new-package` skill covers the wiring.
+- **Type-level assertions are enforced here.** A wrong `expectTypeOf` assertion or an unused
+  `@ts-expect-error` is a compile error in `pnpm tc`. Vitest never runs them, so a green `pnpm test`
+  says nothing about types.
+- **Probing the gate:** add `const x: number = "a"`, an unused `// @ts-expect-error` or
+  `expectTypeOf<string>().toEqualTypeOf<number>()` to a test file, confirm `pnpm tc` exits nonzero,
+  then remove it.
+
+**Stating a type-level acceptance criterion in a story.** Cite this gate, for example: "A type-level
+test in the package's `test/` directory asserts the args type and fails `pnpm tc` when it is
+wrong." That makes the criterion checkable by `pnpm check-all` alone.
+
 ## Pre-commit hooks (husky + lint-staged)
 
 Configured via the root [`package.json`](../package.json)'s `lint-staged` field and
@@ -79,7 +100,7 @@ behavioral jobs run a 22 + 24 matrix.
 
 | Job               | Matrix       | What it runs                                                                          |
 | ----------------- | ------------ | ------------------------------------------------------------------------------------- |
-| `typecheck`       | node 22 / 24 | `pnpm tc`                                                                             |
+| `typecheck`       | node 22 / 24 | `pnpm tc` (`src` and `test` projects)                                                 |
 | `lint`            | (.nvmrc)     | `pnpm lint` (code style + Prettier formatting via `eslint-plugin-prettier`)           |
 | `test`            | node 22 / 24 | `pnpm test` (Vitest unit suites; `needs: build-packages`)                             |
 | `knip`            | (.nvmrc)     | `pnpm knip`                                                                           |

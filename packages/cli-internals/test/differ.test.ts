@@ -38,11 +38,13 @@ const runPlan = (plan: ProjectPlan) => run(diffPlan({ plan }))
 describe("diffPlan — region kind", () => {
   it("reports create when the file is absent", async () => {
     const plan: ProjectPlan = {
+      commands: [],
       files: [
         {
           _tag: "Region",
           path: ".gitignore",
           commentPrefix: "#",
+          commentSuffix: "",
           regions: [{ ownerId: "pjt:a", content: ".DS_Store\n" }],
         },
       ],
@@ -56,11 +58,13 @@ describe("diffPlan — region kind", () => {
   it("reports ok when the existing region matches the planned content", async () => {
     await writeFile(".gitignore", ["# pjt:a start", ".DS_Store", "# pjt:a end", ""].join("\n"))
     const plan: ProjectPlan = {
+      commands: [],
       files: [
         {
           _tag: "Region",
           path: ".gitignore",
           commentPrefix: "#",
+          commentSuffix: "",
           regions: [{ ownerId: "pjt:a", content: ".DS_Store" }],
         },
       ],
@@ -73,11 +77,13 @@ describe("diffPlan — region kind", () => {
   it("reports modify when the region content differs from the plan", async () => {
     await writeFile(".gitignore", ["# pjt:a start", "HAND_EDITED", "# pjt:a end", ""].join("\n"))
     const plan: ProjectPlan = {
+      commands: [],
       files: [
         {
           _tag: "Region",
           path: ".gitignore",
           commentPrefix: "#",
+          commentSuffix: "",
           regions: [{ ownerId: "pjt:a", content: ".DS_Store" }],
         },
       ],
@@ -90,11 +96,13 @@ describe("diffPlan — region kind", () => {
   it("reports modify when the file exists but the region is missing entirely", async () => {
     await writeFile(".gitignore", "unrelated user content\n")
     const plan: ProjectPlan = {
+      commands: [],
       files: [
         {
           _tag: "Region",
           path: ".gitignore",
           commentPrefix: "#",
+          commentSuffix: "",
           regions: [{ ownerId: "pjt:a", content: ".DS_Store" }],
         },
       ],
@@ -108,6 +116,7 @@ describe("diffPlan — region kind", () => {
 describe("diffPlan — merge kind", () => {
   it("reports create when the JSON file is absent", async () => {
     const plan: ProjectPlan = {
+      commands: [],
       files: [
         {
           _tag: "Merge",
@@ -127,6 +136,7 @@ describe("diffPlan — merge kind", () => {
       `${JSON.stringify({ name: "x", scripts: { pjt: "pjt" } }, null, 2)}\n`,
     )
     const plan: ProjectPlan = {
+      commands: [],
       files: [
         {
           _tag: "Merge",
@@ -146,6 +156,7 @@ describe("diffPlan — merge kind", () => {
       `${JSON.stringify({ scripts: { pjt: "wrong-value" } }, null, 2)}\n`,
     )
     const plan: ProjectPlan = {
+      commands: [],
       files: [
         {
           _tag: "Merge",
@@ -163,6 +174,7 @@ describe("diffPlan — merge kind", () => {
   it("reports modify when existing file is not valid JSON", async () => {
     await writeFile("package.json", "{not json")
     const plan: ProjectPlan = {
+      commands: [],
       files: [
         {
           _tag: "Merge",
@@ -180,6 +192,7 @@ describe("diffPlan — merge kind", () => {
 describe("diffPlan — owned kind", () => {
   it("reports create / ok / modify based on byte-for-byte content match", async () => {
     const plan: ProjectPlan = {
+      commands: [],
       files: [
         {
           _tag: "Owned",
@@ -209,6 +222,7 @@ describe("diffPlan — owned kind", () => {
 describe("diffPlan — seed kind", () => {
   it("reports create when absent; ok even when content differs (write-once contract)", async () => {
     const plan: ProjectPlan = {
+      commands: [],
       files: [{ _tag: "Seed", path: ".pjt.ts", ownerId: "pjt:seed", content: "original" }],
     }
     let out = await runPlan(plan)
