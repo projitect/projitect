@@ -53,6 +53,7 @@ Pick the row that matches your task and open that document; each is one hop from
 | Writing folds, merges, generic utilities or sorts (`Reducer`, `*X` utilities, `Order`)     | [fp-utilities skill](.claude/skills/fp-utilities/SKILL.md)                                                               |
 | Touching ESLint, Prettier, hooks, the Effect language service or CI                        | [Tooling](docs/tooling.md)                                                                                               |
 | Writing a blueprint, region markers, ownership modes, or adding an error id                | [Blueprint authoring](docs/blueprint-authoring.md)                                                                       |
+| Scoping a first-party blueprint, or shipping Markdown snippets and agent skills            | [First-party scope](docs/blueprint-authoring.md#first-party-blueprint-scope)                                             |
 | Making a user-facing change (the website must change in the same PR)                       | [Marketing site](docs/marketing-site.md)                                                                                 |
 | Shipping a release, changesets, or dependency upgrades                                     | [Publishing](docs/publishing.md), [verify without gh](docs/publishing.md#verifying-release-and-website-state-without-gh) |
 | Setting up commit signing                                                                  | [Signed commits](docs/agents-signing.md)                                                                                 |
@@ -234,6 +235,14 @@ The Astro Starlight site under `apps/website` is written in present tense, as if
 is the only one that ever existed, and **the PR that lands a code change also lands its docs** — no
 docs follow-up PRs. A plan that introduces a user-facing change lists the marketing pages it will
 touch. The triggers, per-phase gates and CI checks are in [Marketing site](docs/marketing-site.md).
+
+## Browser demo boundary
+
+A planned in-browser `pjt` demo on the website runs on an in-memory filesystem and bundled
+first-party blueprints only: no Node capabilities, no `node:*` in the browser bundle, and no
+isolation for untrusted `.pjt.ts` snippets without extra work. `apps/website` stays Astro Starlight.
+The bundle-size budget is set from the measured demo bundle in the demo PR. Rules, guard and
+locations: [Browser demo boundary](docs/architecture.md#browser-demo-boundary-planned).
 
 ## Kanban workflow
 

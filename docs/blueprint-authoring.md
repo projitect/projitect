@@ -1,6 +1,6 @@
 # Blueprint authoring
 
-Rules for blueprint packages: the soft sandbox, where the `pjt add` CLI code lives, how a published package declares itself to `pjt add`, region markers, ownership modes and the error catalog. See also [architecture](./architecture.md).
+Rules for blueprint packages: the soft sandbox, where the `pjt add` CLI code lives, how a published package declares itself to `pjt add`, region markers, ownership modes, the first-party scope and the error catalog. See also [architecture](./architecture.md).
 
 ## Blueprint authoring rules
 
@@ -137,3 +137,80 @@ Errors live in `packages/core/src/errors/`. To add a new one:
 Also register the id in `ERROR_IDS` and add its blurb to `ERROR_BLURBS` in
 `packages/cli-internals/src/commands/explain.ts`. The `new-error-code` skill in `.claude/skills/`
 walks through every step (see [Contributor skills](../AGENTS.md#contributor-skills)).
+
+## First-party blueprint scope
+
+This section holds criteria, not a package list; the package table in [AGENTS.md](../AGENTS.md)
+lists what exists.
+
+**Inclusion criteria.** A first-party blueprint is general across projects, uses an ownership mode
+`pjt inspect` can check for drift, declares narrow permissions, takes its version from the manifest
+(see above), has in-memory tests, and ships with its marketing pages (the `new-blueprint` skill).
+
+**Who decides.** The repository owner sets the roadmap and the order; routine implementation of
+roadmap items is delegated.
+
+**Compatibility window.** This is existing behaviour, not a new guarantee: every published package
+shares one version through changesets (see Versioning in [AGENTS.md](../AGENTS.md)).
+
+**Sequencing.** The owner's order is:
+
+1. Versioned Markdown/AGENTS/README snippets and shareable agent skills.
+2. CLI onboarding for people and agents with the full upgrade, swap, remove and drift lifecycle.
+   `add`, `remodel` and `inspect` already ship in main. Removing or swapping blueprints means
+   editing the blueprint list and running `remodel`; `scripts/smoke.sh` exercises these operations
+   (task tk-53de0340 is the implemented proof). The website
+   roadmap still lists the onboarding outcome as planned and in progress; that remaining work is
+   the roadmap's, not a claim that the lifecycle is unbuilt.
+3. React, Next, the wider catalog and lint/format blueprints.
+
+`react` and `next` ship. `husky-lint-staged` ships and manages lint-staged and husky, not ESLint or
+Prettier configs. `eslint` is planned (website roadmap, "Planned first-party blueprints") and
+`@projitect/blueprint-prettier` (config and `fix`) is planned as CAT-1 in `BACKLOG.md`; neither
+package exists yet. The owner has approved the roadmap and delegated routine implementation, so a
+planned package needs no further owner decision to be built.
+
+### Markdown snippets
+
+Distributing versioned Markdown snippets is an intended product capability.
+`@projitect/blueprint-markdown` touches `AGENTS.md` and `README.md`. Each snippet is a
+region-mode `markdownSection` with the owner id `pjt:markdown:<agents|readme>:<name>`. The six
+sections are `package-manager`, `verification`, `commits` and `no-destructive-shortcuts` (in
+`AGENTS.md`), and `contributing` and `license` (in `README.md`). Each snippet takes optional
+`version` and `content` overrides; the version defaults to the package manifest version. An upgrade
+changes the version and usually the content, never the owner id.
+
+The CLI's section selectors use the exported factory names: `agentsPackageManager`,
+`agentsVerification`, `agentsCommits`, `agentsNoDestructiveShortcuts`, `readmeContributing` and
+`readmeLicense`.
+
+`pjt add` with `--section a,b` adds exactly those sections. With no flag on a terminal it prompts.
+With no flag and no terminal it adds every section (see `docs/cli/add.mdx` on the website).
+
+### Agent skills
+
+`@projitect/blueprint-skills` exports `skills({ id, version, target?, skills: [{ name, files }] })`.
+`files` is keyed by relative path and must include `SKILL.md`. The `id` must be namespaced (such as
+`acme:skills`) and the `version` is the author's own. Each file is an `ownFile` at
+`<target>/<name>/<path>` with `ownedDir` `<target>/<name>`, and the write permission is
+`<target>/**`. Invalid input fails with `pjt.skills.invalid-path`: `..` or empty segments,
+backslashes, drive letters, glob characters in `target`, and duplicate skill names.
+
+**Skills root.** `.claude/skills` by default, set through the `target` option. `target` is a
+validated relative path, so another directory can be named, but nothing discovers it for a given
+agent and no agent-specific adapters exist. This guide claims no universal agent-directory support.
+
+### Lifecycle
+
+`remodel` applies changed desired content and records installed blueprint versions in the lockfile.
+`inspect` reports version upgrades and flags managed content that differs from the desired files.
+A version-only upgrade with identical desired content can report an upgrade while exiting cleanly;
+it need not rewrite file bytes. Removing a blueprint removes its managed regions and owned files
+through the lockfile. Files a newer skill version stops shipping are removed as orphans. Removing
+a skill prunes only that skill's own tree, never the target root or sibling skills.
+
+### Planned adapters
+
+Adapters for other agent directories are planned. No task for them is filed yet. Related board
+tasks: tk-ebaefd6e (agent guidance snippet blueprints, including CLAUDE.md as a symlink to
+AGENTS.md) and tk-066c8124 (the completed skills blueprint).
