@@ -76,7 +76,8 @@ const runWorker = (params: {
             makeRealShape({
               blueprintId,
               permissions,
-              projectRoot: path.join(projectRoot, directoryPrefix),
+              projectRoot,
+              directoryPrefix,
             }),
           )
         }),

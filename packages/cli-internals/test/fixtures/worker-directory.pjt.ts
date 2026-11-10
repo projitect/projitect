@@ -12,10 +12,10 @@ const reader = (id: string) => ({
   plan: Effect.gen(function* () {
     const fs = yield* BlueprintFileSystem
     const marker = yield* fs.readFile("marker.txt")
-    const climbed = yield* Effect.flip(fs.readFile("../marker.txt")).pipe(Effect.map((e) => e._tag))
-    const linked = yield* Effect.flip(fs.readFile("escape/marker.txt")).pipe(
-      Effect.map((e) => e._tag),
-    )
+    const refusal = (path: string) =>
+      Effect.match(fs.readFile(path), { onFailure: (e) => e._tag, onSuccess: () => "read" })
+    const climbed = yield* refusal("../marker.txt")
+    const linked = yield* refusal("escape/marker.txt")
     return {
       operations: [
         {

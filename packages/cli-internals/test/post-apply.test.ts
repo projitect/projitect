@@ -383,10 +383,7 @@ describe("buildPlan with the exec helper", () => {
 
   it("lists helper commands in tree order, carrying the helper's permissions", async () => {
     const { plan } = await Effect.runPromise(
-      buildPlan({
-        tree: [helper("a", "fmt-a"), helper("b", "fmt-b")],
-        projectRoot: os.tmpdir(),
-      }),
+      planTree([helper("a", "fmt-a"), helper("b", "fmt-b")], os.tmpdir()),
     )
     expect(plan.commands).toEqual([
       {
@@ -406,10 +403,7 @@ describe("buildPlan with the exec helper", () => {
 
   it("lets two helper blueprints share a fix command without a conflict, and runs it once", async () => {
     const { plan } = await Effect.runPromise(
-      buildPlan({
-        tree: [helper("a", "fmt"), helper("b", "fmt")],
-        projectRoot: os.tmpdir(),
-      }),
+      planTree([helper("a", "fmt"), helper("b", "fmt")], os.tmpdir()),
     )
     expect(plan.commands.map((c) => c.ownerId)).toEqual(["a", "b"])
     const { calls, spawner } = fakeSpawner()
@@ -421,10 +415,7 @@ describe("buildPlan with the exec helper", () => {
 
   it("denies a helper command once the permission no longer covers it", async () => {
     const { plan } = await Effect.runPromise(
-      buildPlan({
-        tree: [{ ...helper("a", "fmt"), permissions: [] }],
-        projectRoot: os.tmpdir(),
-      }),
+      planTree([{ ...helper("a", "fmt"), permissions: [] }], os.tmpdir()),
     )
     const { spawner } = fakeSpawner()
     const exit = await Effect.runPromiseExit(

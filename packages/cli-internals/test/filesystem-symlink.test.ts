@@ -34,11 +34,16 @@ const run = <A, E>(
   projectRoot: string,
   use: (fs: BlueprintFileSystem["Service"]) => Effect.Effect<A, E>,
   perms: readonly Permission.Permission[] = permissions,
+  directoryPrefix = "",
 ) =>
   Effect.runPromiseExit(
     Effect.gen(function* () {
       return yield* use(yield* BlueprintFileSystem)
-    }).pipe(Effect.provide(makeRealLayer({ blueprintId: "t", permissions: perms, projectRoot }))),
+    }).pipe(
+      Effect.provide(
+        makeRealLayer({ blueprintId: "t", permissions: perms, projectRoot, directoryPrefix }),
+      ),
+    ),
   )
 
 describe("symlink-safe permission gate", () => {
@@ -94,5 +99,71 @@ describe("symlink-safe permission gate", () => {
     await fs.symlink(root, linkedRoot)
     const exit = await run(linkedRoot, (f) => f.readFile("real/ok.txt"))
     expect(exit).toEqual(Exit.succeed("ok"))
+  })
+})
+
+describe("directory() prefix bounded by the original project root", () => {
+  const readWrite: readonly Permission.Permission[] = [
+    { kind: "read", glob: "**" },
+    { kind: "write", glob: "**" },
+  ]
+
+  // Reads the outside marker and writes beside it through `prefix`; `outsideTouched` is whether
+  // the marker changed or a new file appeared there.
+  const attempt = async (prefix: string) => {
+    const read = await run(root, (f) => f.readFile("secret.txt"), readWrite, prefix)
+    const written = await run(root, (f) => f.writeFile("new.txt", "x"), readWrite, prefix)
+    return {
+      denied: [read, written].map((exit) =>
+        JSON.stringify(exit).includes("pjt.fs.permission-denied"),
+      ),
+      outsideTouched: await fs.readdir(outside),
+    }
+  }
+
+  it("denies reads and writes when the prefix climbs out of the project", async () => {
+    expect(await attempt("../outside")).toEqual({
+      denied: [true, true],
+      outsideTouched: ["secret.txt"],
+    })
+  })
+
+  it("denies reads and writes when the prefix root is a symlink pointing outside", async () => {
+    expect(await attempt("escape")).toEqual({
+      denied: [true, true],
+      outsideTouched: ["secret.txt"],
+    })
+  })
+
+  it("denies reads and writes when a nested, not-yet-existing prefix sits under an outside link", async () => {
+    expect(await attempt("escape/future")).toEqual({
+      denied: [true, true],
+      outsideTouched: ["secret.txt"],
+    })
+  })
+
+  it("roots the blueprint at the nested directory", async () => {
+    await fs.writeFile(path.join(root, "ok.txt"), "project root")
+    const exit = await run(root, (f) => f.readFile("ok.txt"), readWrite, "real")
+    expect(exit).toEqual(Exit.succeed("ok"))
+  })
+
+  it("keeps the inner-symlink denial inside a nested directory", async () => {
+    await fs.symlink(outside, path.join(root, "real", "out"))
+    const exit = await run(root, (f) => f.readFile("out/secret.txt"), readWrite, "real")
+    expect(JSON.stringify(exit)).toContain("pjt.fs.permission-denied")
+  })
+
+  it("accepts a prefix under an alias of the project root", async () => {
+    const linkedRoot = path.join(base, "linked-root")
+    await fs.symlink(root, linkedRoot)
+    const exit = await run(linkedRoot, (f) => f.readFile("ok.txt"), readWrite, "real")
+    expect(exit).toEqual(Exit.succeed("ok"))
+  })
+
+  it("accepts a future directory inside the project and creates it there", async () => {
+    const exit = await run(root, (f) => f.writeFile("note.txt", "x"), readWrite, "later/docs")
+    expect(Exit.isSuccess(exit)).toBe(true)
+    expect(await fs.readFile(path.join(root, "later", "docs", "note.txt"), "utf8")).toBe("x")
   })
 })

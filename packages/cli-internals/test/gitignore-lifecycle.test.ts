@@ -8,7 +8,8 @@ import { makeProjectRootLayer } from "../src/filesystem-impl.js"
 import { diffPlan } from "../src/differ.js"
 import { applyPlan } from "../src/applier.js"
 import { readLockfile, writeLockfile } from "../src/lockfile.js"
-import { buildPlan, diffLockfile } from "../src/plan.js"
+import { diffLockfile } from "../src/plan.js"
+import { planTree } from "./support/plan-tree.js"
 
 /**
  * Composing every `@projitect/blueprint-gitignore` section into one `.gitignore` builds without
@@ -32,7 +33,7 @@ describe("blueprint-gitignore lifecycle", () => {
 
     await run(
       Effect.gen(function* () {
-        const { plan, byBlueprint } = yield* buildPlan({ tree, projectRoot: cwd })
+        const { plan, byBlueprint } = yield* planTree(tree, cwd)
         yield* applyPlan({ plan })
         yield* writeLockfile({ lock: { version: 1, blueprints: byBlueprint } })
       }).pipe(Effect.provide(makeProjectRootLayer(cwd))),
@@ -46,7 +47,7 @@ describe("blueprint-gitignore lifecycle", () => {
 
     const report = await run(
       Effect.gen(function* () {
-        const { plan, byBlueprint } = yield* buildPlan({ tree, projectRoot: cwd })
+        const { plan, byBlueprint } = yield* planTree(tree, cwd)
         const previous = yield* readLockfile
         const { removals } = diffLockfile({ previous, current: byBlueprint })
         const diff = yield* diffPlan({ plan })

@@ -10,7 +10,9 @@ import type { FsOp } from "./permissions.js"
  * Build the permission-gated `BlueprintFileSystem` shape for one blueprint. The CLI builds a fresh
  * one per blueprint, baking in that blueprint's `id` and declared `permissions`. All FS paths get
  * resolved relative to `projectRoot`; absolute paths or paths escaping `projectRoot` are rejected
- * with `pjt.fs.permission-denied`.
+ * with `pjt.fs.permission-denied`. A blueprint under `directory("docs")` passes its
+ * `directoryPrefix`: that directory becomes the blueprint's root, and a prefix that leaves
+ * `projectRoot` — lexically or through a symlink — denies every call.
  *
  * It runs in the CLI process: the confined worker that executes blueprint code reaches it only
  * through the IPC server (`ipc/server.ts`), one gate per blueprint.
@@ -19,10 +21,12 @@ export const makeRealShape = (config: {
   readonly blueprintId: string
   readonly permissions: readonly Permission.Permission[]
   readonly projectRoot: string
+  readonly directoryPrefix?: string
 }): BlueprintFileSystemShape =>
   makeDiskShape({
     blueprintId: config.blueprintId,
     projectRoot: config.projectRoot,
+    directoryPrefix: config.directoryPrefix ?? "",
     isAllowed: (op, p) => isPermitted(config.permissions, op, p),
   })
 
@@ -39,16 +43,23 @@ export const makeRealLayer = (
 export const makeProjectRootLayer = (projectRoot: string): Layer.Layer<BlueprintFileSystem> =>
   Layer.succeed(
     BlueprintFileSystem,
-    makeDiskShape({ blueprintId: "pjt:engine", projectRoot, isAllowed: () => true }),
+    makeDiskShape({
+      blueprintId: "pjt:engine",
+      projectRoot,
+      directoryPrefix: "",
+      isAllowed: () => true,
+    }),
   )
 
 const makeDiskShape = (config: {
   readonly blueprintId: string
   readonly projectRoot: string
+  readonly directoryPrefix: string
   readonly isAllowed: (op: FsOp, p: string) => boolean
 }): BlueprintFileSystemShape => {
-  const { blueprintId, projectRoot, isAllowed } = config
-  const resolved = path.resolve(projectRoot)
+  const { blueprintId, projectRoot, directoryPrefix, isAllowed } = config
+  const originalRoot = path.resolve(projectRoot)
+  const resolved = path.resolve(originalRoot, directoryPrefix)
 
   const denied = (p: string, op: FsOp, message: string) =>
     new Errors.FsPermissionDenied({
@@ -81,10 +92,27 @@ const makeDiskShape = (config: {
     }
   }
 
+  const isOutside = (relative: string): boolean =>
+    relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)
+
+  // Whether the directory root leaves the original project root: lexically (`../outside`) or
+  // because the root, or its nearest existing ancestor, is a symlink pointing outside. A root that
+  // does not exist yet is judged by that ancestor; the project root's own aliases resolve equal.
+  const rootEscapes = (): Promise<boolean> =>
+    isOutside(path.relative(originalRoot, resolved))
+      ? Promise.resolve(true)
+      : Promise.all([realPathOf(originalRoot), realPathOf(resolved)]).then(([realOriginal, real]) =>
+          isOutside(path.relative(realOriginal, real)),
+        )
+  const rootEscape = Effect.runSync(Effect.cached(Effect.promise(rootEscapes)))
+
   // Accident-prevention, not hostile-code containment: the real path is resolved at check time, so
   // a link swapped between the check and the FS call is not caught.
   const resolvePath = (p: string, op: FsOp): Effect.Effect<string, Errors.FsPermissionDenied> =>
     Effect.gen(function* () {
+      if (yield* rootEscape) {
+        return yield* denied(p, op, `Directory ${directoryPrefix} escapes the project root`)
+      }
       if (path.isAbsolute(p)) {
         return yield* denied(p, op, `Absolute paths are not allowed in blueprints: ${p}`)
       }
