@@ -77,8 +77,9 @@ really uses (every import must be declared or knip fails).
 ```
 
 Add a `{ "path": "../<dep>" }` reference per workspace dependency. If the package has tests, copy
-`packages/blueprint-changesets/test/tsconfig.json` to `packages/<name>/test/tsconfig.json` (ESLint's
-project service needs it) and keep its references in line with the deps.
+`packages/blueprint-changesets/test/tsconfig.json` to `packages/<name>/test/tsconfig.json` (a
+composite project that `pnpm tc` typechecks, and that ESLint's project service needs) and keep its
+references in line with the deps.
 
 ### 3. Add source and tests
 
@@ -90,7 +91,9 @@ Match naming and style of neighbouring packages (kebab-case filenames, Effect-na
 
 ### 4. Wire the workspace
 
-- Root `tsconfig.json`: add `{ "path": "./packages/<name>" }` to `references`.
+- Root `tsconfig.json`: add `{ "path": "./packages/<name>" }` to `references`, and
+  `{ "path": "./packages/<name>/test" }` too when the package has tests — otherwise its tests are
+  not typechecked.
 - `.changeset/config.json`: the `fixed` group `["projitect", "@projitect/*"]` already covers any
   `@projitect/*` name via the glob. A non-scoped name needs its own entry in `fixed`.
 - `README.md` and `AGENTS.md` package tables: add a row (keep the Prettier column alignment).
