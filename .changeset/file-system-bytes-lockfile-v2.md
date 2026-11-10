@@ -1,5 +1,5 @@
 ---
-"projitect": major
+"@projitect/cli": major
 ---
 
 `BlueprintFileSystem` gains required `readFileBytes` and `writeFileBytes` (`Uint8Array`), gated by

@@ -61,15 +61,19 @@ export const readLockfile: Effect.Effect<
 })
 
 /**
- * Write `.pjt.lock` through the provided `BlueprintFileSystem`. Writes the lock as given; the
- * engine builds every lock it writes at the current schema version (v2).
+ * Write `.pjt.lock` through the provided `BlueprintFileSystem`. Always writes the current schema
+ * version (v2): a v1 lock is migrated by stamping the version, and every operation — with its
+ * optional `commentSuffix`, `ownedDir` and `contentHash` — is written unchanged.
  */
 export const writeLockfile = (params: {
   readonly lock: PjtLock.PjtLock
 }): Effect.Effect<void, Errors.FsWriteFailed | Errors.FsPermissionDenied, BlueprintFileSystem> =>
   Effect.gen(function* () {
     const fs = yield* BlueprintFileSystem
-    yield* fs.writeFile(LOCKFILE_NAME, `${JSON.stringify(params.lock, null, 2)}\n`)
+    yield* fs.writeFile(
+      LOCKFILE_NAME,
+      `${JSON.stringify({ ...params.lock, version: CURRENT_VERSION }, null, 2)}\n`,
+    )
   })
 
 /**

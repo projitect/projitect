@@ -61,7 +61,7 @@ The lockfile is what makes the "swap frameworks cleanly" promise work:
 - Remove a blueprint from `.pjt.ts` → next `inspect` sees the claim in the lockfile without a matching live blueprint and reports a removal; `remodel` deletes the orphaned region / keys / file.
 - Upgrade a blueprint package → the new version's claims override the old version's; if the claim set differs (e.g. the blueprint stopped owning a particular key), the old claim becomes a removal.
 
-The lockfile schema is versioned. The current format is version 2. projitect reads version 1 and version 2 lockfiles, and `build`, `remodel` and `inspect` work on a project with a version 1 lockfile as it stands. Every lockfile projitect writes is version 2, so a version 1 lockfile becomes version 2 the next time `build` or `remodel` runs, with no rebuild step.
+The lockfile schema is versioned. The current format is version 2. projitect reads version 1 and version 2 lockfiles, and `build`, `remodel` and `inspect` work on a project with a version 1 lockfile as it stands. Every lockfile projitect writes is version 2, so a version 1 lockfile becomes version 2 the next time `build` or `remodel` applies, with no rebuild step and every ownership claim carried over. `inspect` only reads: it leaves a version 1 lockfile's bytes as they are.
 
 Version 2 adds the optional per-entry `contentHash`. Entries without one are valid, which is why every version 1 entry reads unchanged.
 

@@ -91,6 +91,18 @@ $BIN inspect > /dev/null 2>&1
 $BIN remodel > /dev/null
 $BIN inspect > /dev/null 2>&1 && pass "clean after remodel re-applies" || fail "still dirty"
 
+echo "=== 4b. a v1 lockfile is read by inspect untouched, then migrated to v2 by remodel ==="
+sed -i.bak '0,/"version": 2,/s//"version": 1,/' .pjt.lock && rm .pjt.lock.bak
+cp .pjt.lock lock.v1
+head -2 lock.v1 | grep -q '"version": 1,' && pass "lockfile downgraded to v1 for the fixture" || fail "could not build a v1 lockfile"
+$BIN inspect > /dev/null 2>&1 && pass "inspect reads the v1 lockfile and reports clean" || fail "inspect failed on a v1 lockfile"
+cmp -s .pjt.lock lock.v1 && pass "inspect leaves the v1 lockfile bytes unchanged" || fail "inspect rewrote the lockfile"
+$BIN remodel > /dev/null 2>&1 && pass "remodel reads the v1 lockfile without a rebuild" || fail "remodel failed on a v1 lockfile"
+head -2 .pjt.lock | grep -q '"version": 2,' && pass "remodel wrote the lockfile as v2" || fail "lockfile not migrated to v2"
+sed '0,/"version": 2,/s//"version": 1,/' .pjt.lock | cmp -s - lock.v1 && pass "migration changed only the version" || fail "migration changed ownership data"
+rm lock.v1
+$BIN inspect > /dev/null 2>&1 && pass "clean after the v2 migration" || fail "dirty after the v2 migration"
+
 echo "=== 5. lockfile-driven removal ==="
 node -e "
 const fs = require('fs');
