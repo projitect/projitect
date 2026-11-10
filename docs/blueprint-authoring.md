@@ -68,7 +68,7 @@ no flag, all sections are added. No `--id` flag exists today.
 **Field missing.** The package stays installed and `pjt add` fails with `pjt.add.metadata-missing`.
 The user imports the package in `.pjt.ts` by hand and runs `pjt remodel`.
 
-**Bin ownership.** Only the `projitect` package ships a bin, the `pjt` binary
+**Bin ownership.** Only the `@projitect/cli` package ships a bin, the `pjt` binary
 (`packages/projitect/package.json`). No blueprint package ships one today. Generated blueprint-package
 bins are planned with the `pjt add` CLI work, which will document their ownership.
 
