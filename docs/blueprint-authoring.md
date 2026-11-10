@@ -1,6 +1,6 @@
 # Blueprint authoring
 
-Rules for blueprint packages: the soft sandbox, where the `pjt add` CLI code lives, how a published package declares itself to `pjt add`, region markers, ownership modes and the error catalog. See also [architecture](./architecture.md).
+Rules for blueprint packages: the soft sandbox, where the `pjt add` CLI code lives, how a published package declares itself to `pjt add`, region markers, ownership modes, the first-party scope and the error catalog. See also [architecture](./architecture.md).
 
 ## Blueprint authoring rules
 
@@ -137,3 +137,66 @@ Errors live in `packages/core/src/errors/`. To add a new one:
 Also register the id in `ERROR_IDS` and add its blurb to `ERROR_BLURBS` in
 `packages/cli-internals/src/commands/explain.ts`. The `new-error-code` skill in `.claude/skills/`
 walks through every step (see [Contributor skills](../AGENTS.md#contributor-skills)).
+
+## First-party blueprint scope
+
+This section holds criteria, not a package list; the package table in [AGENTS.md](../AGENTS.md)
+lists what exists.
+
+**Inclusion criteria.** A first-party blueprint is general across projects, uses an ownership mode
+`pjt inspect` can check for drift, declares narrow permissions, takes its version from the manifest
+(see above), has in-memory tests, and ships with its marketing pages (the `new-blueprint` skill).
+
+**Who decides.** The repository owner. Only the owner adds a package to the lockstep set.
+
+**Compatibility window.** This is existing behaviour, not a new guarantee: every published package
+shares one version through changesets (see Versioning in [AGENTS.md](../AGENTS.md)).
+
+**Sequencing.** The owner's order is:
+
+1. Versioned Markdown/AGENTS/README snippets and shareable agent skills.
+2. CLI onboarding for people and agents with the full upgrade, swap, remove and drift lifecycle.
+   This is planned and in progress, matching the website roadmap.
+3. React, Next, the wider catalog and lint/format blueprints.
+
+`react` and `next` ship. `husky-lint-staged` ships and manages lint-staged and husky, not ESLint or
+Prettier configs. `eslint` is planned (website roadmap, "Planned first-party blueprints"). No
+Prettier blueprint exists and none is planned.
+
+### Markdown snippets
+
+Distributing versioned Markdown snippets is an intended product capability.
+`@projitect/blueprint-markdown` touches `AGENTS.md` and `README.md`. Each snippet is a
+region-mode `markdownSection` with the owner id `pjt:markdown:<agents|readme>:<name>`. The six
+sections are `package-manager`, `verification`, `commits` and `no-destructive-shortcuts` (in
+`AGENTS.md`), and `contributing` and `license` (in `README.md`). Each snippet takes optional
+`version` and `content` overrides; the version defaults to the package manifest version. An upgrade
+changes the version and usually the content, never the owner id.
+
+`pjt add` with `--section a,b` adds exactly those sections. With no flag on a terminal it prompts.
+With no flag and no terminal it adds every section (see `docs/cli/add.mdx` on the website).
+
+### Agent skills
+
+`@projitect/blueprint-skills` exports `skills({ id, version, target?, skills: [{ name, files }] })`.
+`files` is keyed by relative path and must include `SKILL.md`. The `id` must be namespaced (such as
+`acme:skills`) and the `version` is the author's own. Each file is an `ownFile` at
+`<target>/<name>/<path>` with `ownedDir` `<target>/<name>`, and the write permission is
+`<target>/**`. Invalid input fails with `pjt.skills.invalid-path`: `..` or empty segments,
+backslashes, drive letters, glob characters in `target`, and duplicate skill names.
+
+**Skills root.** `.claude/skills` by default, set through the `target` option. No other agent
+directory is supported; this guide claims no universal agent-directory support.
+
+### Lifecycle
+
+Managed regions are rewritten on `remodel` when the version changes, flagged by `inspect` when
+hand-edited, and removed (or orphan-removed) with the lockfile. Skill files are rewritten on
+upgrade, and files a newer version stops shipping are removed as orphans. Removing a skill prunes
+only that skill's own tree, never the target root or sibling skills.
+
+### Planned adapters
+
+Adapters for other agent directories are planned. No task for them is filed yet. Related board
+tasks: tk-ebaefd6e (agent guidance snippet blueprints, including CLAUDE.md as a symlink to
+AGENTS.md) and tk-066c8124 (the completed skills blueprint).
