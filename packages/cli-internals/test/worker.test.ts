@@ -271,12 +271,13 @@ describe("planBlueprintFile", () => {
     })
   })
 
-  it("imports symlinked packages whose names share a prefix", async () => {
-    // Node's permission trie loses an exact grant that prefixes a sibling's (`pkg-a` / `pkg-a-b`).
+  it("imports symlinked packages whose names share a prefix without reading an unimported sibling", async () => {
+    // Node's permission trie loses an exact grant that prefixes a sibling's (`pkg-a` / `pkg-a-b`);
+    // the allowlist must repair that without a `pkg-a*` grant that would also cover `pkg-a-private`.
     const modules = path.join(cwd, "node_modules")
     await fs.mkdir(modules, { recursive: true })
     const install = async (name: string, symlinked: boolean) => {
-      // `pkg-a` is a symlink (as in pnpm); `pkg-a-b` is a real directory (as from a registry).
+      // `pkg-a` is a symlink (as in pnpm); the others are real directories (as from a registry).
       const real = path.join(cwd, symlinked ? "store" : "node_modules", name)
       await fs.mkdir(real, { recursive: true })
       await fs.writeFile(
@@ -288,15 +289,49 @@ describe("planBlueprintFile", () => {
         await fs.symlink(real, path.join(modules, name))
       }
     }
-    await Promise.all([install("pkg-a", true), install("pkg-a-b", false)])
+    await Promise.all([
+      install("pkg-a", true),
+      install("pkg-a-b", false),
+      install("pkg-a-private", false),
+    ])
+    const blueprintFile = path.join(cwd, ".pjt.ts")
     await fs.writeFile(
-      path.join(cwd, ".pjt.ts"),
+      blueprintFile,
       [
+        'import fs from "node:fs"',
         'import { name as a } from "pkg-a"',
         'import { name as b } from "pkg-a-b"',
-        'export default { _tag: "ProjitectConfig", blueprints: [], config: { a, b } }',
+        "const attempt = (file: string): string => {",
+        "  try {",
+        "    fs.readFileSync(file)",
+        '    return "allowed"',
+        "  } catch (error) {",
+        '    return error instanceof Error && "code" in error ? String(error.code) : String(error)',
+        "  }",
+        "}",
+        `const reads = [a, b, "pkg-a-private"].map((name) => attempt(${JSON.stringify(modules)} + "/" + name + "/index.js"))`,
+        'if (reads.join() !== "allowed,allowed,ERR_ACCESS_DENIED") throw new Error(reads.join())',
+        'export default { _tag: "ProjitectConfig", blueprints: [] }',
       ].join("\n"),
     )
+    const allowlist = await Effect.runPromise(
+      Effect.scoped(
+        transpileBlueprintFile({ blueprintFile, full: blueprintFile }).pipe(
+          Effect.map(({ moduleFile, imports }) =>
+            computeReadAllowlist({
+              workerEntry,
+              blueprintFile,
+              moduleFile,
+              imports,
+              projectRoot: cwd,
+              execPath: process.execPath,
+            }),
+          ),
+        ),
+      ),
+    )
+    expect(allowlist.filter((entry) => entry.includes("pkg-a-private"))).toEqual([])
+    expect(allowlist.filter((entry) => entry.endsWith("*"))).toEqual([])
     const planned = await Effect.runPromise(
       planBlueprintFile({ blueprintFile: ".pjt.ts", projectRoot: cwd }),
     )

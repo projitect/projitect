@@ -34,7 +34,8 @@ It is **not** a security boundary:
    closure of `effect`, `@projitect/core`, `@projitect/blueprint` and every package your `.pjt.ts`
    imports, and the Node installation. Your project tree and your home directory are never on it.
    The closure follows each package's `dependencies` and `peerDependencies`, so a blueprint package
-   must declare every package it imports.
+   must declare every package it imports. Grants name exact package directories, never a name
+   prefix: a worker that imports `pkg-a` and `pkg-a-b` cannot read an unimported `pkg-a-private`.
 3. The CLI starts the worker with the permission flag and one `--allow-fs-read` per allowlist
    entry. No write, child-process or worker-thread permission is granted, and the worker gets an
    empty environment.

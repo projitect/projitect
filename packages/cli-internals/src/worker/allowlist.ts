@@ -71,9 +71,12 @@ const findPackageDir = (
 /**
  * The grant for a lookup that found nothing (under pnpm, a scoped package's peers sit several
  * `node_modules` levels away). The trailing separator keeps it from being a string prefix of a
- * sibling's grant (`pkg-a` next to `pkg-a-b`), which Node's permission trie mishandles.
+ * sibling's grant.
  */
 const missGrant = (miss: string): string => `${miss}${path.sep}`
+
+/** See {@link packageClosure}: a path suffix no package name contains. */
+const prefixAnchor = "~"
 
 const dependencyNames = (packageDir: string): readonly string[] => {
   const manifest: unknown = JSON.parse(readFileSync(path.join(packageDir, "package.json"), "utf8"))
@@ -110,36 +113,32 @@ const packageClosure = (roots: readonly PackageLocation[]): ReadonlySet<string> 
     visit(root)
   }
   const entries = Array.dedupe([...reals, ...lookups, ...links])
-  // Node's permission trie loses an exact grant that is a string prefix of a sibling grant
-  // (`…/blueprint` next to `…/blueprint-vitest`), and the resolver needs exactly that grant to
-  // `readlink` a symlinked package. A trailing `*` keeps such a link readable — and, being a prefix
-  // grant, it already covers the sibling, whose own grant must then be dropped or the trie loses the
-  // link again. The entries are sorted so the shorter grant is passed first.
-  const shadows = (entry: string): boolean =>
+  // A grant inside another directory grant is redundant, and Node's permission trie loses the outer
+  // one when both are passed — so it is dropped.
+  const withoutTrailingSep = (entry: string): string =>
+    entry.endsWith(path.sep) ? entry.slice(0, -1) : entry
+  const covered = (entry: string): boolean =>
     Array.some(
       entries,
+      (other) => other !== entry && entry.startsWith(`${withoutTrailingSep(other)}${path.sep}`),
+    )
+  const granted = Array.filter(entries, (entry) => !covered(entry))
+  // The same trie also loses an exact grant that is the string prefix of exactly one sibling grant
+  // (`…/pkg-a` next to `…/pkg-a-b`), and the resolver needs exactly that grant to stat a symlinked
+  // package. A second sibling keeps it. `~` cannot appear in a package name, so the anchor names a
+  // path that exists nowhere and widens nothing — unlike a `*` grant, which would cover an
+  // unimported `pkg-a-private` as well.
+  const shadows = (entry: string): boolean =>
+    !entry.endsWith(path.sep) &&
+    Array.some(
+      granted,
       (other) =>
         other !== entry && other.startsWith(entry) && !other.startsWith(`${entry}${path.sep}`),
     )
-  const prefixes = new Set(Array.filter(entries, (entry) => links.has(entry) && shadows(entry)))
-  // A grant inside another directory grant is redundant, and Node's trie loses the outer one when
-  // both are passed — so it is dropped as well.
-  const withoutTrailingSep = (entry: string): string =>
-    entry.endsWith(path.sep) ? entry.slice(0, -1) : entry
-  const coveredByPrefix = (entry: string): boolean =>
-    Array.some(
-      entries,
-      (other) =>
-        other !== entry &&
-        (entry.startsWith(`${withoutTrailingSep(other)}${path.sep}`) ||
-          (prefixes.has(other) && entry.startsWith(other))),
-    )
-  return new Set(
-    Array.map(
-      Array.filter(entries, (entry) => !coveredByPrefix(entry)),
-      (entry) => (prefixes.has(entry) ? `${entry}*` : entry),
-    ),
-  )
+  return new Set([
+    ...granted,
+    ...Array.map(Array.filter(granted, shadows), (entry) => `${entry}${prefixAnchor}`),
+  ])
 }
 
 /** Packages the worker itself imports, resolved from the directory its entry file lives in. */
