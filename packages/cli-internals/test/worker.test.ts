@@ -24,7 +24,10 @@ const nodeMajor = Number(process.versions.node.split(".")[0])
 let cwd: string
 
 beforeEach(async () => {
-  cwd = await fs.mkdtemp(path.join(os.tmpdir(), "projitect-test-worker-"))
+  // Permission grants and synthetic package-link targets use canonical paths. macOS's temporary
+  // directory includes /var -> /private/var, which otherwise adds an unrelated symlink lookup to
+  // the probe and package-prefix cases. Project-root aliases are exercised separately below.
+  cwd = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), "projitect-test-worker-")))
 })
 
 afterEach(async () => {
@@ -204,6 +207,20 @@ describe("Node permission model inside the worker flags", () => {
 })
 
 describe("planBlueprintFile", () => {
+  it("loads a config through a symlinked project root without granting the outer directory", async () => {
+    const project = path.join(cwd, "project")
+    const alias = path.join(cwd, "alias")
+    await fs.mkdir(project)
+    await fs.symlink(project, alias)
+    await fs.writeFile(
+      path.join(project, ".pjt.ts"),
+      'export default { _tag: "ProjitectConfig", blueprints: [] }',
+    )
+    expect(
+      await Effect.runPromise(planBlueprintFile({ blueprintFile: ".pjt.ts", projectRoot: alias })),
+    ).toEqual([])
+  })
+
   it("runs blueprint plans in the confined worker, where fs and process access are denied", async () => {
     const planned = await plan("worker-sandbox.pjt.ts")
     expect(planned).toHaveLength(1)
@@ -245,6 +262,24 @@ describe("planBlueprintFile", () => {
       marker: "docs",
       climbed: "FsPermissionDenied",
       linked: "FsPermissionDenied",
+    })
+  })
+
+  it.each([
+    ["a lexical escape", "worker-directory-escape.pjt.ts"],
+    ["a symlinked directory root", "worker-directory.pjt.ts"],
+  ])("denies %s before a scoped blueprint reads outside the project", async (_name, name) => {
+    const projectRoot = path.join(cwd, "project")
+    await fs.mkdir(projectRoot)
+    await fs.writeFile(path.join(cwd, "marker.txt"), "outside")
+    await fs.symlink(cwd, path.join(projectRoot, "docs"))
+    const error = await Effect.runPromise(
+      Effect.flip(planBlueprintFile({ blueprintFile: fixture(name), projectRoot })),
+    )
+    expect(error).toMatchObject({
+      _tag: "FsPermissionDenied",
+      id: "pjt.fs.permission-denied",
+      path: "marker.txt",
     })
   })
 

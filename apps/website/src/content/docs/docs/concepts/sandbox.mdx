@@ -56,6 +56,9 @@ where it is checked against the blueprint's declared **permissions**
   project that points outside it is denied.
 - A blueprint that did not ask to write `package.json` cannot write it, even if it tries.
 - Inside `directory("docs", [...])` blocks, child blueprints are **re-rooted** at `docs/`.
+  That scope must also remain inside the outer project root: a parent-directory escape or a
+  directory root symlinked outside the project is denied. Subdirectories that do not exist yet
+  are checked against their nearest existing ancestor before creation.
 
 Errors cross the process boundary as the same typed errors the CLI raises, so a permission denial
 reaches the blueprint's Effect unchanged and shows up in `pjt inspect --json` as before.

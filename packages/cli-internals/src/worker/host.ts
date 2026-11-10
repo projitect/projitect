@@ -77,6 +77,7 @@ const runWorker = (params: {
               blueprintId,
               permissions,
               projectRoot: path.join(projectRoot, directoryPrefix),
+              confinementRoot: projectRoot,
             }),
           )
         }),

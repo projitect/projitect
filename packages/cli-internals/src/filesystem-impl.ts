@@ -19,10 +19,13 @@ export const makeRealShape = (config: {
   readonly blueprintId: string
   readonly permissions: readonly Permission.Permission[]
   readonly projectRoot: string
+  /** Outer project boundary when this shape is rooted at a directory() subtree. */
+  readonly confinementRoot?: string
 }): BlueprintFileSystemShape =>
   makeDiskShape({
     blueprintId: config.blueprintId,
     projectRoot: config.projectRoot,
+    confinementRoot: config.confinementRoot ?? config.projectRoot,
     isAllowed: (op, p) => isPermitted(config.permissions, op, p),
   })
 
@@ -45,10 +48,16 @@ export const makeProjectRootLayer = (projectRoot: string): Layer.Layer<Blueprint
 const makeDiskShape = (config: {
   readonly blueprintId: string
   readonly projectRoot: string
+  readonly confinementRoot?: string
   readonly isAllowed: (op: FsOp, p: string) => boolean
 }): BlueprintFileSystemShape => {
   const { blueprintId, projectRoot, isAllowed } = config
   const resolved = path.resolve(projectRoot)
+  const confinementRoot = path.resolve(config.confinementRoot ?? projectRoot)
+  const within = (root: string, candidate: string): boolean => {
+    const relative = path.relative(root, candidate)
+    return relative !== ".." && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative)
+  }
 
   const denied = (p: string, op: FsOp, message: string) =>
     new Errors.FsPermissionDenied({
@@ -88,6 +97,9 @@ const makeDiskShape = (config: {
       if (path.isAbsolute(p)) {
         return yield* denied(p, op, `Absolute paths are not allowed in blueprints: ${p}`)
       }
+      if (!within(confinementRoot, resolved)) {
+        return yield* denied(p, op, `Blueprint directory escapes project root: ${projectRoot}`)
+      }
       const full = path.resolve(resolved, p)
       if (!full.startsWith(`${resolved}${path.sep}`) && full !== resolved) {
         return yield* denied(p, op, `Path escapes project root: ${p}`)
@@ -99,9 +111,16 @@ const makeDiskShape = (config: {
           `Blueprint ${blueprintId} did not declare ${op} permission for ${p}`,
         )
       }
-      const [realRoot, realFull] = yield* Effect.promise(() =>
-        Promise.all([realPathOf(resolved), realPathOf(full)]),
+      const [realRoot, realFull, realConfinementRoot] = yield* Effect.promise(() =>
+        Promise.all([realPathOf(resolved), realPathOf(full), realPathOf(confinementRoot)]),
       )
+      if (!within(realConfinementRoot, realRoot) || !within(realConfinementRoot, realFull)) {
+        return yield* denied(
+          p,
+          op,
+          `Blueprint directory resolves outside project root: ${projectRoot}`,
+        )
+      }
       const realRelative = path.relative(realRoot, realFull).split(path.sep).join("/")
       if (
         realRelative === ".." ||

@@ -34,14 +34,41 @@ const run = <A, E>(
   projectRoot: string,
   use: (fs: BlueprintFileSystem["Service"]) => Effect.Effect<A, E>,
   perms: readonly Permission.Permission[] = permissions,
+  confinementRoot: string = projectRoot,
 ) =>
   Effect.runPromiseExit(
     Effect.gen(function* () {
       return yield* use(yield* BlueprintFileSystem)
-    }).pipe(Effect.provide(makeRealLayer({ blueprintId: "t", permissions: perms, projectRoot }))),
+    }).pipe(
+      Effect.provide(
+        makeRealLayer({ blueprintId: "t", permissions: perms, projectRoot, confinementRoot }),
+      ),
+    ),
   )
 
 describe("symlink-safe permission gate", () => {
+  it("denies a directory scope outside its outer project boundary", async () => {
+    const exit = await run(outside, (f) => f.readFile("secret.txt"), permissions, root)
+    expect(JSON.stringify(exit)).toContain("pjt.fs.permission-denied")
+  })
+
+  it("denies a directory scope symlinked outside its outer project boundary", async () => {
+    const exit = await run(
+      path.join(root, "escape"),
+      (f) => f.readFile("secret.txt"),
+      permissions,
+      root,
+    )
+    expect(JSON.stringify(exit)).toContain("pjt.fs.permission-denied")
+  })
+
+  it("allows a future directory scope inside its outer project boundary", async () => {
+    const scoped = path.join(root, "future", "nested")
+    const exit = await run(scoped, (f) => f.writeFile("new.txt", "kept"), permissions, root)
+    expect(exit).toEqual(Exit.succeed(undefined))
+    expect(await fs.readFile(path.join(scoped, "new.txt"), "utf8")).toBe("kept")
+  })
+
   it("denies reading through a symlink that points outside the project", async () => {
     const exit = await run(root, (f) => f.readFile("escape/secret.txt"))
     expect(Exit.isFailure(exit)).toBe(true)

@@ -15,6 +15,8 @@ nothing. A worker that crashes, exits early or times out is reported as `pjt.wor
 Inside `directory("docs", [...])`, a child blueprint's `BlueprintFileSystem` is now rooted at
 `docs/`: reading `package.json` there reads `docs/package.json`, and its permission globs are
 relative to `docs/`, as documented.
+The scoped root is checked against the outer project boundary too, so `directory("..", ...)`
+and directory roots symlinked outside the project cannot expand the filesystem gate.
 
 The worker's environment is empty, so blueprint code no longer sees the CLI's environment
 variables.
