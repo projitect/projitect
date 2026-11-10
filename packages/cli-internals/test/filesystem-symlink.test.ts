@@ -41,6 +41,76 @@ const run = <A, E>(
     }).pipe(Effect.provide(makeRealLayer({ blueprintId: "t", permissions: perms, projectRoot }))),
   )
 
+describe("byte methods", () => {
+  const bytes = new Uint8Array([0xff, 0xfe, 0x00, 0x80])
+  const writeOnly: readonly Permission.Permission[] = [{ kind: "write", glob: "granted/**" }]
+  const readOnly: readonly Permission.Permission[] = [{ kind: "read", glob: "real/**" }]
+
+  it("round-trips non-UTF-8 bytes exactly on disk", async () => {
+    const exit = await run(root, (f) =>
+      Effect.gen(function* () {
+        yield* f.writeFileBytes("real/asset.bin", bytes)
+        return yield* f.readFileBytes("real/asset.bin")
+      }),
+    )
+    expect(exit).toEqual(Exit.succeed(bytes))
+    expect(new Uint8Array(await fs.readFile(path.join(root, "real", "asset.bin")))).toEqual(bytes)
+  })
+
+  it("denies a byte read outside the granted globs", async () => {
+    const exit = await run(root, (f) => f.readFileBytes("real/ok.txt"), writeOnly)
+    expect(JSON.stringify(exit)).toContain("pjt.fs.permission-denied")
+  })
+
+  it("denies a byte write outside the granted globs", async () => {
+    const exit = await run(root, (f) => f.writeFileBytes("real/new.bin", bytes), writeOnly)
+    expect(JSON.stringify(exit)).toContain("pjt.fs.permission-denied")
+    await expect(fs.lstat(path.join(root, "real", "new.bin"))).rejects.toThrow()
+  })
+
+  it("denies a byte write under a read-only permission, and allows the byte read", async () => {
+    const written = await run(root, (f) => f.writeFileBytes("real/new.bin", bytes), readOnly)
+    expect(JSON.stringify(written)).toContain("pjt.fs.permission-denied")
+    const read = await run(root, (f) => f.readFileBytes("real/ok.txt"), readOnly)
+    expect(read).toEqual(Exit.succeed(new TextEncoder().encode("ok")))
+  })
+
+  it("denies byte access through an out-of-root symlink without changing its target", async () => {
+    const read = await run(root, (f) => f.readFileBytes("escape/secret.txt"))
+    const write = await run(root, (f) => f.writeFileBytes("escape/secret.txt", bytes))
+    expect(JSON.stringify(read)).toContain("pjt.fs.permission-denied")
+    expect(JSON.stringify(write)).toContain("pjt.fs.permission-denied")
+    expect(await fs.readFile(path.join(outside, "secret.txt"), "utf8")).toBe("secret")
+  })
+
+  it("denies a byte write through a dangling out-of-root symlink", async () => {
+    await fs.symlink(path.join(outside, "missing.bin"), path.join(root, "escape-file"))
+    const exit = await run(root, (f) => f.writeFileBytes("escape-file", bytes))
+    expect(JSON.stringify(exit)).toContain("pjt.fs.permission-denied")
+    await expect(fs.lstat(path.join(outside, "missing.bin"))).rejects.toThrow()
+  })
+
+  it("checks byte permissions against the real path as well as the link path", async () => {
+    const perms: readonly Permission.Permission[] = [{ kind: "write", glob: "inside/**" }]
+    const read = await run(root, (f) => f.readFileBytes("inside/ok.txt"), perms)
+    const write = await run(root, (f) => f.writeFileBytes("inside/ok.txt", bytes), perms)
+    expect(JSON.stringify(read)).toContain("pjt.fs.permission-denied")
+    expect(JSON.stringify(write)).toContain("pjt.fs.permission-denied")
+    expect(await fs.readFile(path.join(root, "real", "ok.txt"), "utf8")).toBe("ok")
+  })
+
+  it("allows exact byte access through a permitted in-root symlink", async () => {
+    const exit = await run(root, (f) =>
+      Effect.gen(function* () {
+        yield* f.writeFileBytes("inside/asset.bin", bytes)
+        return yield* f.readFileBytes("inside/asset.bin")
+      }),
+    )
+    expect(exit).toEqual(Exit.succeed(bytes))
+    expect(new Uint8Array(await fs.readFile(path.join(root, "real", "asset.bin")))).toEqual(bytes)
+  })
+})
+
 describe("symlink-safe permission gate", () => {
   it("denies reading through a symlink that points outside the project", async () => {
     const exit = await run(root, (f) => f.readFile("escape/secret.txt"))
