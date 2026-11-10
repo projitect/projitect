@@ -6,7 +6,7 @@ import type { Layer } from "effect"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import { ignoreSection, jsonMerge, ownFile } from "@projitect/blueprint"
 import { BlueprintFileSystem } from "@projitect/core"
-import type { Blueprint } from "@projitect/core"
+import type { Blueprint, BlueprintFileSystemShape, Errors } from "@projitect/core"
 import { makeInMemoryLayer } from "@projitect/test-kit"
 import {
   applyPlan,
@@ -65,6 +65,11 @@ const runIn = <A, E>(
   effect: Effect.Effect<A, E, BlueprintFileSystem>,
 ) => Effect.runPromise(Effect.provide(effect, layer))
 
+type ByteAccess = (
+  fs: BlueprintFileSystemShape,
+  p: string,
+) => Effect.Effect<unknown, Errors.FsReadFailed | Errors.FsWriteFailed | Errors.FsPermissionDenied>
+
 describe("browser engine against the in-memory filesystem", () => {
   let root: string
 
@@ -98,7 +103,7 @@ describe("browser engine against the in-memory filesystem", () => {
     const { plan, byBlueprint } = await Effect.runPromise(
       buildPlan({ tree, projectRoot: "/", layerFor }),
     )
-    const lock = { version: 1 as const, blueprints: byBlueprint }
+    const lock = { version: 2 as const, blueprints: byBlueprint }
     await runIn(
       base,
       Effect.gen(function* () {
@@ -107,7 +112,7 @@ describe("browser engine against the in-memory filesystem", () => {
         yield* writeLockfile({ lock })
         expect((yield* diffPlan({ plan })).hasDrift).toBe(false)
         const previous = yield* readLockfile
-        expect(previous).toEqual(lock)
+        expect(previous).toEqual({ ...lock, version: 2 })
         expect(diffLockfile({ previous, current: byBlueprint }).removals).toEqual([])
       }),
     )
@@ -131,5 +136,56 @@ describe("browser engine against the in-memory filesystem", () => {
       Effect.flip(buildPlan({ tree: [nosy], projectRoot: "/", layerFor })),
     )
     expect(error).toMatchObject({ id: "pjt.fs.permission-denied", blueprintId: "pjt:test:nosy" })
+  })
+
+  it.each<readonly [string, string, ByteAccess]>([
+    [
+      "reading an undeclared path",
+      ".gitignore",
+      (fs: BlueprintFileSystemShape, p: string) => fs.readFileBytes(p),
+    ],
+    [
+      "writing a path covered only by a read permission",
+      "package.json",
+      (fs: BlueprintFileSystemShape, p: string) => fs.writeFileBytes(p, new Uint8Array([1])),
+    ],
+    [
+      "reading bytes outside the project",
+      "../outside",
+      (fs: BlueprintFileSystemShape, p: string) => fs.readFileBytes(p),
+    ],
+  ])("denies byte access when %s", async (_name, target, access) => {
+    const { layerFor } = inMemory(seed)
+    const nosy: Blueprint.Blueprint = {
+      id: "pjt:test:nosy-bytes",
+      version: "1.0.0",
+      permissions: [{ kind: "read", glob: "package.json" }],
+      plan: Effect.flatMap(BlueprintFileSystem, (fs) =>
+        Effect.as(access(fs, target), { operations: [] }),
+      ),
+    }
+    const error = await Effect.runPromise(
+      Effect.flip(buildPlan({ tree: [nosy], projectRoot: "/", layerFor })),
+    )
+    expect(error).toMatchObject({
+      id: "pjt.fs.permission-denied",
+      blueprintId: "pjt:test:nosy-bytes",
+    })
+  })
+
+  it("allows byte reads and writes the blueprint declared", async () => {
+    const { layerFor } = inMemory(seed)
+    const reader: Blueprint.Blueprint = {
+      id: "pjt:test:bytes",
+      version: "1.0.0",
+      permissions: [{ kind: "write", glob: "blob.bin" }],
+      plan: Effect.gen(function* () {
+        const fs = yield* BlueprintFileSystem
+        yield* fs.writeFileBytes("blob.bin", new Uint8Array([1, 2, 3]))
+        expect(Array.from(yield* fs.readFileBytes("blob.bin"))).toEqual([1, 2, 3])
+        return { operations: [] }
+      }),
+    }
+    await Effect.runPromise(buildPlan({ tree: [reader], projectRoot: "/", layerFor }))
   })
 })

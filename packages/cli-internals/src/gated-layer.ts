@@ -65,6 +65,8 @@ const gate = (
   return {
     readFile: (p) => Effect.andThen(check(p, "read"), inner.readFile(p)),
     writeFile: (p, content) => Effect.andThen(check(p, "write"), inner.writeFile(p, content)),
+    readFileBytes: (p) => Effect.andThen(check(p, "read"), inner.readFileBytes(p)),
+    writeFileBytes: (p, bytes) => Effect.andThen(check(p, "write"), inner.writeFileBytes(p, bytes)),
     exists: (p) => Effect.andThen(check(p, "exists"), inner.exists(p)),
     remove: (p) => Effect.andThen(check(p, "remove"), inner.remove(p)),
     removeEmptyDir: (p) => Effect.andThen(check(p, "removeEmptyDir"), inner.removeEmptyDir(p)),
