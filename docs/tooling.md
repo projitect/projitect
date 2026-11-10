@@ -22,6 +22,10 @@ Per-package sandbox enforcement at lint time (the "soft" half of the soft sandbo
 
 `pnpm lint` is the single command. `pnpm lint:fix` applies autofixes. CI runs `pnpm lint`; no `format-check` job.
 
+First-party package manifests under `packages/` must name an `@projitect/*` package. A scoped
+`no-restricted-syntax` rule enforces that alongside the package-json plugin's npm-name validation;
+`check-packs.sh` also checks the scope in the actual tarballs before release.
+
 ## Reach for ESLint first
 
 Whenever you introduce a new dep, library, framework, or architectural rule — or notice a class

@@ -1,5 +1,5 @@
 ---
-"projitect": minor
+"@projitect/cli": minor
 ---
 
 New `@projitect/blueprint-husky-lint-staged` package. `huskyLintStaged()` owns `.husky/pre-commit`

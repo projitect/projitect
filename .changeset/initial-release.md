@@ -1,5 +1,5 @@
 ---
-"projitect": minor
+"@projitect/cli": minor
 "@projitect/core": minor
 "@projitect/blueprint": minor
 "@projitect/cli-internals": minor

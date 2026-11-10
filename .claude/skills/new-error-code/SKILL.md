@@ -75,4 +75,4 @@ Where the error is consumed, use `Match.valueTags` / `Match.tag` + `Match.exhaus
 ### 7. Changeset and commit
 
 A new error id is a **new public feature → minor** bump: add `.changeset/<kebab-name>.md` with
-`"projitect": minor`. Commit per [create-commit](../create-commit/SKILL.md): `feat(core): add pjt.cache.stale error`.
+`"@projitect/cli": minor`. Commit per [create-commit](../create-commit/SKILL.md): `feat(core): add pjt.cache.stale error`.

@@ -6,6 +6,6 @@ sidebar:
   label: pjt.init.package-json-missing
 ---
 
-**What**: There's no `package.json` at the project root. `pjt init` needs to add the `projitect` devDep and the `pjt` script, both of which live there.
+**What**: There's no `package.json` at the project root. `pjt init` needs to add the `@projitect/cli` devDep and the `pjt` script, both of which live there.
 
 **How to fix**: Run `npm init -y` (or your PM equivalent) first, then re-run `pjt init`. Or, in scripted setups, pass `--yes` — `pjt init --yes` writes a minimal `package.json` stub (`{ name, version: "0.0.0", private: true, type: "module" }`) before continuing.

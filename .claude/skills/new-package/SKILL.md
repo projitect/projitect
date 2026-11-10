@@ -116,7 +116,7 @@ A new package is a **new public feature → minor**. Add `.changeset/add-<name>.
 
 ```md
 ---
-"projitect": minor
+"@projitect/cli": minor
 ---
 
 New `@projitect/<name>` package. <one sentence on what it does>.

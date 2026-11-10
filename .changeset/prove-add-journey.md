@@ -1,5 +1,5 @@
 ---
-"projitect": minor
+"@projitect/cli": minor
 ---
 
 The `init` → `add` → `remodel` → `inspect` journey now works end to end, in a terminal and without

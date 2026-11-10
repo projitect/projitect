@@ -14,7 +14,7 @@ must be conventional, e.g. `fix(deps): update dependency sharp (#35)`.
 
 - `git status` is clean. If not, commit first with [create-commit](../create-commit/SKILL.md).
 - You are on a feature branch, not `main`. If on `main`, ask the user for a branch name first.
-- A change to a published package has its `.changeset/<kebab>.md` (frontmatter `"projitect": <bump>`; see
+- A change to a published package has its `.changeset/<kebab>.md` (frontmatter `"@projitect/cli": <bump>`; see
   [AGENTS.md → Versioning (lockstep)](../../../AGENTS.md)). Kanban-bundle, `.claude/` and website-only changes do not need one.
 - Docs are in the same PR as the code (no "docs follow-up" PRs).
 

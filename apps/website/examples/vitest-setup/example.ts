@@ -4,7 +4,7 @@
  * usual; the vitest blueprint coexists with the others because it owns its own region in
  * `.gitignore`.
  */
-import { pjt } from "projitect/cli"
+import { pjt } from "@projitect/cli"
 import { gitignores } from "@projitect/blueprint-gitignore"
 import { vitest } from "@projitect/blueprint-vitest"
 

@@ -405,4 +405,17 @@ export default tseslint.config(
   // valid name pattern, no duplicates. Catches the kinds of mistakes that previously
   // surfaced only when `pnpm publish --dry-run` ran in CI.
   packageJson.configs.recommended,
+  {
+    files: ["packages/*/package.json"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            "Program > JSONExpressionStatement > JSONObjectExpression > JSONProperty[key.value=name] > JSONLiteral.value:not([value=/^@projitect\\//])",
+          message: "First-party package names must belong to the @projitect npm scope.",
+        },
+      ],
+    },
+  },
 )

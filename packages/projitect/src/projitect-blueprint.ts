@@ -4,17 +4,17 @@ import type { Blueprint } from "@projitect/core"
 
 /**
  * The projitect blueprint. Automatically prepended to every user's blueprint tree by the `pjt()`
- * function exported from `projitect/cli`. Owns everything projitect itself needs to stay coherent
+ * function exported from `@projitect/cli`. Owns everything projitect itself needs to stay coherent
  * in the host project:
  *
- *   - `package.json` keys: `scripts.pjt`, `devDependencies.projitect`, `devDependencies.effect`
+ *   - `package.json` keys: `scripts.pjt`, `devDependencies.@projitect/cli`, `devDependencies.effect`
  *     (merge mode — coexists with other tools touching package.json)
- *   - `.pjt.ts` region `pjt:projitect:imports`, containing the `import { pjt } from "projitect/cli"`
+ *   - `.pjt.ts` region `pjt:projitect:imports`, containing the `import { pjt } from "@projitect/cli"`
  *     line (region mode — `pjt inspect` catches hand-edits that break the import)
  *
  * There's nothing special about this blueprint downstream of `pjt()`: it flows through the
  * standard planner, applier, lockfile pipeline like any other blueprint. The only "magic" is the
- * one-line prepend in `projitect/cli`.
+ * one-line prepend in `@projitect/cli`.
  *
  * The marker pairs `pjt:imports` and `pjt:blueprints` that `pjt add` splices into are **not**
  * managed regions — just conventions. If a user removes them, `pjt add` fails clearly with
@@ -38,11 +38,11 @@ export const projitectBlueprint = (versions: {
       ChangeSet.MergeOp.make({
         ownerId: "pjt:projitect:bootstrap",
         path: "package.json",
-        ownedKeys: ["scripts.pjt", "devDependencies.projitect", "devDependencies.effect"],
+        ownedKeys: ["scripts.pjt", "devDependencies.@projitect/cli", "devDependencies.effect"],
         value: {
           scripts: { pjt: "pjt" },
           devDependencies: {
-            projitect: `^${versions.projitect}`,
+            "@projitect/cli": `^${versions.projitect}`,
             effect: versions.effect,
           },
         },
@@ -51,7 +51,7 @@ export const projitectBlueprint = (versions: {
         ownerId: "pjt:projitect:imports",
         path: ".pjt.ts",
         commentPrefix: "//",
-        content: 'import { pjt } from "projitect/cli"\n',
+        content: 'import { pjt } from "@projitect/cli"\n',
       }),
     ),
   ),

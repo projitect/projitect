@@ -103,7 +103,7 @@ describe("applyRemovals — merge", () => {
         {
           name: "x",
           scripts: { pjt: "pjt", test: "vitest" },
-          devDependencies: { effect: "^4", projitect: "^0" },
+          devDependencies: { "@projitect/cli": "^0", effect: "^4" },
         },
         null,
         2,
@@ -116,7 +116,7 @@ describe("applyRemovals — merge", () => {
           {
             _tag: "Merge",
             path: "package.json",
-            ownedKeys: ["scripts.pjt", "devDependencies.projitect"],
+            ownedKeys: ["scripts.pjt", "devDependencies.@projitect/cli"],
           },
         ],
       }),

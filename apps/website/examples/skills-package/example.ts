@@ -2,7 +2,7 @@
  * Package agent skills as a blueprint. Each skill is a `SKILL.md` plus any referenced scripts and
  * assets; consumers install the package and call the exported blueprint in their `.pjt.ts`.
  */
-import { pjt } from "projitect/cli"
+import { pjt } from "@projitect/cli"
 import { skills } from "@projitect/blueprint-skills"
 
 // What a skill package builds and exports from its entry point. Pass the package's own version so `pjt remodel` sees upgrades,

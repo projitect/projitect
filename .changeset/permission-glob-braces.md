@@ -1,5 +1,5 @@
 ---
-"projitect": minor
+"@projitect/cli": minor
 ---
 
 Permission globs support `{a,b}` alternation (including multiple, empty and nested groups), so a

@@ -1,5 +1,5 @@
 ---
-"projitect": minor
+"@projitect/cli": minor
 ---
 
 New `@projitect/blueprint-skills` package. `skills({ id, version, skills, target? })` installs

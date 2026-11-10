@@ -18,7 +18,7 @@ A map of the monorepo. [AGENTS.md](../AGENTS.md) is the index; see also [getting
 | `@projitect/blueprint-react`             | First-party blueprint: React + Vite + TypeScript app, composing tsconfig, gitignore and vitest.       |
 | `@projitect/blueprint-next`              | First-party blueprint: Next.js App Router + TypeScript app, composing tsconfig, gitignore and vitest. |
 | `@projitect/cli-internals`               | The engine — loader, planner, differ, applier, remover, commands, Node platform layer, `runAddCli`.   |
-| `projitect`                              | Ships the `pjt` binary and `.pjt.ts` handling.                                                        |
+| `@projitect/cli`                         | Ships the `pjt` binary and `.pjt.ts` handling.                                                        |
 | `@projitect/test-kit`                    | In-memory `BlueprintFileSystem` for unit tests.                                                       |
 | `apps/website`                           | Astro Starlight marketing/docs site. Private, not published.                                          |
 

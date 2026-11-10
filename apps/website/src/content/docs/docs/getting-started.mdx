@@ -21,19 +21,19 @@ to a CI-protected `.gitignore` in about five minutes.
 
 <Steps>
 
-1. Run `npx pjt init` in your project root.
+1. Run `pnpm --package=@projitect/cli dlx pjt init` in your project root.
 
    ```bash
-   npx pjt init
+   pnpm --package=@projitect/cli dlx pjt init
    ```
 
-   This adds `projitect` and `effect` to your `devDependencies`, adds a `pjt` script to
+   This adds `@projitect/cli` and `effect` to your `devDependencies`, adds a `pjt` script to
    `package.json`, and creates a starter `.pjt.ts` at the project root.
 
 2. Open `.pjt.ts` and add the blueprints you want.
 
    ```ts
-   import { pjt } from "projitect/cli"
+   import { pjt } from "@projitect/cli"
    import { gitignores } from "@projitect/blueprint-gitignore"
 
    export default pjt({

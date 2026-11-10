@@ -1,5 +1,5 @@
 ---
-"projitect": patch
+"@projitect/cli": patch
 ---
 
 Migrate the lockstep package suite to `effect@4.0.0-rc.111`. Published peer dependencies now

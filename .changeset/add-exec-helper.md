@@ -1,5 +1,5 @@
 ---
-"projitect": minor
+"@projitect/cli": minor
 ---
 
 New `exec` helper in `@projitect/blueprint`. `exec({ id, version, check, fix })` declares a

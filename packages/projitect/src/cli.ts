@@ -18,7 +18,7 @@ const our = projitectBlueprint({
 /**
  * Configure projitect from your `.pjt.ts`. Same shape as `pjt` from `@projitect/cli-internals`,
  * but auto-prepends the projitect blueprint so projitect itself stays in sync inside the host
- * project (package.json `pjt` script + `projitect`/`effect` devDeps + `.pjt.ts` import region).
+ * project (package.json `pjt` script + `@projitect/cli`/`effect` devDeps + `.pjt.ts` import region).
  *
  * Users import this version, **not** the raw one. The prepended blueprint flows through the
  * standard planner / applier / lockfile pipeline like any other.

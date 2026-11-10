@@ -1,5 +1,5 @@
 ---
-"projitect": major
+"@projitect/cli": major
 ---
 
 The `@projitect/cli-internals` engine (`readLockfile`, `writeLockfile`, `diffPlan`, `applyPlan`,

@@ -8,7 +8,7 @@ A PR that changes a published package adds a hand-written `.changeset/<kebab-nam
 
 ## Lockstep versioning
 
-`.changeset/config.json` sets `fixed: [["projitect", "@projitect/*"]]`, so every published package shares one version whichever package an entry names. `apps/website` is private and listed under `ignore`.
+`.changeset/config.json` sets `fixed: [["@projitect/*"]]`, so every published package shares one version whichever package an entry names. `apps/website` is private and listed under `ignore`.
 
 ## Shipping a release
 
@@ -34,7 +34,7 @@ Release automation that posts comments may use `issues: write` only in the relea
 
 ### How a release maps to GitHub
 
-After a successful publish, [`scripts/comment-released.ts`](../scripts/comment-released.ts) comments "Shipped in projitect vX.Y.Z". The commits since the previous `projitect@*` tag give the PRs in the release; the issues those PRs close (`Fixes #…` or `Closes #…` in the PR) are included. A hidden `<!-- pjt-release:vX.Y.Z -->` marker makes re-runs skip anything already commented.
+After a successful publish, [`scripts/comment-released.ts`](../scripts/comment-released.ts) comments "Shipped in projitect vX.Y.Z". The commits since the previous `@projitect/cli@*` tag give the PRs in the release; the issues those PRs close (`Fixes #…` or `Closes #…` in the PR) are included. A hidden `<!-- pjt-release:vX.Y.Z -->` marker makes re-runs skip anything already commented.
 
 GitHub issues are a supported work channel alongside the optional Trello board. The `[kanban #…]` commit suffix is not required for work tracked as a GitHub issue; see the [Kanban overview](./kanban/overview.md) for the board.
 
@@ -66,7 +66,7 @@ The MIT copyright holder is Kapil Easwar (owner-confirmed): `LICENSE` reads "Cop
 
 ## Authentication
 
-Trusted publishing (OIDC from GitHub Actions) is the steady-state path. On 2026-11-10 the owner confirmed the `projitect` npm organization exists with no packages and approved a short-lived token for the first real GitHub workflow release. Public lookup of the unscoped `projitect` package returned E404; that alone does not prove name availability or account permissions.
+Trusted publishing (OIDC from GitHub Actions) is the steady-state path. Every published package is under `@projitect`, including the CLI package `@projitect/cli`; the command it installs remains `pjt`. The owner has confirmed that the npm organization exists with no packages and approved a short-lived token for the first real GitHub workflow release.
 
 [npm requires an existing package before configuring trust](https://docs.npmjs.com/cli/v11/commands/npm-trust/#prerequisites). Creating a placeholder or publishing locally to get past that requirement is not allowed. Instead, the release step temporarily reads the repository secret `PROJITECT_FIRST_RELEASE_NPM_TOKEN` as both `NPM_TOKEN` (Changesets) and `NODE_AUTH_TOKEN` (the registry configuration from setup-node). It is not supplied to dependency installation, the preceding build, release comments or PR CI. With the secret absent, the workflow retains its OIDC path; absence does not establish that npm trust is configured.
 
@@ -76,8 +76,8 @@ Only the owner performs account, token and trusted-publisher setup. The first re
 
 ### Before the first release
 
-1. Confirm the account can create public packages in `@projitect` and publish the unscoped `projitect` CLI. The organization page alone does not establish those permissions. Use the `name` fields of every non-private `packages/*/package.json` as the release inventory, not directory names.
-2. In npm **Access Tokens → Generate New Token**, create a granular token named `projitect-first-release`, expiring in one day. Under **Packages and scopes**, choose **Read and write (publish and stage)** and the smallest selection that covers the new `@projitect/*` packages and unscoped `projitect`. Do not silently broaden access to unrelated packages if the UI cannot select the unpublished CLI name; resolve that permission choice with the owner. **Organizations** access can remain **No access**: it manages teams/settings and does not grant package publishing. Enable **Bypass two-factor authentication** for unattended publishing; keep account 2FA enabled. See [npm's token settings](https://docs.npmjs.com/creating-and-viewing-access-tokens/).
+1. Confirm the account can create public packages in `@projitect`, including `@projitect/cli`. The organization page alone does not establish those permissions. Use the `name` fields of every non-private `packages/*/package.json` as the release inventory, not directory names.
+2. In npm **Access Tokens → Generate New Token**, create a granular token named `projitect-first-release`, expiring in one day. Under **Packages and scopes**, choose **Read and write (publish and stage)**, **Only select packages and scopes**, and select only the `@projitect` scope. The CLI belongs to this scope, so **All Packages** access is unnecessary. **Organizations** access can remain **No access**: it manages teams/settings and does not grant package publishing. Enable **Bypass two-factor authentication** for unattended publishing; keep account 2FA enabled. See [npm's token settings](https://docs.npmjs.com/creating-and-viewing-access-tokens/).
 3. Put the token directly into [repository Actions secrets](https://github.com/projitect/projitect/settings/secrets/actions/new), named `PROJITECT_FIRST_RELEASE_NPM_TOKEN`. Never paste it into chat, task documents, a command argument or a tracked file. Report only that the secret is installed and its expiration time.
 4. After exact-head checks and tarball checks pass, merge the version PR and watch the GitHub release workflow. This publishes the actual reviewed packages with provenance. A failed or partial run requires inspecting the registry per package before retrying; published versions cannot be overwritten. Never disable provenance to force a release through.
 
@@ -98,7 +98,7 @@ Before the owner merges the first release PR:
 
 ## Release confirmation
 
-A green version-PR job is not confirmation. The release is confirmed only when the public registry returns the released version for both `pnpm view projitect version` and `pnpm view @projitect/core version`.
+A green version-PR job is not confirmation. The release is confirmed only when the public registry returns the released version for both `pnpm view @projitect/cli version` and `pnpm view @projitect/core version`.
 
 ## Verifying release and website state without gh
 
@@ -113,7 +113,7 @@ Unauthenticated GitHub access is limited to 60 requests an hour per IP, so fetch
 
 ### Registry
 
-`pnpm view projitect version` and `pnpm view @projitect/core version` (see [Release confirmation](#release-confirmation)). Registry state, not a green workflow run, confirms a release. For provenance, query the exact version with `pnpm view projitect@<released-version> dist.attestations`; a missing package or version returns a registry error, while a missing attestations field supplies no provenance evidence. _Verified on 2026-11-10:_ both version commands returned `E404 ... is not in this registry`, so no public release was found. The provenance command was not run, as there was no published version to query.
+`pnpm view @projitect/cli version` and `pnpm view @projitect/core version` (see [Release confirmation](#release-confirmation)). Registry state, not a green workflow run, confirms a release. For provenance, query the exact version with `pnpm view @projitect/cli@<released-version> dist.attestations`; a missing package or version returns a registry error, while a missing attestations field supplies no provenance evidence. _Verified on 2026-11-10:_ both version commands returned `E404 ... is not in this registry`, so no public release was found. The provenance command was not run, as there was no published version to query.
 
 ### Website hosting and commit served
 
@@ -129,7 +129,7 @@ No mechanism reports which commit the site serves (there is no build stamp, and 
 
 The release or deploy agent runs this after the publish, in a throwaway git project outside the repo, with pnpm only (never `npx pjt`):
 
-1. `git init`, then `pnpm add -D projitect@<released version>` from the public registry.
+1. `git init`, then `pnpm add -D @projitect/cli@<released version>` from the public registry.
 2. `pnpm exec pjt init`, then add the markdown and skills blueprints and run `pnpm exec pjt remodel`.
 3. `pnpm exec pjt inspect` exits 0. Hand-edit a managed region: `pnpm exec pjt inspect` exits nonzero and reports the drift.
 4. Exercise upgrade, swap and remove where they apply, the way `./scripts/smoke.sh` does.

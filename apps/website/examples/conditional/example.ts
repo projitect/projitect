@@ -5,7 +5,7 @@
  * The simple-array form covers most cases; reach for the Effect form when you need to read FS
  * state or compose multiple blueprints conditionally.
  */
-import { pjt } from "projitect/cli"
+import { pjt } from "@projitect/cli"
 import { gitignores } from "@projitect/blueprint-gitignore"
 import { readPackageJson } from "@projitect/blueprint"
 import { Effect } from "effect"

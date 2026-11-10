@@ -1,5 +1,5 @@
 ---
-"projitect": minor
+"@projitect/cli": minor
 ---
 
 New `@projitect/blueprint-react` package. `react()` scaffolds a React + Vite + TypeScript app: it

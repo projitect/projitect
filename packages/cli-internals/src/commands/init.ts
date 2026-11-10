@@ -20,7 +20,7 @@ export interface InitResult {
  * Verifies the prerequisites (`.git/` and `package.json` both present), seeds an empty
  * `.pjt.ts` with the marker structure if absent, then delegates to `remodel` which runs the
  * standard plan/apply/lockfile-write pipeline. The projitect blueprint (prepended automatically
- * by `projitect/cli`'s `pjt()`) writes the package.json entries and the `.pjt.ts` import region
+ * by `@projitect/cli`'s `pjt()`) writes the package.json entries and the `.pjt.ts` import region
  * on its first apply.
  *
  * With `yes: true`, both prerequisites are auto-bootstrapped instead of erroring:
@@ -173,12 +173,12 @@ const seedBlueprintFileIfAbsent = (
 
 /**
  * Starter `.pjt.ts` template. Three marker regions: the projitect blueprint owns
- * `pjt:projitect:imports` (it writes the `import { pjt } from "projitect/cli"` line on first
+ * `pjt:projitect:imports` (it writes the `import { pjt } from "@projitect/cli"` line on first
  * remodel). The other two — `pjt:imports` and `pjt:blueprints` — are **convention anchors**
  * that `pjt add` splices into; they are not managed regions and don't appear in `.pjt.lock`.
  */
 const STARTER_PJT_TS = `// pjt:projitect:imports start
-import { pjt } from "projitect/cli"
+import { pjt } from "@projitect/cli"
 // pjt:projitect:imports end
 
 // pjt:imports start

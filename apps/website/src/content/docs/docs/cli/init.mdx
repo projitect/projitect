@@ -12,7 +12,7 @@ Bootstraps projitect in the current project. Internally:
 1. Verifies `.git/` exists. If not: with `--yes` runs `git init -q`; without, fails with `pjt.init.git-missing`.
 2. Verifies `package.json` exists. If not: with `--yes` writes a minimal stub; without, fails with `pjt.init.package-json-missing`.
 3. Seeds `.pjt.ts` with the marker structure if absent.
-4. Runs the standard plan/apply/lockfile pipeline. The **projitect blueprint** (auto-prepended by `projitect/cli`'s `pjt()`) writes `package.json` keys (`scripts.pjt`, `devDependencies.projitect`, `devDependencies.effect`) and the projitect import inside `.pjt.ts`'s `pjt:projitect:imports` region.
+4. Runs the standard plan/apply/lockfile pipeline. The **projitect blueprint** (auto-prepended by `@projitect/cli`'s `pjt()`) writes `package.json` keys (`scripts.pjt`, `devDependencies.@projitect/cli`, `devDependencies.effect`) and the projitect import inside `.pjt.ts`'s `pjt:projitect:imports` region.
 5. Writes `.pjt.lock` with the projitect blueprint's claims.
 
 After init you still need `pnpm install` (or your PM equivalent) to actually fetch the deps that were added.
@@ -36,7 +36,7 @@ Both are hard requirements without `--yes` — `pjt init` exits 1 with an error 
 
 ```ts
 // pjt:projitect:imports start
-import { pjt } from "projitect/cli"
+import { pjt } from "@projitect/cli"
 // pjt:projitect:imports end
 
 // pjt:imports start
@@ -58,7 +58,7 @@ The `pjt:imports` and `pjt:blueprints` markers are **convention anchors** — no
 
 ```bash
 mkdir my-project && cd my-project
-npx pjt init --yes
+pnpm --package=@projitect/cli dlx pjt init --yes
 ```
 
 That single command does the git+package.json+`.pjt.ts` bootstrap, then runs the projitect

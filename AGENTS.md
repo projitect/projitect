@@ -34,7 +34,7 @@ This is a **pnpm monorepo**. `packages/*` and `apps/*` are the workspaces:
 | `@projitect/blueprint-react`             | First-party blueprint: React + Vite + TypeScript app — composes tsconfig, gitignore and vitest.       |
 | `@projitect/blueprint-next`              | First-party blueprint: Next.js App Router + TypeScript app — composes tsconfig, gitignore and vitest. |
 | `@projitect/cli-internals`               | The engine — loader, planner, differ, applier, remover, commands, Node platform layer.                |
-| `projitect`                              | Ships the `pjt` binary and `.pjt.ts` handling.                                                        |
+| `@projitect/cli`                         | Ships the `pjt` binary and `.pjt.ts` handling.                                                        |
 | `@projitect/test-kit`                    | In-memory `BlueprintFileSystem` for unit tests.                                                       |
 | `apps/website`                           | Astro Starlight marketing/docs site. Private, not published.                                          |
 
@@ -202,7 +202,7 @@ new dep or architectural rule you first check whether a lint rule can enforce it
 - The `create-commit`, `verify-commit`, `push-pr` and `rebase-main` skills encode this section
 - A PR that changes a published package (see the package table under
   [What this repo is](#what-this-repo-is)) adds a hand-written `.changeset/<kebab-name>.md` —
-  frontmatter `"projitect": <bump>`; the `fixed` group in `.changeset/config.json` bumps every
+  frontmatter `"@projitect/cli": <bump>`; the `fixed` group in `.changeset/config.json` bumps every
   published package together regardless of which one the entry names. `pnpm changeset` walks
   you through it interactively; the existing files in `.changeset/` are worked examples.
 - When a card from the kanban workflow shipped: include `[kanban #<CARD_ID>]` in the commit
@@ -244,8 +244,8 @@ approval gate at every transition. If Trello isn't configured, skip the `/kanban
 
 ## Versioning (lockstep)
 
-All published packages (`projitect` and every `@projitect/*`) share one version, bumped together
-via changesets. Pick the bump type per this table — cite the rule when running `pnpm changeset`:
+All published packages (`@projitect/*`, including `@projitect/cli`) share one version, bumped
+together via changesets. Pick the bump type per this table — cite the rule when running `pnpm changeset`:
 
 | Change                                                                                                                                                                                                   | Bump      |
 | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
