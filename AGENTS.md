@@ -237,15 +237,11 @@ touch. The triggers, per-phase gates and CI checks are in [Marketing site](docs/
 
 ## Browser demo boundary
 
-A planned in-browser `pjt` demo on the website is judged against these rules; the full list is in
-[Browser demo boundary](docs/architecture.md#browser-demo-boundary-planned):
-
-- In-memory filesystem and bundled first-party blueprints only — no remote code execution, no Node
-  capabilities, no `node:*` imports in the browser bundle.
-- Only `core`, `blueprint`, `test-kit`, first-party blueprints and the plan/diff/lockfile subset of
-  `cli-internals` may be bundled.
-- `apps/website` stays Astro Starlight; no separate Vite app.
-- No numeric bundle-size budget yet; it is proposed from the measured demo bundle in the demo PR.
+A planned in-browser `pjt` demo on the website runs on an in-memory filesystem and bundled
+first-party blueprints only: no Node capabilities, no `node:*` in the browser bundle, and no
+isolation for untrusted `.pjt.ts` snippets without extra work. `apps/website` stays Astro Starlight.
+The bundle-size budget is set from the measured demo bundle in the demo PR. Rules, guard and
+locations: [Browser demo boundary](docs/architecture.md#browser-demo-boundary-planned).
 
 ## Kanban workflow
 
