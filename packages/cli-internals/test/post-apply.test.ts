@@ -382,8 +382,18 @@ describe("buildPlan with the exec helper", () => {
       }),
     )
     expect(plan.commands).toEqual([
-      { ownerId: "a", command: "fmt-a", permissions: [exec("fmt-a"), exec("fmt-a:check")] },
-      { ownerId: "b", command: "fmt-b", permissions: [exec("fmt-b"), exec("fmt-b:check")] },
+      {
+        ownerId: "a",
+        command: "fmt-a",
+        check: "fmt-a:check",
+        permissions: [exec("fmt-a"), exec("fmt-a:check")],
+      },
+      {
+        ownerId: "b",
+        command: "fmt-b",
+        check: "fmt-b:check",
+        permissions: [exec("fmt-b"), exec("fmt-b:check")],
+      },
     ])
   })
 

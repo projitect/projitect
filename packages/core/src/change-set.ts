@@ -61,7 +61,7 @@ export const ExecOp = Schema.TaggedStruct("Exec", {
   command: Schema.String,
   /**
    * The command that reports whether `command` still has work to do. Carried in the plan for
-   * `pjt inspect`; build and remodel run only `command`.
+   * `pjt inspect`; build and remodel run only `command`, never `check`.
    */
   check: Schema.optional(Schema.String),
 })

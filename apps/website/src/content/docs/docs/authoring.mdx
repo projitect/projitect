@@ -193,7 +193,9 @@ export default exec({
   blueprint order; a command several blueprints declare runs once. Exec operations are not
   recorded in the lockfile, so the fix runs on every remodel.
 - `check` is the command that reports whether the fix is needed. It is carried in the plan next to
-  the fix.
+  the fix as metadata: build and remodel never run it and it does not decide whether the fix runs.
+  `pjt inspect` currently reports `pjt.inspect.operation-unsupported` for a project with exec
+  operations; it does not run the check yet.
 - The permission is derived for you: `{ kind: "exec", command }` entries for the fix and
   the check, matched as exact strings. A command outside the declared set fails with
   `pjt.exec.command-not-permitted`. Add further permissions with `extraPermissions`.
