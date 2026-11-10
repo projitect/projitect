@@ -157,8 +157,9 @@ shares one version through changesets (see Versioning in [AGENTS.md](../AGENTS.m
 
 1. Versioned Markdown/AGENTS/README snippets and shareable agent skills.
 2. CLI onboarding for people and agents with the full upgrade, swap, remove and drift lifecycle.
-   The lifecycle commands (`add`, `remodel`, `inspect`, remove and swap) already ship in main and
-   are exercised by `scripts/smoke.sh` (task tk-53de0340 is the implemented proof). The website
+   `add`, `remodel` and `inspect` already ship in main. Removing or swapping blueprints means
+   editing the blueprint list and running `remodel`; `scripts/smoke.sh` exercises these operations
+   (task tk-53de0340 is the implemented proof). The website
    roadmap still lists the onboarding outcome as planned and in progress; that remaining work is
    the roadmap's, not a claim that the lifecycle is unbuilt.
 3. React, Next, the wider catalog and lint/format blueprints.
@@ -179,6 +180,10 @@ sections are `package-manager`, `verification`, `commits` and `no-destructive-sh
 `version` and `content` overrides; the version defaults to the package manifest version. An upgrade
 changes the version and usually the content, never the owner id.
 
+The CLI's section selectors use the exported factory names: `agentsPackageManager`,
+`agentsVerification`, `agentsCommits`, `agentsNoDestructiveShortcuts`, `readmeContributing` and
+`readmeLicense`.
+
 `pjt add` with `--section a,b` adds exactly those sections. With no flag on a terminal it prompts.
 With no flag and no terminal it adds every section (see `docs/cli/add.mdx` on the website).
 
@@ -197,10 +202,12 @@ agent and no agent-specific adapters exist. This guide claims no universal agent
 
 ### Lifecycle
 
-Managed regions are rewritten on `remodel` when the version changes, flagged by `inspect` when
-hand-edited, and removed (or orphan-removed) with the lockfile. Skill files are rewritten on
-upgrade, and files a newer version stops shipping are removed as orphans. Removing a skill prunes
-only that skill's own tree, never the target root or sibling skills.
+`remodel` applies changed desired content and records installed blueprint versions in the lockfile.
+`inspect` reports version upgrades and flags managed content that differs from the desired files.
+A version-only upgrade with identical desired content can report an upgrade while exiting cleanly;
+it need not rewrite file bytes. Removing a blueprint removes its managed regions and owned files
+through the lockfile. Files a newer skill version stops shipping are removed as orphans. Removing
+a skill prunes only that skill's own tree, never the target root or sibling skills.
 
 ### Planned adapters
 
