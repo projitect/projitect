@@ -56,9 +56,19 @@ jsonMerge({
 })
 ```
 
-Each blueprint declares **which dotted-path keys it owns**. Two blueprints claiming the same
-key (e.g. both want to own `scripts.dev`) is a `pjt.plan.conflict-merge` error at plan time —
-the human resolves it by removing one or renaming the script.
+Each blueprint declares **which dotted-path keys it owns** — leaves such as `scripts.dev` or
+`devDependencies.husky`, never a whole parent like `scripts`. One blueprint owns each key: two
+blueprints claiming the same key (e.g. both want `scripts.prepare`) is a
+`pjt.plan.conflict-merge` error at plan time, and the human resolves it by removing the key from
+one of them. Blueprints never compose a shared script value. Different keys under the same
+parent coexist.
+
+Keys you add yourself are kept: `pjt build` and `pjt remodel` merge the blueprint value into your
+file and leave every other key alone, and removing a blueprint deletes only the keys it owned.
+`pjt inspect` reports `~ modify package.json (JSON merge)` when an owned key no longer matches,
+and `pjt remodel` rewrites it to the blueprint value. A key you set that a blueprint also owns
+takes the blueprint's value, so leave such keys to the blueprint. A `package.json` that does not
+parse is reported as unparseable JSON, and remodel rewrites it from the blueprint's keys alone.
 
 ## owned — single blueprint owns the whole file
 
