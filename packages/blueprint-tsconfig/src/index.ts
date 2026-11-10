@@ -66,6 +66,26 @@ export interface TsconfigOptions {
    * `references` key.
    */
   readonly references?: readonly string[]
+  /**
+   * Type-check only. Defaults to `false`. When `true` the config emits `noEmit: true` and leaves
+   * out the emit settings (`rootDir`, `outDir`, `declaration`, `declarationMap`, `sourceMap`),
+   * for projects whose bundler or framework does the emitting.
+   */
+  readonly noEmit?: boolean
+  /** Emit `allowJs: true`. Defaults to `false` (no `allowJs` field). */
+  readonly allowJs?: boolean
+  /** Emit `incremental: true`. Defaults to `false` (no `incremental` field). */
+  readonly incremental?: boolean
+  /**
+   * TypeScript language service plugin names, emitted as `compilerOptions.plugins: [{ name }]` in
+   * the given order. Omitted or empty emits no `plugins` key.
+   */
+  readonly plugins?: readonly string[]
+  /**
+   * Extra `include` entries, appended after the glob derived from `rootDir` and kept exactly as
+   * written (e.g. generated type directories).
+   */
+  readonly include?: readonly string[]
 }
 
 /**
@@ -91,6 +111,8 @@ const renderTsconfig = (options: TsconfigOptions): string => {
   const outDir = options.outDir ?? "./dist"
   const jsx = options.jsx ?? null
   const references = options.references ?? []
+  const noEmit = options.noEmit ?? false
+  const plugins = options.plugins ?? []
 
   const config: Record<string, unknown> = {
     compilerOptions: {
@@ -99,8 +121,12 @@ const renderTsconfig = (options: TsconfigOptions): string => {
       moduleResolution: moduleResolutionFor(module_),
       lib,
       ...(jsx !== null && { jsx }),
-      rootDir,
-      outDir,
+      ...(noEmit ? { noEmit } : { rootDir, outDir }),
+      ...(options.allowJs === true && { allowJs: true }),
+      ...(options.incremental === true && { incremental: true }),
+      ...(Array.isReadonlyArrayNonEmpty(plugins) && {
+        plugins: plugins.map((name) => ({ name })),
+      }),
       // Always-on hygiene flags. These don't toggle with `strict` — they're the table stakes
       // every modern TS project should have.
       esModuleInterop: true,
@@ -108,9 +134,7 @@ const renderTsconfig = (options: TsconfigOptions): string => {
       skipLibCheck: true,
       isolatedModules: true,
       resolveJsonModule: true,
-      declaration: true,
-      declarationMap: true,
-      sourceMap: true,
+      ...(!noEmit && { declaration: true, declarationMap: true, sourceMap: true }),
       ...(strict && {
         strict: true,
         noImplicitOverride: true,
@@ -120,8 +144,8 @@ const renderTsconfig = (options: TsconfigOptions): string => {
         exactOptionalPropertyTypes: true,
       }),
     },
-    include: [`${stripDot(rootDir)}/**/*`],
-    exclude: ["node_modules", stripDot(outDir)],
+    include: [`${stripDot(rootDir)}/**/*`, ...(options.include ?? [])],
+    exclude: noEmit ? ["node_modules"] : ["node_modules", stripDot(outDir)],
     ...(Array.isReadonlyArrayNonEmpty(references) && {
       references: references.map((path) => ({ path })),
     }),

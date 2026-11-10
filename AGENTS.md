@@ -31,6 +31,7 @@ This is a **pnpm monorepo**. `packages/*` and `apps/*` are the workspaces:
 | `@projitect/blueprint-markdown`          | First-party blueprint: composable `AGENTS.md` / `README.md` snippets.                                 |
 | `@projitect/blueprint-skills`            | First-party blueprint: versioned agent skills installed into a skills directory.                      |
 | `@projitect/blueprint-react`             | First-party blueprint: React + Vite + TypeScript app — composes tsconfig, gitignore and vitest.       |
+| `@projitect/blueprint-next`              | First-party blueprint: Next.js App Router + TypeScript app — composes tsconfig, gitignore and vitest. |
 | `@projitect/cli-internals`               | The engine — loader, planner, differ, applier, remover, commands, Node platform layer.                |
 | `projitect`                              | Ships the `pjt` binary and `.pjt.ts` handling.                                                        |
 | `@projitect/test-kit`                    | In-memory `BlueprintFileSystem` for unit tests.                                                       |

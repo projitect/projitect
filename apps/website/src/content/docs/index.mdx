@@ -67,7 +67,8 @@ export default pjt({
 
 That's the **whole spec**. For a React app, `react()` replaces `tsconfig()`, `vitest()` and
 `gitignores.node()`: it composes them with Vite, React and TypeScript, owns the config, and seeds
-starter source you keep. See the [react-setup example](/examples/react-setup/).
+starter source you keep. See the [react-setup example](/examples/react-setup/). For a Next.js App
+Router app, `next()` does the same; see the [next-setup example](/examples/next-setup/).
 
 Three commands act on it:
 
@@ -168,10 +169,10 @@ Exit code: `1`. PR fails. Run `pjt remodel` to fix.
 ## Status
 
 **v0** ships all four ownership modes (region, merge, owned, seed), the `gitignore`, `tsconfig`,
-`vitest`, `changesets` and `react` blueprints, plus `pjt init`, `pjt remodel`, `pjt inspect`, and
+`vitest`, `changesets`, `react` and `next` blueprints, plus `pjt init`, `pjt remodel`, `pjt inspect`, and
 `pjt explain`. Effect v4 RC under the hood.
 
-Framework blueprints (`next`, `eslint`), exec and post-apply operations, the
+The `eslint` blueprint, exec and post-apply operations, the
 worker-process sandbox, and the interactive in-browser demo are on the [roadmap](/docs/roadmap/).
 
 Ready? **[Get started →](/docs/getting-started/)**

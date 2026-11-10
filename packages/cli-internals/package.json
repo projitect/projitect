@@ -35,6 +35,7 @@
   "devDependencies": {
     "@projitect/blueprint": "workspace:*",
     "@projitect/blueprint-markdown": "workspace:*",
+    "@projitect/blueprint-next": "workspace:*",
     "@projitect/blueprint-react": "workspace:*",
     "@projitect/core": "workspace:*",
     "@projitect/test-kit": "workspace:*",
