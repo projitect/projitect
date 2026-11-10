@@ -2,6 +2,8 @@
 
 How changes reach npm. The index is [AGENTS.md](../AGENTS.md); see also [getting started](./getting-started.md) and [architecture](./architecture.md).
 
+All 14 public `@projitect/*` packages are available at **1.0.1**. The [release confirmation](#release-confirmation) records the evidence. The first workflow release is complete; per-package Trusted Publishing setup, temporary-token cleanup and a genuine token-free release remain unverified.
+
 ## Changesets
 
 A PR that changes a published package adds a hand-written `.changeset/<kebab-name>.md`; `pnpm changeset` walks you through it. Pick the bump with the table in [Versioning (lockstep)](../AGENTS.md#versioning-lockstep). Docs-only and website-only PRs need none.
@@ -17,9 +19,9 @@ A PR that changes a published package adds a hand-written `.changeset/<kebab-nam
 1. `changesets/action` looks for `.changeset/*.md` files and opens or updates a `chore(release): version packages` PR that applies them with `pnpm version-packages`.
 2. Merging that PR runs the workflow again, which runs `pnpm release` (`pnpm build`, then `changeset publish`), publishing every package in the `fixed` group with npm provenance (`NPM_CONFIG_PROVENANCE=true`).
 
-Only the release job runs on Node 24 with `npm@^11.5.1`, because npm trusted publishing needs npm >= 11.5.1 and Node >= 22.14.0. `.nvmrc` and `engines.node` (`>=22.12.0`) are unchanged. The job keeps `id-token: write` for OIDC and provenance. The owner-approved first-release exception below supplies a temporary token through an Actions secret; credential values never belong in source.
+The release job uses Node 24 with `npm@^11.5.1`, because npm trusted publishing needs npm >= 11.5.1 and Node >= 22.14.0. `.nvmrc` and `engines.node` (`>=22.12.0`) are unchanged. The job keeps `id-token: write` for OIDC and provenance. The completed first release used the owner-approved temporary token. The workflow still has that fallback until the coordinated cleanup below; its presence is not proof of working OIDC. Credential values never belong in source.
 
-Agents never publish directly: there is no interactive `changeset publish` step to run by hand, only the changeset file that feeds the gated workflow above. The `release-bump` skill in `.claude/skills/release-bump/` walks through cutting a release.
+Authorized maintainers or agents may merge a reviewed version PR after its release gates pass. Publication runs only through the GitHub workflow: never run `changeset publish` locally. The `release-bump` skill in `.claude/skills/release-bump/` walks through cutting a release.
 
 ### Release job permissions
 
@@ -66,46 +68,53 @@ The MIT copyright holder is Kapil Easwar (owner-confirmed): `LICENSE` reads "Cop
 
 ## Authentication
 
-Trusted publishing (OIDC from GitHub Actions) is the steady-state path. Every published package is under `@projitect`, including the CLI package `@projitect/cli`; the command it installs remains `pjt`. The owner has confirmed that the npm organization exists with no packages and approved a short-lived token for the first real GitHub workflow release.
+Trusted publishing (OIDC from GitHub Actions) is the steady-state path. Every package in the completed 1.0.1 release is under `@projitect`, including `@projitect/cli`; its binary remains `pjt`. The owner installed the approved temporary repository secret `PROJITECT_FIRST_RELEASE_NPM_TOKEN` directly in GitHub Actions. Its value was never read or printed by the verification agent.
 
-[npm requires an existing package before configuring trust](https://docs.npmjs.com/cli/v11/commands/npm-trust/#prerequisites). Creating a placeholder or publishing locally to get past that requirement is not allowed. Instead, the release step temporarily reads the repository secret `PROJITECT_FIRST_RELEASE_NPM_TOKEN` as both `NPM_TOKEN` (Changesets) and `NODE_AUTH_TOKEN` (the registry configuration from setup-node). It is not supplied to dependency installation, the preceding build, release comments or PR CI. With the secret absent, the workflow retains its OIDC path; absence does not establish that npm trust is configured.
+[npm requires an existing package before configuring trust](https://docs.npmjs.com/cli/v11/commands/npm-trust/#prerequisites). The actual workflow release created the package records; no placeholder or local publication was needed. The remaining token fallback supplies `NPM_TOKEN` and `NODE_AUTH_TOKEN` only to the Changesets release step, not dependency installation, the preceding build, release comments or PR CI. Do not reuse this first-release exception as routine authentication. An absent secret or a successful provenance payload does not establish working OIDC.
 
 ## Owner-only setup checklist
 
-Only the owner performs account, token and trusted-publisher setup. The first real publish creates the package records; OIDC configuration follows it.
+Account settings, trusted-publisher setup and credential revocation stay with the owner. The completed temporary-token release does not complete these steps.
 
-### Before the first release
+1. Derive the next release inventory from the `name` fields of non-private `packages/*/package.json` files. The 1.0.1 inventory has 14 packages, including `@projitect/cli-internals`. Omit that package from future setup only after the planned private-engine packaging change actually lands and it is excluded from publication; its existing 1.0.1 remains available.
+2. For each package in that inventory, open its npm package **Settings → Trusted publishing**, choose **GitHub Actions**, and use these values:
 
-1. Confirm the account can create public packages in `@projitect`, including `@projitect/cli`. The organization page alone does not establish those permissions. Use the `name` fields of every non-private `packages/*/package.json` as the release inventory, not directory names.
-2. In npm **Access Tokens → Generate New Token**, create a granular token named `projitect-first-release`, expiring in one day. Under **Packages and scopes**, choose **Read and write (publish and stage)**, **Only select packages and scopes**, and select only the `@projitect` scope. The CLI belongs to this scope, so **All Packages** access is unnecessary. **Organizations** access can remain **No access**: it manages teams/settings and does not grant package publishing. Enable **Bypass two-factor authentication** for unattended publishing; keep account 2FA enabled. See [npm's token settings](https://docs.npmjs.com/creating-and-viewing-access-tokens/).
-3. Put the token directly into [repository Actions secrets](https://github.com/projitect/projitect/settings/secrets/actions/new), named `PROJITECT_FIRST_RELEASE_NPM_TOKEN`. Never paste it into chat, task documents, a command argument or a tracked file. Report only that the secret is installed and its expiration time.
-4. After exact-head checks and tarball checks pass, merge the version PR and watch the GitHub release workflow. This publishes the actual reviewed packages with provenance. A failed or partial run requires inspecting the registry per package before retrying; published versions cannot be overwritten. Never disable provenance to force a release through.
+   | Field                | Value                                                                                  |
+   | -------------------- | -------------------------------------------------------------------------------------- |
+   | Organization or user | `projitect`                                                                            |
+   | Repository           | `projitect`                                                                            |
+   | Workflow filename    | `release.yml` (filename only)                                                          |
+   | Environment name     | Leave blank; the release job declares no GitHub Environment                            |
+   | Direct publishing    | Explicitly allow `npm publish`; stage-only permission does not authorize this workflow |
 
-### After the first release
+   [npm currently requires the first successful publish within 2 days of creating a trust configuration](https://docs.npmjs.com/trusted-publishers/#trusted-publisher-configuration-expiry). Coordinate setup with the next genuine release; recreate an expired configuration rather than publishing a dummy version. Saving settings alone does not prove OIDC works.
 
-1. Verify every package's exact released version and provenance, then the public-registry journey below.
-2. For each real package, configure a GitHub Actions trusted publisher: owner `projitect`, repository `projitect`, workflow `release.yml`. Explicitly allow **direct publishing** for this workflow: new configurations default to stage-only, which does not authorize `changeset publish`. See [npm trusted publishing](https://docs.npmjs.com/trusted-publishers/). Configure trust promptly before the next release; a saved configuration is not proof of working OIDC.
-3. Remove both temporary token environment entries from `release.yml`, delete the Actions secret and revoke the npm token. Keep `id-token: write` and provenance. Do not retain a fallback credential for future releases.
-4. Verify the next genuine release uses OIDC and succeeds for every package; do not publish a dummy version to test it. If it fails, repair trust rather than reintroducing a token without owner approval.
+3. Before the next genuine OIDC release, coordinate one cleanup: remove both temporary token environment entries from `release.yml`, delete `PROJITECT_FIRST_RELEASE_NPM_TOKEN` from [repository Actions secrets](https://github.com/projitect/projitect/settings/secrets/actions), and have the owner revoke the npm token. Keep `id-token: write` and provenance enabled. Do not retain a publishing-token fallback.
+4. Verify that the subsequent real release uses OIDC and reaches every intended package. If authentication fails, inspect the per-package registry state and repair trust; do not silently recreate a token. The workflow publication and its public artifacts must pass the checks below.
+
+An agent environment needs public registry and GitHub read access to verify releases. It needs no npm publishing credential. No account mutation or credential cleanup is implied by a read-only verification task.
 
 ## Preflight
 
-Before the owner merges the first release PR:
+Before merging a version PR for another release:
 
-1. The owner has confirmed package permissions and installed an unexpired Actions secret covering every published package (steps 1–3 above). Later releases require configured OIDC trust instead of the temporary token.
-2. `pnpm build` then `./scripts/check-packs.sh` pass (every tarball has `dist/` and a LICENSE matching the root one, one shared version, correct `repository`). CI runs this in `publish-dry-run`.
-3. On the first release, watch the release job: `npm --version` must log >= 11.5.1, and the publish step must not fail with an auth error (E401/E403/E404).
-4. Open advisories are triaged per [Security advisories](#security-advisories); any accepted material risk has the owner's sign-off.
+1. Review its exact final head, all pending changesets and the resulting shared version, including any major changes. Verify every required current-head CI check and the local gate; an older head or a guessed minor bump is insufficient.
+2. Confirm owner setup for every package that will actually publish and coordinate the temporary-token cleanup above. Steady-state OIDC setup and successful token-free publishing are still unverified; do not infer readiness from the completed first release.
+3. Run `pnpm build` then `./scripts/check-packs.sh`: every tarball must include `dist/`, the root LICENSE, the shared version and canonical repository. Keep the workflow runtime and provenance checks enabled.
+4. Triage open advisories per [Security advisories](#security-advisories); accepting a material risk requires the owner’s sign-off.
+5. After merge, watch the actual publish workflow and verify all public artifacts. A successful run that only updates the version PR is not a publish.
 
 ## Release confirmation
 
-A green version-PR job is not confirmation. The release is confirmed only when the public registry returns the released version for both `pnpm view @projitect/cli version` and `pnpm view @projitect/core version`.
+A merge or a green version-PR job is not release confirmation. Confirm the exact released version for **every package in the public inventory**, then its tarball integrity, license, built files, repository and provenance. `pnpm view @projitect/cli version` and `pnpm view @projitect/core version` are useful initial probes; exact-version queries for all packages establish the complete result.
+
+**Verified 1.0.1 (2026-11-10):** [PR #103](https://github.com/projitect/projitect/pull/103) merged as `090ac4325c00c10cab821d51c045483abbaae16c`, and [release workflow 42895755432](https://github.com/projitect/projitect/actions/runs/42895755432) succeeded. All 14 packages were available at 1.0.1. Downloaded tarballs matched their SHA-512 digests, included built `dist/` and the root MIT LICENSE attributed to Kapil Easwar, and named `github.com/projitect/projitect`. All 14 provenance payload subjects matched the tarball digests and bound `release.yml`, that exact commit and run. This verifies payload binding; it does not claim independent cryptographic signature validation. The clean consumer journey is recorded below.
 
 ### Recovering a partial release
 
 Inspect the actual registry inventory before retrying a failed workflow. A successful publish is immutable; never unpublish it or attempt to overwrite the version as a recovery shortcut. Check every package, its exact version, tarball integrity and provenance, rather than inferring registry state from the job's exit code.
 
-An absent installable version does not mean its number is available. On 2026-11-10, the first `1.0.0` workflow reported thirteen successful publishes and rejected `@projitect/cli@1.0.0` because that version had been published in 2019 and unpublished in 2021. The full public registry document at `https://registry.npmjs.org/@projitect%2fcli` retained those timestamps under `time`, including `time.unpublished`, while the version lookup returned E404. npm permanently reserves unpublished version numbers. This attempt did not complete the release.
+An absent installable version does not mean its number is available. On 2026-11-10, the first `1.0.0` workflow reported thirteen successful publishes and rejected `@projitect/cli@1.0.0` because that version had been published in 2019 and unpublished in 2021. The full public registry document at `https://registry.npmjs.org/@projitect%2fcli` retained those timestamps under `time`, including `time.unpublished`, while the version lookup returned E404. npm permanently reserves unpublished version numbers. This attempt did not complete the release. Recovery [PR #102](https://github.com/projitect/projitect/pull/102) and the onboarding fix in [PR #104](https://github.com/projitect/projitect/pull/104) are included in the completed 1.0.1 release.
 
 For a retired version, add a patch changeset and let the ordinary version PR advance every public package together. Before merging it, inspect the registry's `versions` and `time` records for every package to confirm the proposed number is neither published nor retired. Keep the same exact-head checks and workflow-only publication. For a transient failure involving an available version, retry only after inspecting which packages were actually published; do not blindly rerun a partial publish.
 
