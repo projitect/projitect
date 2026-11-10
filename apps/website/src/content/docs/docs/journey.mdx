@@ -20,7 +20,7 @@ pjt remodel                                   # writes the managed files
 pjt inspect                                   # exit 0: in sync
 ```
 
-`pjt add` works for any package that carries `projitect` metadata, such as a Markdown snippet
+`pjt add` works for any package that carries `projitect` metadata (pin a version with `name@1.0.1`), such as a Markdown snippet
 package or a package built on `@projitect/blueprint-skills`. A package without that metadata fails
 with [`pjt.add.metadata-missing`](/errors/pjt.add.metadata-missing/), stays installed, and the
 message tells you to import it in `.pjt.ts` by hand and run `pjt remodel`.

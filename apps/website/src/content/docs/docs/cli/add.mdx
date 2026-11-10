@@ -4,15 +4,27 @@ description: Install a blueprint package and splice it into .pjt.ts.
 ---
 
 ```bash
-pjt add <package> [--section macOs,node,...]
+pjt add <package>[@<version | range | tag>] [--section macOs,node,...]
 ```
 
 Installs a blueprint package via your detected package manager and splices the corresponding import + call lines into `.pjt.ts` using the convention markers `// pjt:imports` and `// pjt:blueprints`.
 
+## Package specs
+
+`<package>` is a registry package name (`name` or `@scope/name`), optionally followed by a version, range or dist-tag. The package manager receives your spec unchanged; the metadata is read from the bare package name.
+
+```bash
+pjt add @projitect/blueprint-markdown@1.0.1 --section agentsVerification
+pjt add @projitect/blueprint-gitignore@^1
+pjt add @projitect/blueprint-tsconfig@latest
+```
+
+These forms are rejected before anything is installed, with [`pjt.add.spec-unsupported`](/errors/pjt.add.spec-unsupported/): npm aliases (`npm:real@1`, `alias@npm:real@1`), URLs, tarballs, `file:`, git and GitHub shorthand specs, `workspace:` and `link:` specs, and names with `..`, absolute paths, backslashes or empty segments. For those, install the package with your package manager, import it in `.pjt.ts` yourself and run `pjt remodel`.
+
 ## What happens
 
 1. **Detect PM.** Walks for `pnpm-lock.yaml` → pnpm, `bun.lockb` → bun, `yarn.lock` → yarn, `package-lock.json` → npm. Falls back to npm.
-2. **Install.** Shells out the PM's equivalent of `add -D <package>`. The output is forwarded to your terminal.
+2. **Install.** Shells out the PM's equivalent of `add -D <package>` with your full spec. The output is forwarded to your terminal.
 3. **Read package metadata.** Looks for a `"projitect"` field in the installed package's `package.json` (see [Authoring](/docs/authoring/) for the convention).
 4. **Splice.** Inserts the import line between `// pjt:imports start/end` (deduped). For blueprint-set packages, inserts one call per section between `// pjt:blueprints start/end`. For single blueprints, inserts one call.
 5. **Done.** Prints a summary. Run `pjt remodel` to actually apply the new blueprint to disk.
@@ -57,10 +69,10 @@ The blueprint-set's `"callTemplate"` (e.g. `gitignores.{section}()`) is filled i
 
 ## Exit codes
 
-| Code | Meaning                                                                                                                   |
-| ---- | ------------------------------------------------------------------------------------------------------------------------- |
-| 0    | The package was installed and spliced, or the picker selected nothing and `.pjt.ts` is unchanged.                         |
-| 1    | An error id was printed: install failed, markers missing, or no `projitect` metadata. The message names the next command. |
+| Code | Meaning                                                                                                                                     |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0    | The package was installed and spliced, or the picker selected nothing and `.pjt.ts` is unchanged.                                           |
+| 1    | An error id was printed: install failed, unsupported spec, markers missing, or no `projitect` metadata. The message names the next command. |
 
 ## Recipe: noninteractive (scripts and agents)
 

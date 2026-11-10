@@ -552,8 +552,8 @@ unmanaged() { awk '/^<!-- pjt:markdown:.* start -->$/{skip=1} !skip{print} /^<!-
 
 # Install through the public CLI: `pjt add` shells out the package manager, reads the installed
 # package's "projitect" metadata and splices the chosen sections into .pjt.ts.
-$BIN add @projitect/blueprint-markdown --section agentsVerification,agentsCommits,readmeLicense > /dev/null 2>&1
-grep -q '"version": "1.0.0"' node_modules/@projitect/blueprint-markdown/package.json && pass "pjt add installed 1.0.0 from the registry" || fail "pjt add did not install 1.0.0"
+$BIN add @projitect/blueprint-markdown@1.0.0 --section agentsVerification,agentsCommits,readmeLicense > /dev/null 2>&1
+grep -q '"version": "1.0.0"' node_modules/@projitect/blueprint-markdown/package.json && pass "pjt add with a versioned spec installed 1.0.0 from the registry" || fail "pjt add did not install 1.0.0"
 grep -q "markdownSnippets.agentsCommits()" .pjt.ts && pass "pjt add spliced the chosen sections into .pjt.ts" || fail "pjt add did not splice .pjt.ts"
 $BIN remodel > /dev/null
 $BIN inspect > /dev/null 2>&1 && pass "clean after remodel of the installed package" || fail "drift after first remodel"
@@ -662,6 +662,19 @@ NOMETA_OUT=$($BIN add @acme/plain < /dev/null 2>&1)
 NOMETA_EXIT=$?
 [ "$NOMETA_EXIT" -ne 0 ] && pass "add of a package without metadata exits nonzero" || fail "add without metadata exited 0"
 echo "$NOMETA_OUT" | grep -q "pjt.add.metadata-missing" && echo "$NOMETA_OUT" | grep -q 'pjt remodel' && pass "metadata error names its id and the next command" || fail "metadata error lacks id or next command"
+
+# A versioned spec without metadata names the bare package, not the raw spec.
+NOMETA_V_OUT=$($BIN add @acme/plain@latest < /dev/null 2>&1)
+NOMETA_V_EXIT=$?
+[ "$NOMETA_V_EXIT" -ne 0 ] && echo "$NOMETA_V_OUT" | grep -q "pjt.add.metadata-missing" && echo "$NOMETA_V_OUT" | grep -q "@acme/plain was installed" && ! echo "$NOMETA_V_OUT" | grep -q "@acme/plain@latest was installed" && pass "versioned add without metadata names the bare package" || fail "versioned metadata error wrong: $NOMETA_V_OUT"
+
+# Unsupported and unsafe specs are rejected before the package manager runs.
+for SPEC in ../x npm:@acme/plain@1 alias@npm:@acme/plain@1 https://example.com/x.tgz file:../x github:user/repo workspace:*; do
+  REJECT_OUT=$($BIN add "$SPEC" < /dev/null 2>&1)
+  REJECT_EXIT=$?
+  [ "$REJECT_EXIT" -ne 0 ] && echo "$REJECT_OUT" | grep -q "pjt.add.spec-unsupported" && pass "add $SPEC is rejected with pjt.add.spec-unsupported" || fail "add $SPEC was not rejected: $REJECT_OUT"
+done
+[ ! -e node_modules/alias ] && pass "rejected specs installed nothing" || fail "a rejected spec was installed"
 
 
 echo "=== 5e. first-party blueprints report their installed version: two-version packed install ==="
