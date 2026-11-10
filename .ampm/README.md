@@ -25,7 +25,7 @@ profile is defined upstream on that page. This file defines only the `default` p
 | `checks[].provides`          | What a passing check proves: `{ "kind": "tool", "name": "pnpm" }`. Tasks are told which tools the environment provides.                  |
 | image reference              | This file sets none; the image is built from the Dockerfile. The field for using a prebuilt image is documented upstream.                |
 
-Worked example, copied from this repo's file:
+Excerpt from this repo's file showing the pnpm check; the full file also checks node, curl and python3:
 
 ```json
 {
@@ -60,9 +60,11 @@ Worked example, copied from this repo's file:
 
 The image installs pnpm globally at the root `package.json` `packageManager` pin, and the final
 `RUN` proves it works offline for the non-root user. The drift test
-`packages/cli-internals/test/ampm-ci-evidence.test.ts` fails when the pins fall out of step. Bump
-these together: the Dockerfile `node:` tag and `pnpm@` version, the `pnpm` check in
-`environment.json`, the root `packageManager`, and `.nvmrc`.
+`packages/cli-internals/test/ampm-ci-evidence.test.ts` fails when the pins fall out of step. A pnpm
+upgrade updates the Dockerfile's `pnpm@` version, the pnpm check in `environment.json`, and the root
+`packageManager` together. A Node upgrade updates the Dockerfile's `node:` tag and `.nvmrc`
+together, following the Node-floor discussion rule in `AGENTS.md`. Changing one tool does not
+require upgrading the other.
 
 The nvm and corepack ladder in the Package manager section of `AGENTS.md` is the fallback for
 environments that are not this image.
@@ -75,13 +77,16 @@ write. Use one of the supported routes: the image-shipped pnpm, or
 
 ## Checking an image change without Docker
 
-Agent sandboxes have no Docker; building the image needs Docker on a human's machine.
+When Docker is unavailable, perform these source-level contract checks:
 
 1. Run `pnpm test packages/cli-internals/test/ampm-ci-evidence.test.ts`.
 2. Read the Dockerfile and the check `argv` against the pins (`packageManager`, `.nvmrc`).
 
-Passing both makes the image **locally tested**, which is not the same as the human-approved
-**active** image. Activating a new environment is a human-only step; agents never do it.
+Passing both checks source consistency; it does not prove the Dockerfile builds or the tools run
+offline as the non-root user. With Docker available, build the exact Dockerfile and context and run
+its declared checks, recording the source digest and resulting image. A successfully built and
+tested image is still distinct from the human-approved **active** image. Activating a new
+environment is a human-only step; agents never do it.
 
 ## ci-evidence.json
 
