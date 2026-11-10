@@ -64,6 +64,7 @@
     "@projitect/blueprint-gitignore": "workspace:*",
     "@projitect/blueprint-husky-lint-staged": "workspace:*",
     "@projitect/blueprint-markdown": "workspace:*",
+    "@projitect/blueprint-next": "workspace:*",
     "@projitect/blueprint-react": "workspace:*",
     "@projitect/blueprint-skills": "workspace:*",
     "@projitect/blueprint-tsconfig": "workspace:*",
@@ -82,6 +83,9 @@
       "optional": true
     },
     "@projitect/blueprint-markdown": {
+      "optional": true
+    },
+    "@projitect/blueprint-next": {
       "optional": true
     },
     "@projitect/blueprint-react": {

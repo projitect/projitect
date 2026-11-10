@@ -4,6 +4,7 @@ import * as Changesets from "@projitect/blueprint-changesets"
 import * as Gitignore from "@projitect/blueprint-gitignore"
 import * as HuskyLintStaged from "@projitect/blueprint-husky-lint-staged"
 import * as Markdown from "@projitect/blueprint-markdown"
+import * as Next from "@projitect/blueprint-next"
 import * as React from "@projitect/blueprint-react"
 import * as Skills from "@projitect/blueprint-skills"
 import * as Tsconfig from "@projitect/blueprint-tsconfig"
@@ -28,6 +29,7 @@ export const firstPartyRegistry: ModuleRegistry = {
   "@projitect/blueprint-gitignore": Gitignore,
   "@projitect/blueprint-husky-lint-staged": HuskyLintStaged,
   "@projitect/blueprint-markdown": Markdown,
+  "@projitect/blueprint-next": Next,
   "@projitect/blueprint-react": React,
   "@projitect/blueprint-skills": Skills,
   "@projitect/blueprint-tsconfig": Tsconfig,

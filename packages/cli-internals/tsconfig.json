@@ -15,6 +15,7 @@
     { "path": "../blueprint-gitignore" },
     { "path": "../blueprint-husky-lint-staged" },
     { "path": "../blueprint-markdown" },
+    { "path": "../blueprint-next" },
     { "path": "../blueprint-react" },
     { "path": "../blueprint-skills" },
     { "path": "../blueprint-tsconfig" },

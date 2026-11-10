@@ -62,4 +62,41 @@ export default pjt({
       received: "Array",
     })
   })
+
+  it.each([
+    ["no blueprints", 'export default { _tag: "ProjitectConfig" }\n'],
+    ["a non-array blueprints", 'export default { _tag: "ProjitectConfig", blueprints: 3 }\n'],
+    [
+      "a non-blueprint element",
+      'export default { _tag: "ProjitectConfig", blueprints: [{ id: 1 }] }\n',
+    ],
+    [
+      "a directory holding a non-blueprint",
+      'export default { _tag: "ProjitectConfig", blueprints: [{ _tag: "Directory", name: "a", children: [42] }] }\n',
+    ],
+    [
+      "a non-object config",
+      'export default { _tag: "ProjitectConfig", blueprints: [], config: 1 }\n',
+    ],
+  ])("rejects a tagged object with %s", (_name, source) => {
+    expect(failureOf(source)._tag).toBe("InvalidDefaultExport")
+  })
+
+  it("keeps directory nodes and the Effect form", async () => {
+    const result = evaluatePjt(
+      `import { pjt, directory } from "projitect/cli"
+import { gitignores } from "@projitect/blueprint-gitignore"
+import { Effect } from "effect"
+
+export const a = pjt({ blueprints: [directory("web", [gitignores.node()])] })
+export default pjt({ blueprints: Effect.succeed([directory("web", [gitignores.node()])]), config: {} })
+`,
+      firstPartyRegistry,
+    )
+    if (Result.isFailure(result)) {
+      throw new Error(result.failure.message)
+    }
+    const tree = await Effect.runPromise(blueprintTree(result.success))
+    expect(tree).toMatchObject([{ _tag: "Directory", name: "web" }])
+  })
 })

@@ -1,4 +1,5 @@
-import { Data, Effect, Match, Option, Record, Result } from "effect"
+import { Array, Data, Effect, Match, Option, Predicate, Record, Result } from "effect"
+import { PredicateX } from "@nunofyobiz/effect-extras"
 import { transform } from "sucrase"
 import type { BlueprintFileSystem, Errors } from "@projitect/core"
 import { describe, isEffectTree, isProjitectFile } from "./config-file.js"
@@ -75,6 +76,35 @@ const execute = (code: string, registry: ModuleRegistry): Result.Result<unknown,
     catch: (cause) => runFailure(registry, cause),
   })
 
+const isBlueprint = (v: unknown): boolean =>
+  PredicateX.unsafeIsRecord(v) &&
+  Predicate.isString(v["id"]) &&
+  Predicate.isString(v["version"]) &&
+  Array.isArray(v["permissions"]) &&
+  Effect.isEffect(v["plan"])
+
+/** A blueprint, or a `directory(...)` node whose children are all valid in turn. */
+const isTreeNode = (v: unknown): boolean =>
+  PredicateX.unsafeIsRecord(v) && v["_tag"] === "Directory"
+    ? Predicate.isString(v["name"]) && isBlueprintList(v["children"])
+    : isBlueprint(v)
+
+const isBlueprintList = (v: unknown): boolean => Array.isArray(v) && Array.every(v, isTreeNode)
+
+/**
+ * `isProjitectFile` only checks the `_tag`; the evaluator also needs `blueprints` to be a
+ * well-formed list or an Effect, or `blueprintTree` would hand back something that is not a tree.
+ */
+const isWellFormedFile = (v: unknown): v is ProjitectFile =>
+  isProjitectFile(v) &&
+  (Effect.isEffect(v.blueprints) || isBlueprintList(v.blueprints)) &&
+  (v.config === undefined || PredicateX.unsafeIsRecord(v.config))
+
+const describeInvalid = (v: unknown): string =>
+  isProjitectFile(v)
+    ? "a pjt({...}) whose `blueprints` is not an array of blueprints (or `directory(...)` nodes) or an Effect, or whose `config` is not an object"
+    : describe(v)
+
 /**
  * Turn `.pjt.ts` text into its `pjt({...})` result. Never throws: a syntax error, an import the
  * registry lacks, a throwing top level or a wrong default export all come back as a
@@ -91,12 +121,12 @@ export const evaluatePjt = (
     Result.flatMap((code) => execute(code, registry)),
     Result.flatMap((value) =>
       Match.value(value).pipe(
-        Match.when(isProjitectFile, (file) => Result.succeed(file)),
+        Match.when(isWellFormedFile, (file) => Result.succeed(file)),
         Match.orElse((other) =>
           Result.fail(
             PjtEvalFailure.InvalidDefaultExport({
-              received: describe(other),
-              message: `.pjt.ts must \`export default pjt({...})\`. Received ${describe(other)}.`,
+              received: describeInvalid(other),
+              message: `.pjt.ts must \`export default pjt({...})\`. Received ${describeInvalid(other)}.`,
             }),
           ),
         ),
