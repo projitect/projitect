@@ -88,12 +88,27 @@ const invalid = (
 const validate = (options: SkillsOptions, target: string) => {
   const names = Array.map(options.skills, (skill) => skill.name)
   const failures = [
-    ...(options.id.includes(":") && String.isNonEmpty(options.id.replaceAll(":", ""))
+    // `id` and `version` are required by the type, but JavaScript and config callers can omit them.
+    ...(Predicate.isString(options.id) &&
+    options.id.includes(":") &&
+    String.isNonEmpty(options.id.replaceAll(":", ""))
       ? []
-      : [invalid("id", options.id, "must be a namespaced id such as `acme:skills`")]),
-    ...(String.isNonEmpty(options.version)
+      : [
+          invalid(
+            "id",
+            globalThis.String(options.id),
+            "pick your own stable namespaced id such as `acme:skills`",
+          ),
+        ]),
+    ...(Predicate.isString(options.version) && String.isNonEmpty(options.version.trim())
       ? []
-      : [invalid("version", options.version, "must be the skill package's version")]),
+      : [
+          invalid(
+            "version",
+            globalThis.String(options.version),
+            "pick your own non-empty version for this skill package",
+          ),
+        ]),
     ...Array.fromNullishOr(targetProblem(target)).map((p) => invalid("target", target, p)),
     ...Array.flatMap(options.skills, (skill) => [
       ...Array.fromNullishOr(nameProblem(skill.name)).map((p) => invalid("name", skill.name, p)),

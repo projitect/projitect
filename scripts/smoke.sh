@@ -499,6 +499,20 @@ EOF
 }
 make_acme_skills 1.0.0
 make_acme_skills 1.1.0
+# The real @projitect/blueprint-skills, packed so `pjt add @projitect/blueprint-skills` resolves its
+# manifest `projitect.call` through the registry.
+mkdir -p "$REG/pkg-skills/package"
+cp -r "${PKG}/blueprint-skills/dist" "${PKG}/blueprint-skills/package.json" "$REG/pkg-skills/package/"
+node -e "
+const fs = require('fs');
+const p = process.argv[1] + '/package.json';
+const j = JSON.parse(fs.readFileSync(p, 'utf8'));
+j.version = '1.0.0';
+for (const k of ['peerDependencies', 'devDependencies', 'scripts']) delete j[k];
+fs.writeFileSync(p, JSON.stringify(j, null, 2) + '\n');
+" "$REG/pkg-skills/package"
+npm pack "$REG/pkg-skills/package" --pack-destination "$REG" --silent > /dev/null 2>&1
+SDK_SK="$REG/projitect-blueprint-skills-1.0.0.tgz"
 mkdir -p "$REG/plain"
 echo '{"name":"@acme/plain","version":"1.0.0"}' > "$REG/plain/package.json"
 npm pack "$REG/plain" --pack-destination "$REG" --silent > /dev/null 2>&1
@@ -509,7 +523,7 @@ publish() { # <markdown latest> [<skills latest>]: rewrite the registry state; a
   local md="\"1.0.0\":\"$TGZ1\"" sk="\"1.0.0\":\"$SK1\""
   [ "$1" = "1.1.0" ] && md="$md,\"1.1.0\":\"$TGZ2\""
   [ "${2:-1.0.0}" = "1.1.0" ] && sk="$sk,\"1.1.0\":\"$SK2\""
-  printf '{"packages":[{"name":"@projitect/blueprint-markdown","latest":"%s","tarballs":{%s}},{"name":"@acme/skills","latest":"%s","tarballs":{%s}},{"name":"@acme/plain","latest":"1.0.0","tarballs":{"1.0.0":"%s"}}]}' "$1" "$md" "${2:-1.0.0}" "$sk" "$PLAIN" > "$REG/state.json"
+  printf '{"packages":[{"name":"@projitect/blueprint-markdown","latest":"%s","tarballs":{%s}},{"name":"@projitect/blueprint-skills","latest":"1.0.0","tarballs":{"1.0.0":"%s"}},{"name":"@acme/skills","latest":"%s","tarballs":{%s}},{"name":"@acme/plain","latest":"1.0.0","tarballs":{"1.0.0":"%s"}}]}' "$1" "$md" "$SDK_SK" "${2:-1.0.0}" "$sk" "$PLAIN" > "$REG/state.json"
 }
 publish 1.0.0
 node "${ROOT}/scripts/local-registry.mjs" "$REG/state.json" "$REG/port" &
@@ -527,7 +541,6 @@ npm install --no-package-lock --silent \
   "file:${PKG}/blueprint" \
   "file:${PKG}/cli-internals" \
   "file:${PKG}/projitect" \
-  "file:${PKG}/blueprint-skills" \
   "effect@rc" "tsx" 2>&1 | tail -1
 printf '@projitect:registry=http://127.0.0.1:%s/\n@acme:registry=http://127.0.0.1:%s/\n' "$(cat "$REG/port")" "$(cat "$REG/port")" > .npmrc
 $BIN init > /dev/null 2>&1
@@ -614,6 +627,15 @@ reset_markdown
 $BIN add @projitect/blueprint-markdown --section agentsPackageManager,agentsVerification,agentsCommits,agentsNoDestructiveShortcuts,readmeContributing,readmeLicense < /dev/null > /dev/null 2>&1
 $BIN remodel > /dev/null
 cmp -s AGENTS.md AGENTS.all && cmp -s README.md README.all && cmp -s .pjt.lock lock.all && cmp -s .pjt.ts pjt.all && pass "explicit --section run gives the same bytes as the all-sections run" || fail "explicit and implicit installs differ"
+
+# The unedited default call of the real skills blueprint must be valid: add, remodel, inspect.
+$BIN add @projitect/blueprint-skills < /dev/null > /dev/null 2>&1
+grep -q "skills({ id:" .pjt.ts && pass "pjt add spliced the default skills call into .pjt.ts" || fail "default skills call not spliced"
+$BIN remodel > /dev/null 2>&1 && pass "remodel of the unedited default skills call exits 0" || fail "remodel of the default skills call failed"
+$BIN inspect > /dev/null 2>&1 && pass "inspect of the unedited default skills call exits 0" || fail "inspect of the default skills call failed"
+sed -i.bak '/skills({ id:/d' .pjt.ts && rm .pjt.ts.bak
+$BIN remodel > /dev/null 2>&1
+$BIN inspect > /dev/null 2>&1 && pass "clean after removing the default skills call" || fail "drift after removing the default skills call"
 
 # Skills blueprint through the registry: add, upgrade, drift, remove.
 $BIN add @acme/skills < /dev/null > /dev/null 2>&1
