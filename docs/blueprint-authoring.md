@@ -191,7 +191,10 @@ With no flag and no terminal it adds every section (see `docs/cli/add.mdx` on th
 
 `@projitect/blueprint-skills` exports `skills({ id, version, target?, skills: [{ name, files }] })`.
 `files` is keyed by relative path and must include `SKILL.md`. The `id` must be namespaced (such as
-`acme:skills`) and the `version` is the author's own. Each file is an `ownFile` at
+`acme:skills`) and the `version` is the author's own; neither is tied to the SDK release. The `pjt add`
+default call is `skills({ id: "your-org:your-skills", version: "0.1.0", skills: [] })`, a literal
+placeholder authors replace. A missing, non-string or blank `id` or `version` fails with
+`pjt.skills.invalid-path`, never a TypeError. Each file is an `ownFile` at
 `<target>/<name>/<path>` with `ownedDir` `<target>/<name>`, and the write permission is
 `<target>/**`. Invalid input fails with `pjt.skills.invalid-path`: `..` or empty segments,
 backslashes, drive letters, glob characters in `target`, and duplicate skill names.

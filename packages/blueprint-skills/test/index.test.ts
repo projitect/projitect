@@ -144,6 +144,64 @@ describe("skills() — validation", () => {
   })
 })
 
+describe("skills() — required runtime values", () => {
+  const raw = (options: Record<string, unknown>) =>
+    // JavaScript and config callers can pass anything; the types only describe the happy path.
+    skills({ id: "pjt:test", version: "1.0.0", skills: [], ...options })
+
+  it.each(
+    ["id", "version"].flatMap((field) =>
+      [undefined, null, 1, "", "   "].map((value) => ({ field, value })),
+    ),
+  )("rejects $field = $value without a TypeError", async ({ field, value }) => {
+    const error = await planError(raw({ [field]: value }))
+    expect(error).toMatchObject({ _tag: "SkillInvalid", id: "pjt.skills.invalid-path", field })
+  })
+
+  it("rejects an id without a namespace", async () => {
+    const error = await planError(raw({ id: "skills" }))
+    expect(error).toMatchObject({ id: "pjt.skills.invalid-path", field: "id" })
+  })
+
+  it("accepts the generated default call", async () => {
+    expect(await planOps(raw({ id: "your-org:your-skills", version: "0.1.0" }))).toEqual([])
+  })
+})
+
+describe("skills() — custom call lifecycle", () => {
+  const custom = mk({
+    id: "acme:agents",
+    version: "2.0.0",
+    target: ".agents/skills",
+    skills: [
+      one("review", { "SKILL.md": SKILL_MD, "assets/img/logo.txt": "logo", "scripts/run.sh": "x" }),
+    ],
+  })
+  const other = mk({ id: "pkg:other", skills: [one("other")], target: ".agents/skills" })
+
+  it("installs nested assets and leaves unrelated skills and user files out of its plan", async () => {
+    const { plan } = await Effect.runPromise(buildAll([other, custom]))
+    expect(plan.files.map((f) => f.path).toSorted()).toEqual([
+      ".agents/skills/other/SKILL.md",
+      ".agents/skills/review/SKILL.md",
+      ".agents/skills/review/assets/img/logo.txt",
+      ".agents/skills/review/scripts/run.sh",
+    ])
+  })
+
+  it("removal lists only the package's own files, never unrelated skills or user files", async () => {
+    const both = await Effect.runPromise(buildAll([other, custom]))
+    const onlyOther = await Effect.runPromise(buildAll([other]))
+    const previous = { version: 1 as const, blueprints: both.byBlueprint }
+    const diff = diffLockfile({ previous, current: onlyOther.byBlueprint })
+    expect(diff.removals.map((r) => r.path).toSorted()).toEqual([
+      ".agents/skills/review/SKILL.md",
+      ".agents/skills/review/assets/img/logo.txt",
+      ".agents/skills/review/scripts/run.sh",
+    ])
+  })
+})
+
 describe("skills() — engine integration", () => {
   it("lets skills from two packages install side by side", async () => {
     const { plan } = await Effect.runPromise(

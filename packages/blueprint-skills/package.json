@@ -44,6 +44,6 @@
   "projitect": {
     "type": "blueprint",
     "import": "import { skills } from \"@projitect/blueprint-skills\"",
-    "call": "skills({ skills: [] })"
+    "call": "skills({ id: \"your-org:your-skills\", version: \"0.1.0\", skills: [] })"
   }
 }
