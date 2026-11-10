@@ -153,6 +153,23 @@ export const reactConfig = (opts: { typescript: boolean }): Blueprint.Blueprint 
 You get the full Effect surface area: `Effect.if`, `Effect.when`, `Effect.forEach`, error
 handling via `Effect.catchTag`, custom Layers for shared services, and so on.
 
+## Reading and writing files
+
+`BlueprintFileSystem` has a text pair and a byte pair:
+
+| Method                        | Value                           | Permission needed |
+| ----------------------------- | ------------------------------- | ----------------- |
+| `readFile(path)`              | `string` (UTF-8)                | `read`            |
+| `writeFile(path, content)`    | `string` (UTF-8)                | `write`           |
+| `readFileBytes(path)`         | `Uint8Array`, exactly as stored | `read`            |
+| `writeFileBytes(path, bytes)` | `Uint8Array`, exactly as given  | `write`           |
+
+Use the byte pair for content that is not text, such as images or fonts. Bytes that are not valid
+UTF-8, for example `0xFF 0xFE 0x00 0x80`, come back from `readFileBytes` identical to what
+`writeFileBytes` stored; `readFile` would replace them with substitution characters. Each byte
+method is gated exactly like its text counterpart and fails with `pjt.fs.permission-denied`
+outside the declared globs.
+
 ## Permissions
 
 Every blueprint declares what it needs:
@@ -223,7 +240,8 @@ This is useful for monorepos where the same blueprint should apply to multiple p
 
 ## Testing
 
-`@projitect/test-kit` exposes an in-memory `BlueprintFileSystem` Layer:
+`@projitect/test-kit` exposes an in-memory `BlueprintFileSystem` Layer. It stores every file as
+bytes, so the byte methods round-trip exactly and the text methods read and write UTF-8:
 
 ```ts
 import { makeInMemoryLayer, dumpFs } from "@projitect/test-kit"

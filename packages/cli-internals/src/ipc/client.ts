@@ -81,6 +81,15 @@ export const makeClient = (transport: Transport): BlueprintFileSystemShape => {
       ),
     writeFile: (path, content) =>
       call((id) => ({ _tag: "WriteFile", id, path, content })).pipe(Effect.asVoid, noRead),
+    readFileBytes: (path) =>
+      call((id) => ({ _tag: "ReadFileBytes", id, path })).pipe(
+        Effect.flatMap((r) =>
+          r._tag === "ReadFileBytesOk" ? Effect.succeed(r.value) : Effect.die(unexpected(r)),
+        ),
+        noWrite,
+      ),
+    writeFileBytes: (path, bytes) =>
+      call((id) => ({ _tag: "WriteFileBytes", id, path, bytes })).pipe(Effect.asVoid, noRead),
     exists: (path) =>
       call((id) => ({ _tag: "Exists", id, path })).pipe(
         Effect.flatMap((r) =>

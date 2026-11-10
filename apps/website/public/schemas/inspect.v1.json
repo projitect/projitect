@@ -135,6 +135,16 @@
                     "type": "null"
                   }
                 ]
+              },
+              "contentHash": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               }
             },
             "required": [
