@@ -125,6 +125,84 @@ Every blueprint operation declares one of four modes:
 
 See `docs/concepts/ownership-modes` on the marketing site for examples.
 
+## Merge-mode `package.json` keys
+
+What `jsonMerge` does today, read from `plan.ts` (`reconcileOwnership`, `reduceMerge`),
+`applier.ts` (`nextMerge`), `differ.ts` (`diffMerge`) and `remover.ts` (`removeMergeKeys`). The
+website summarises this in `docs/authoring` and `docs/concepts/ownership-modes`.
+
+**Which keys a blueprint may own.** Any dotted path listed in `ownedKeys`, such as
+`scripts.prepare`, `devDependencies.husky` or the top-level `lint-staged`. Own the leaf (`scripts.<name>`,
+`devDependencies.<name>`), never a whole parent such as `scripts`: a parent claim would collide
+with every other blueprint under it. The planner checks `ownedKeys` only. `value` is deep-merged
+whole, so a key in `value` that is not in `ownedKeys` is written but neither conflict-checked
+nor removed later; keep the two lists identical.
+
+**Blueprint against blueprint.** Blueprints do not compose a shared key. One owner per key: two
+distinct blueprints listing the same dotted key fail at plan time with `pjt.plan.conflict-merge`
+(naming the path, key and both owners). Keys that differ under the same parent coexist
+(`scripts.changeset` and `scripts.prepare`). Mixing merge with `owned` or `seed` on
+`package.json` fails with `pjt.plan.conflict-owned`.
+
+**Blueprint against the user's value.** The existing file is deep-merged with the blueprint
+value and the blueprint wins a leaf conflict (arrays are replaced, not concatenated). There is
+no conflict error: a user's own `scripts.prepare` is overwritten by the blueprint's on
+`pjt build` and `pjt remodel`. This diverges from the intended rule (user script content
+preserved, conflicting ownership rejected) and is tracked as a follow-up; until it is fixed,
+never claim a key the user is likely to have set.
+
+**Keys the user added.** Every key not in the blueprint's `value` is preserved untouched by
+`pjt build` and `pjt remodel`, including sibling scripts under `scripts`. Output is re-serialised
+with two-space indentation and a trailing newline. On blueprint removal `removeMergeKeys` deletes
+only the lockfile's `ownedKeys`; everything else stays.
+
+**Drift.** `pjt inspect` deep-merges the blueprint value into the current file and compares
+canonical JSON (key order ignored). Differences print `~ modify package.json (JSON merge)` and
+exit nonzero; user-added keys never count as drift. A hand edit to an owned key is drift, and
+`pjt remodel` rewrites it to the blueprint value. A `package.json` that does not parse
+reports `~ modify package.json (unparseable JSON)`; `pjt remodel` then starts from `{}`, so the
+unparseable content is replaced by the blueprint keys alone. That is also tracked as a follow-up.
+
+Example: husky needs `prepare: "husky"`.
+
+```ts
+jsonMerge({
+  id: "my-org:husky",
+  version: "1.0.0",
+  path: "package.json",
+  ownedKeys: ["scripts.prepare", "devDependencies.husky"],
+  value: { scripts: { prepare: "husky" }, devDependencies: { husky: "^9.0.0" } },
+})
+```
+
+Alone, this sets `scripts.prepare` and leaves `scripts.test` and the rest alone. Add a second
+blueprint that also lists `scripts.prepare` (this repo's own `prepare` is
+`husky && effect-language-service patch`) and `pjt build` fails with `pjt.plan.conflict-merge`;
+the fix is to drop the key from one of them. `@projitect/blueprint-husky-lint-staged` is the only
+first-party owner of `scripts.prepare`.
+
+### Standard scripts
+
+Scripts the packages themselves carry. Every `packages/*/package.json`, blueprint packages
+included, has exactly `build` (`tsc --build`), `build:clean` (`tsc --build --clean`) and `tc`
+(`tsc --build`). None has `test`, `lint` or `prepare`: tests and lint run from the repo root
+(`pnpm test packages/<pkg>`, `pnpm lint`), and the root `prepare` is repo-level. Verify with
+`grep -A4 '"scripts"' packages/*/package.json`.
+
+Scripts blueprints write into user projects, from each package's `ownedKeys`:
+
+| Blueprint                     | Scripts owned                            |
+| ----------------------------- | ---------------------------------------- |
+| `blueprint-react`             | `dev`, `build`, `preview`                |
+| `blueprint-next`              | `dev`, `build`, `start`, `lint`          |
+| `blueprint-vitest`            | `test`, `test:watch` (names are options) |
+| `blueprint-changesets`        | `changeset`, `version-packages`          |
+| `blueprint-husky-lint-staged` | `prepare` (`husky`)                      |
+
+`blueprint-react` and `blueprint-next` both claim `scripts.build` (and the React dependencies),
+so they conflict if combined; pick one framework blueprint. No set of scripts is required of a
+blueprint: carry only what it needs.
+
 ## Error catalog
 
 Errors live in `packages/core/src/errors/`. To add a new one:
