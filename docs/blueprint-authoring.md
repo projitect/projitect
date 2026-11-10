@@ -147,7 +147,8 @@ lists what exists.
 `pjt inspect` can check for drift, declares narrow permissions, takes its version from the manifest
 (see above), has in-memory tests, and ships with its marketing pages (the `new-blueprint` skill).
 
-**Who decides.** The repository owner. Only the owner adds a package to the lockstep set.
+**Who decides.** The repository owner sets the roadmap and the order; routine implementation of
+roadmap items is delegated.
 
 **Compatibility window.** This is existing behaviour, not a new guarantee: every published package
 shares one version through changesets (see Versioning in [AGENTS.md](../AGENTS.md)).
@@ -156,12 +157,17 @@ shares one version through changesets (see Versioning in [AGENTS.md](../AGENTS.m
 
 1. Versioned Markdown/AGENTS/README snippets and shareable agent skills.
 2. CLI onboarding for people and agents with the full upgrade, swap, remove and drift lifecycle.
-   This is planned and in progress, matching the website roadmap.
+   The lifecycle commands (`add`, `remodel`, `inspect`, remove and swap) already ship in main and
+   are exercised by `scripts/smoke.sh` (task tk-53de0340 is the implemented proof). The website
+   roadmap still lists the onboarding outcome as planned and in progress; that remaining work is
+   the roadmap's, not a claim that the lifecycle is unbuilt.
 3. React, Next, the wider catalog and lint/format blueprints.
 
 `react` and `next` ship. `husky-lint-staged` ships and manages lint-staged and husky, not ESLint or
-Prettier configs. `eslint` is planned (website roadmap, "Planned first-party blueprints"). No
-Prettier blueprint exists and none is planned.
+Prettier configs. `eslint` is planned (website roadmap, "Planned first-party blueprints") and
+`@projitect/blueprint-prettier` (config and `fix`) is planned as CAT-1 in `BACKLOG.md`; neither
+package exists yet. The owner has approved the roadmap and delegated routine implementation, so a
+planned package needs no further owner decision to be built.
 
 ### Markdown snippets
 
@@ -185,8 +191,9 @@ With no flag and no terminal it adds every section (see `docs/cli/add.mdx` on th
 `<target>/**`. Invalid input fails with `pjt.skills.invalid-path`: `..` or empty segments,
 backslashes, drive letters, glob characters in `target`, and duplicate skill names.
 
-**Skills root.** `.claude/skills` by default, set through the `target` option. No other agent
-directory is supported; this guide claims no universal agent-directory support.
+**Skills root.** `.claude/skills` by default, set through the `target` option. `target` is a
+validated relative path, so another directory can be named, but nothing discovers it for a given
+agent and no agent-specific adapters exist. This guide claims no universal agent-directory support.
 
 ### Lifecycle
 
