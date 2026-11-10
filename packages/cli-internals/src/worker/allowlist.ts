@@ -121,13 +121,23 @@ const packageClosure = (roots: readonly PackageLocation[]): ReadonlySet<string> 
       (other) =>
         other !== entry && other.startsWith(entry) && !other.startsWith(`${entry}${path.sep}`),
     )
-  const prefixes = Array.filter(entries, (entry) => links.has(entry) && shadows(entry))
+  const prefixes = new Set(Array.filter(entries, (entry) => links.has(entry) && shadows(entry)))
+  // A grant inside another directory grant is redundant, and Node's trie loses the outer one when
+  // both are passed — so it is dropped as well.
+  const withoutTrailingSep = (entry: string): string =>
+    entry.endsWith(path.sep) ? entry.slice(0, -1) : entry
   const coveredByPrefix = (entry: string): boolean =>
-    Array.some(prefixes, (prefix) => entry !== prefix && entry.startsWith(prefix))
+    Array.some(
+      entries,
+      (other) =>
+        other !== entry &&
+        (entry.startsWith(`${withoutTrailingSep(other)}${path.sep}`) ||
+          (prefixes.has(other) && entry.startsWith(other))),
+    )
   return new Set(
     Array.map(
       Array.filter(entries, (entry) => !coveredByPrefix(entry)),
-      (entry) => (prefixes.includes(entry) ? `${entry}*` : entry),
+      (entry) => (prefixes.has(entry) ? `${entry}*` : entry),
     ),
   )
 }

@@ -440,7 +440,9 @@ for (const f of ['package.json', 'dist/package.json']) {
   const p = process.argv[1] + '/' + f;
   const j = JSON.parse(fs.readFileSync(p, 'utf8'));
   j.version = process.argv[2];
-  for (const k of ['peerDependencies', 'devDependencies', 'scripts']) delete j[k];
+  for (const k of ['devDependencies', 'scripts']) delete j[k];
+  // The peers stay so the worker's read allowlist can follow them; loose ranges keep npm from resolving against the registry.
+  for (const name of Object.keys(j.peerDependencies ?? {})) j.peerDependencies[name] = '*';
   fs.writeFileSync(p, JSON.stringify(j, null, 2) + '\n');
 }
 " "$dir/package" "$1"
@@ -635,7 +637,9 @@ for (const f of ['package.json', 'dist/package.json']) {
   const p = process.argv[1] + '/' + f;
   const j = JSON.parse(fs.readFileSync(p, 'utf8'));
   j.version = process.argv[2];
-  for (const k of ['peerDependencies', 'devDependencies', 'scripts']) delete j[k];
+  for (const k of ['devDependencies', 'scripts']) delete j[k];
+  // The peers stay so the worker's read allowlist can follow them; loose ranges keep npm from resolving against the registry.
+  for (const name of Object.keys(j.peerDependencies ?? {})) j.peerDependencies[name] = '*';
   fs.writeFileSync(p, JSON.stringify(j, null, 2) + '\n');
 }
 " "$dir/package" "$2"
