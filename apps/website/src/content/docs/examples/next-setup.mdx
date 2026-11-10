@@ -1,0 +1,82 @@
+---
+title: next-setup
+description: Create a Next.js App Router + TypeScript app — maintained scaffolding plus starter source you own.
+sidebar:
+  label: next-setup
+  order: 8
+---
+
+import code from "../../../../examples/next-setup/example.ts?raw"
+import { Code } from "@astrojs/starlight/components"
+
+`next()` creates a usable Next.js app. It splits the project into scaffolding that projitect
+maintains and starter source that is yours.
+
+<Code code={code} lang="ts" title=".pjt.ts" />
+
+Run:
+
+```bash
+pnpm pjt remodel    # writes the config, merges package.json, seeds the starter source
+pnpm install        # installs Next.js, React, TypeScript, ESLint and the test tooling
+pnpm dev            # serves the app with next dev
+pnpm build          # next build — the production build
+pnpm lint           # eslint . with the Next.js rules
+pnpm test           # vitest run — renders the starter page under jsdom
+```
+
+## Supported versions
+
+- Next.js `^16.4.0` with the **App Router** and TypeScript
+- React `^19.2.0`
+- Node.js `>=22.12.0` (Next.js itself needs 20.9 or newer)
+- pnpm
+
+The ranges are declared in the blueprint package's `package.json` under `projitect.supports`, and
+the scaffold's dependency ranges match them. Not supported: the Pages Router, other package
+managers, and Next.js features beyond a minimal app (middleware, internationalization, a CSS
+framework and so on). Add those yourself in your own source.
+
+## What you get
+
+Maintained by the blueprint:
+
+- `next.config.ts` (owned mode — rewritten on every `pjt remodel`)
+- `tsconfig.json` for a Next.js app — type-check only (`noEmit`), `DOM` libs, the `react-jsx`
+  transform, bundler module resolution, and the `next` TypeScript plugin, `allowJs`,
+  `incremental` and generated-type `include` entries that `next build` expects (owned mode, from
+  the tsconfig blueprint). Declaring them keeps `next build` from rewriting the file.
+- `vitest.config.ts` with the `jsdom` environment (owned mode, from the vitest blueprint)
+- `dev`, `build`, `start`, `lint` and `test` scripts, `next`, `react` and `react-dom` in
+  `dependencies`, and TypeScript, the React and Node types, ESLint, `eslint-config-next`, `jsdom`,
+  Testing Library and Vitest in `devDependencies` (merge mode — your own keys stay)
+- The `node`, `next` and `tsbuildinfo` gitignore sections, which cover `.next/`, `out/`,
+  `next-env.d.ts` and `*.tsbuildinfo` (region mode)
+
+Seeded once, then yours:
+
+- `src/app/layout.tsx`
+- `src/app/page.tsx`
+- `src/app/globals.css`
+- `src/app/page.test.tsx`
+- `eslint.config.mjs` — extends `eslint-config-next`; add your own rules freely
+
+## Ownership in practice
+
+Edit any starter file freely. `pjt inspect` and `pjt remodel` never compare it with the template. A
+starter file you delete is written again by the next `pjt remodel`, because seed mode means "never
+overwritten", not "never recreated".
+
+Change a maintained value — the `build` script, a managed dependency range, `next.config.ts` — and
+`pjt inspect` exits nonzero. `pjt remodel` restores it and leaves your own `package.json` keys and
+the starter source alone.
+
+Remove `next()` from `.pjt.ts` and run `pjt remodel`: the owned config files, the managed
+`package.json` keys and the `.gitignore` regions go. The starter source and your own keys stay.
+
+## Composing with other blueprints
+
+`next()` already includes `tsconfig()`, `vitest()` and the `node`, `next` and `tsbuildinfo`
+gitignore sections. Listing any of them again gives the plan two owners for the same file or
+region, which fails with a conflict error. Other gitignore sections, such as `gitignores.macOs()`,
+stack alongside it.

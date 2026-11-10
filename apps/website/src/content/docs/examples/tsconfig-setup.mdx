@@ -60,6 +60,11 @@ tsconfig({
   rootDir: "./src", // also drives `include`
   outDir: "./dist", // also drives `exclude`
   references: [], // paths to referenced projects; each must set composite: true in its own tsconfig
+  noEmit: false, // true type-checks only: emits `noEmit` and drops rootDir, outDir and the declaration/sourceMap flags
+  allowJs: false, // true emits `allowJs: true`
+  incremental: false, // true emits `incremental: true`
+  plugins: [], // TypeScript language service plugin names, emitted as `plugins: [{ name }]`
+  include: [], // extra `include` entries after the glob derived from `rootDir`
 })
 ```
 

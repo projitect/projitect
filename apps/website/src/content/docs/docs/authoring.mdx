@@ -173,6 +173,35 @@ Globs support `*` (any non-slash chars), `**` (any chars including slashes) and 
 alternation, so `src/**/*.{ts,tsx}` covers both extensions in one entry. Alternatives may be
 empty or nested, and a path is permitted only if it matches one of them.
 
+## Post-apply commands
+
+`exec` declares a command that runs after every file operation has succeeded, such as a
+formatter:
+
+```ts
+import { exec } from "@projitect/blueprint"
+
+export default exec({
+  id: "my-org:format",
+  version: "1.0.0",
+  check: "pnpm lint",
+  fix: "pnpm lint:fix",
+})
+```
+
+- `fix` is the command `pjt build` and `pjt remodel` run from the project root. Commands run in
+  blueprint order; a command several blueprints declare runs once. Exec operations are not
+  recorded in the lockfile, so the fix runs on every remodel.
+- `check` is the command that reports whether the fix is needed. It is carried in the plan next to
+  the fix as metadata: build and remodel never run it and it does not decide whether the fix runs.
+  `pjt inspect` currently reports `pjt.inspect.operation-unsupported` for a project with exec
+  operations; it does not run the check yet.
+- The permission is derived for you: `{ kind: "exec", command }` entries for the fix and
+  the check, matched as exact strings. A command outside the declared set fails with
+  `pjt.exec.command-not-permitted`. Add further permissions with `extraPermissions`.
+
+Two blueprints that declare exec operations never conflict, because an exec operation owns no path.
+
 ## directory() for scoped blueprints
 
 To re-root a tree of blueprints under a subdirectory:
@@ -263,7 +292,7 @@ Two shapes are supported:
   "type": "blueprint-set",
   "import": "import { gitignores } from \"@projitect/blueprint-gitignore\"",
   "callTemplate": "gitignores.{section}()",
-  "sections": ["macOs", "windows", "linux", "node", "next", "vscode", "jetbrains", "tsbuildinfo"]
+  "sections": ["macOs", "windows", "linux", "node", "next", "vscode", "jetbrains", "tsbuildinfo", "vite", "astro", "nuxt", "svelteKit", "angular", "vue", "storybook", "yarn", "pnpm", "vim", "sublimeText", "eclipse"]
 }
 ```
 

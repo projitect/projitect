@@ -19,7 +19,7 @@
 #   the contributor's normal authorship and configures *signing only*, repo-local,
 #   on every branch. The goal here is the Verified badge on every commit, not a
 #   separate author identity. (If we ever want Claude-authored commits, switch to
-#   StoryCut's worktree-gated approach — see AGENTS.md › Commit signing.)
+#   StoryCut's worktree-gated approach — see docs/agents-signing.md.)
 #
 # Where the key comes from:
 #   The signing key + allowed-signers file are read from ~/.gitconfig.claude (the
@@ -49,7 +49,7 @@ allowed="${allowed:-$default_allowed}"
 expanded_key="${signingkey/#\~/$HOME}"
 if [[ ! -f "$expanded_key" ]]; then
   echo "projitect: no SSH signing key at '$signingkey' — commits will be UNSIGNED."
-  echo "           One-time setup is documented in AGENTS.md › Commit signing."
+  echo "           One-time setup is documented in docs/agents-signing.md."
   exit 0
 fi
 

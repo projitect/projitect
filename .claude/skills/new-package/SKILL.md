@@ -120,5 +120,5 @@ New `@projitect/<name>` package. <one sentence on what it does>.
 ```
 
 Commit per [create-commit](../create-commit/SKILL.md): `feat(<name>): add @projitect/<name> package`.
-Marketing-site obligations for user-facing packages are in [AGENTS.md](../../../AGENTS.md); blueprints are
+Marketing-site obligations for user-facing packages are in [Marketing site](../../../docs/marketing-site.md); blueprints are
 covered by [new-blueprint](../new-blueprint/SKILL.md).

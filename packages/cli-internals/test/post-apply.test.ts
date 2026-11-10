@@ -5,6 +5,7 @@ import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { Effect, Exit } from "effect"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
+import { exec as execBlueprint } from "@projitect/blueprint"
 import { Errors, ProjitectConfig } from "@projitect/core"
 import type { ChangeSet, Permission } from "@projitect/core"
 import { build, renderBuildResult } from "../src/commands/build.js"
@@ -366,5 +367,53 @@ describe("remodel / build / inspect with Exec ops", () => {
     await declare([{ id: "a", operations: [gitignore("a")] }])
     const result = await Effect.runPromise(inspect({ config: config() }))
     expect(result.hasDrift).toBe(true)
+  })
+})
+
+describe("buildPlan with the exec helper", () => {
+  const helper = (id: string, fix: string) =>
+    execBlueprint({ id, version: "1.0.0", check: `${fix}:check`, fix })
+
+  it("lists helper commands in tree order, carrying the helper's permissions", async () => {
+    const { plan } = await Effect.runPromise(
+      planTree([helper("a", "fmt-a"), helper("b", "fmt-b")], os.tmpdir()),
+    )
+    expect(plan.commands).toEqual([
+      {
+        ownerId: "a",
+        command: "fmt-a",
+        check: "fmt-a:check",
+        permissions: [exec("fmt-a"), exec("fmt-a:check")],
+      },
+      {
+        ownerId: "b",
+        command: "fmt-b",
+        check: "fmt-b:check",
+        permissions: [exec("fmt-b"), exec("fmt-b:check")],
+      },
+    ])
+  })
+
+  it("lets two helper blueprints share a fix command without a conflict, and runs it once", async () => {
+    const { plan } = await Effect.runPromise(
+      planTree([helper("a", "fmt"), helper("b", "fmt")], os.tmpdir()),
+    )
+    expect(plan.commands.map((c) => c.ownerId)).toEqual(["a", "b"])
+    const { calls, spawner } = fakeSpawner()
+    await Effect.runPromise(
+      runPostApply({ commands: plan.commands, projectRoot: "/proj", spawner }),
+    )
+    expect(calls).toEqual(["fmt"])
+  })
+
+  it("denies a helper command once the permission no longer covers it", async () => {
+    const { plan } = await Effect.runPromise(
+      planTree([{ ...helper("a", "fmt"), permissions: [] }], os.tmpdir()),
+    )
+    const { spawner } = fakeSpawner()
+    const exit = await Effect.runPromiseExit(
+      runPostApply({ commands: plan.commands, projectRoot: "/proj", spawner }),
+    )
+    expect(failureOf(exit)).toBeInstanceOf(Errors.CommandNotPermitted)
   })
 })

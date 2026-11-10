@@ -40,6 +40,8 @@ export type SeedPlanFile = Extract<FilePlan, { readonly _tag: "Seed" }>
 export interface PlannedCommand {
   readonly ownerId: string
   readonly command: string
+  /** The op's check command; carried for `pjt inspect`, never run by build or remodel. */
+  readonly check?: string
   readonly permissions: readonly Permission.Permission[]
 }
 
@@ -149,6 +151,7 @@ export const buildPlan = (params: {
       (a): PlannedCommand => ({
         ownerId: a.op.ownerId,
         command: a.op.command,
+        ...StructX.defined("check", a.op.check),
         permissions: a.permissions,
       }),
     )

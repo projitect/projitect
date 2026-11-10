@@ -1,0 +1,58 @@
+{
+  "name": "@projitect/blueprint-next",
+  "version": "0.0.0",
+  "description": "Next.js App Router + TypeScript app blueprint for projitect — composes tsconfig, gitignore and vitest, owns next.config.ts and the package.json scaffolding, seeds the starter source.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/projitect/projitect.git",
+    "directory": "packages/blueprint-next"
+  },
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "!**/*.tsbuildinfo"
+  ],
+  "scripts": {
+    "build": "tsc --build",
+    "build:clean": "tsc --build --clean",
+    "tc": "tsc --build"
+  },
+  "devDependencies": {
+    "@projitect/blueprint": "workspace:*",
+    "@projitect/blueprint-gitignore": "workspace:*",
+    "@projitect/blueprint-tsconfig": "workspace:*",
+    "@projitect/blueprint-vitest": "workspace:*",
+    "@projitect/core": "workspace:*",
+    "@projitect/test-kit": "workspace:*",
+    "effect": "4.0.0-rc.111",
+    "typescript": "5.9.3"
+  },
+  "peerDependencies": {
+    "@projitect/blueprint": "workspace:*",
+    "@projitect/blueprint-gitignore": "workspace:*",
+    "@projitect/blueprint-tsconfig": "workspace:*",
+    "@projitect/blueprint-vitest": "workspace:*",
+    "@projitect/core": "workspace:*",
+    "effect": "4.0.0-rc.111"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "projitect": {
+    "type": "blueprint",
+    "import": "import { next } from \"@projitect/blueprint-next\"",
+    "call": "next()",
+    "supports": {
+      "next": "^16.4.0",
+      "react": "^19.2.0"
+    }
+  }
+}

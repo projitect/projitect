@@ -206,3 +206,35 @@ describe("tsconfig() — version", () => {
     expect(tsconfig().version).toBe(manifest.version)
   })
 })
+
+describe("tsconfig() — type-check-only options", () => {
+  it("emits noEmit and drops the emit settings", async () => {
+    const { json } = await planJson(tsconfig({ noEmit: true }))
+    expect(json.compilerOptions).toMatchObject({ noEmit: true })
+    for (const key of ["rootDir", "outDir", "declaration", "declarationMap", "sourceMap"]) {
+      expect(json.compilerOptions).not.toHaveProperty(key)
+    }
+    expect(json.include).toEqual(["src/**/*"])
+    expect(json.exclude).toEqual(["node_modules"])
+  })
+
+  it("emits allowJs, incremental and plugins only when asked", async () => {
+    const plain = await planJson(tsconfig())
+    for (const key of ["noEmit", "allowJs", "incremental", "plugins"]) {
+      expect(plain.json.compilerOptions).not.toHaveProperty(key)
+    }
+    const { json } = await planJson(
+      tsconfig({ allowJs: true, incremental: true, plugins: ["next"] }),
+    )
+    expect(json.compilerOptions).toMatchObject({
+      allowJs: true,
+      incremental: true,
+      plugins: [{ name: "next" }],
+    })
+  })
+
+  it("appends extra include entries after the rootDir glob", async () => {
+    const { json } = await planJson(tsconfig({ include: ["next-env.d.ts", ".next/types/**/*.ts"] }))
+    expect(json.include).toEqual(["src/**/*", "next-env.d.ts", ".next/types/**/*.ts"])
+  })
+})

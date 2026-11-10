@@ -86,7 +86,7 @@ matrix never drift across skills — they all live in one executable place.
 ## Contributor-tooling, not a published surface
 
 These scripts are part of the kanban contributor workflow (see
-[AGENTS.md → Kanban workflow](../../../../AGENTS.md)). They are not part of the projitect
+[Kanban overview](../../../../docs/kanban/overview.md)). They are not part of the projitect
 product. Marketing-site coordination and lockstep-versioning rules do not apply.
 
 ## Portability

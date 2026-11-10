@@ -67,7 +67,8 @@ export default pjt({
 
 That's the **whole spec**. For a React app, `react()` replaces `tsconfig()`, `vitest()` and
 `gitignores.node()`: it composes them with Vite, React and TypeScript, owns the config, and seeds
-starter source you keep. See the [react-setup example](/examples/react-setup/).
+starter source you keep. See the [react-setup example](/examples/react-setup/). For a Next.js App
+Router app, `next()` does the same; see the [next-setup example](/examples/next-setup/).
 
 Three commands act on it:
 
@@ -167,9 +168,13 @@ Exit code: `1`. PR fails. Run `pjt remodel` to fix.
 
 ## Status
 
-**v0** ships all four ownership modes (region, merge, owned, seed), the `gitignore`, `tsconfig`,
-`vitest`, `changesets` and `react` blueprints, plus `pjt init`, `pjt remodel`, `pjt inspect`, and
-`pjt explain`. Effect v4 RC under the hood.
+The codebase implements all four ownership modes (region, merge, owned, seed), the `gitignore`,
+`tsconfig`, `vitest`, `changesets`, `husky-lint-staged`, `markdown`, `skills`, `react` and `next`
+blueprints, and the `pjt init`, `add`, `build`, `remodel`, `inspect` and `explain` commands.
+Effect v4 RC is under the hood. Blueprint plans run in a child Node process with permission
+checks for accidental filesystem and process access; see the [sandbox model and its limits](/docs/concepts/sandbox/).
 
-Framework blueprints (`next`, `eslint`), exec and post-apply operations, and the interactive
-in-browser demo are on the [roadmap](/docs/roadmap/).
+The `prettier` and `eslint` blueprints and the interactive in-browser demo remain on the
+[roadmap](/docs/roadmap/). Public npm availability depends on the first package release.
+
+Ready? **[Get started →](/docs/getting-started/)**
