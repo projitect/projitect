@@ -1,10 +1,10 @@
 import { Array, Data, Effect, Match, Option, Record, Result, Schema, pipe } from "effect"
+import type { Layer } from "effect"
 import { NonNullableX, PredicateX, RecordX, StructX } from "@nunofyobiz/effect-extras"
 import { ChangeSet, Errors, PjtLock } from "@projitect/core"
-import type { Blueprint, Permission } from "@projitect/core"
+import type { Blueprint, BlueprintFileSystem, Permission } from "@projitect/core"
 import { isDirectoryBlueprint } from "@projitect/blueprint"
 import type { DirectoryBlueprint } from "@projitect/blueprint"
-import { makeRealLayer } from "./filesystem-impl.js"
 
 // ---------------------------------------------------------------------------
 // File-level plan shape (after reducing all blueprints' ChangeSets per path)
@@ -140,24 +140,36 @@ const asExecOp = (attributed: AttributedOp): Result.Result<AttributedExecOp, voi
     : Result.failVoid
 
 /**
+ * Builds the permission-gated `BlueprintFileSystem` Layer one blueprint plans against. Injected so
+ * the planner itself touches no `node:*`: the CLI passes `makeRealLayer`, a browser passes
+ * `makeGatedLayer` over an in-memory filesystem.
+ */
+export type LayerFor = (config: {
+  readonly blueprintId: string
+  readonly permissions: readonly Permission.Permission[]
+  readonly projectRoot: string
+}) => Layer.Layer<BlueprintFileSystem>
+
+/**
  * Build the project plan by running every blueprint, collecting their ops, reducing them with
  * conflict detection, and producing the per-blueprint lockfile entries.
  */
 export const buildPlan = (params: {
   readonly tree: RawTree
   readonly projectRoot: string
+  readonly layerFor: LayerFor
 }): Effect.Effect<
   { readonly plan: ProjectPlan; readonly byBlueprint: ByBlueprint },
   Errors.ProjitectError
 > => {
-  const { tree, projectRoot } = params
+  const { tree, projectRoot, layerFor } = params
   const flat = flattenTree(tree, "")
 
   return Effect.gen(function* () {
     const attributed = yield* Effect.forEach(flat, ({ blueprint, directoryPrefix }) =>
       blueprint.plan.pipe(
         Effect.provide(
-          makeRealLayer({
+          layerFor({
             blueprintId: blueprint.id,
             permissions: blueprint.permissions,
             projectRoot,

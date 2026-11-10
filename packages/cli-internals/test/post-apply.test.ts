@@ -10,7 +10,7 @@ import { Errors, ProjitectConfig } from "@projitect/core"
 import type { ChangeSet, Permission } from "@projitect/core"
 import { build, renderBuildResult } from "../src/commands/build.js"
 import { remodel } from "../src/commands/remodel.js"
-import { makeProjectRootLayer } from "../src/filesystem-impl.js"
+import { makeProjectRootLayer, makeRealLayer } from "../src/filesystem-impl.js"
 import { applyPlan } from "../src/applier.js"
 import { diffPlan } from "../src/differ.js"
 import { buildPlan } from "../src/plan.js"
@@ -167,6 +167,7 @@ describe("buildPlan with Exec ops", () => {
           blueprint("b", [execOp("b", "third")]),
         ],
         projectRoot: os.tmpdir(),
+        layerFor: makeRealLayer,
       }),
     )
     expect(plan.files).toEqual([])
@@ -183,6 +184,7 @@ describe("buildPlan with Exec ops", () => {
       buildPlan({
         tree: [blueprint("a", [execOp("a", "fmt")]), blueprint("b", [execOp("b", "fmt")])],
         projectRoot: os.tmpdir(),
+        layerFor: makeRealLayer,
       }),
     )
     expect(plan.commands.map((c) => c.ownerId)).toEqual(["a", "b"])
@@ -192,7 +194,11 @@ describe("buildPlan with Exec ops", () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "projitect-test-exec-ops-"))
     try {
       const { plan } = await Effect.runPromise(
-        buildPlan({ tree: [blueprint("a", [execOp("a", "fmt")])], projectRoot: root }),
+        buildPlan({
+          tree: [blueprint("a", [execOp("a", "fmt")])],
+          projectRoot: root,
+          layerFor: makeRealLayer,
+        }),
       )
       const layer = makeProjectRootLayer(root)
       expect(await Effect.runPromise(Effect.provide(applyPlan({ plan }), layer))).toEqual([])
