@@ -16,6 +16,17 @@
     { "path": "./packages/blueprint-tsconfig" },
     { "path": "./packages/blueprint-next" },
     { "path": "./packages/blueprint-react" },
+    { "path": "./packages/blueprint/test" },
+    { "path": "./packages/cli-internals/test" },
+    { "path": "./packages/blueprint-gitignore/test" },
+    { "path": "./packages/blueprint-vitest/test" },
+    { "path": "./packages/blueprint-changesets/test" },
+    { "path": "./packages/blueprint-markdown/test" },
+    { "path": "./packages/blueprint-skills/test" },
+    { "path": "./packages/blueprint-husky-lint-staged/test" },
+    { "path": "./packages/blueprint-tsconfig/test" },
+    { "path": "./packages/blueprint-next/test" },
+    { "path": "./packages/blueprint-react/test" },
     { "path": "./scripts" }
   ]
 }

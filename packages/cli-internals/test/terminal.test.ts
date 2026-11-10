@@ -1,5 +1,6 @@
 import process from "node:process"
 import { Effect, Exit, Option, Queue, Terminal } from "effect"
+import type { Cause } from "effect"
 import { describe, expect, it } from "vitest"
 import { TerminalLive } from "../src/platform/terminal.js"
 
@@ -10,7 +11,7 @@ import { TerminalLive } from "../src/platform/terminal.js"
  * never touched.
  */
 const withInput = <A, E>(
-  body: (input: Queue.Dequeue<Terminal.UserInput, Queue.Done>) => Effect.Effect<A, E>,
+  body: (input: Queue.Dequeue<Terminal.UserInput, Cause.Done>) => Effect.Effect<A, E>,
 ) =>
   Effect.runPromise(
     Effect.gen(function* () {

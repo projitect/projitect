@@ -153,7 +153,9 @@ Pinned in `.nvmrc` to **22.12.0**. The published `engines.node` is `>=22.12.0`. 
 
 Before claiming a task done, run **`pnpm check-all`** from the repo root. It runs, in order:
 
-1. `pnpm tc` — `tsc --build` across all project references
+1. `pnpm tc` — `tsc --build` across all `src` and `test` project references. Type-level assertions
+   in tests (`expectTypeOf`, `@ts-expect-error`) are enforced here, not by Vitest; see
+   [Test files are typechecked](docs/tooling.md#test-files-are-typechecked)
 2. `pnpm lint` — ESLint flat config (covers code style + Prettier formatting via `eslint-plugin-prettier`; no separate `format:check` step)
 3. `pnpm test` — Vitest (unit + integration with the in-memory `BlueprintFileSystem`)
 4. `pnpm knip` — unused exports
