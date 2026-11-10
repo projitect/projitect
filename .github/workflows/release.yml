@@ -39,6 +39,10 @@ jobs:
           title: "chore(release): version packages"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Owner-approved first real release only; remove after package OIDC setup.
+          # Keep this credential off install/build steps and PR workflows.
+          NPM_TOKEN: ${{ secrets.PROJITECT_FIRST_RELEASE_NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.PROJITECT_FIRST_RELEASE_NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: "true"
       # Best-effort: a comment failure must never fail the publish job.
       - if: steps.changesets.outputs.published == 'true'
