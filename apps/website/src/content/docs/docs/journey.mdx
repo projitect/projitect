@@ -99,7 +99,7 @@ Each failure prints an error id and a next command:
 
 In a real terminal, `pjt add <package>` without `--section` asks which sections to install for a
 package that declares sections. Automated tests have no terminal, so the prompt is checked by hand
-with this procedure:
+with this procedure (contributors drive it with a pseudo-terminal script, see `docs/cli-behavior.md` in the repository):
 
 1. In a scratch git project run `pjt init`, then `pjt add @projitect/blueprint-markdown`.
 2. Confirm the multi-select prompt `Pick sections to add` lists every section.
