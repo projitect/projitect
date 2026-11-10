@@ -40,7 +40,7 @@ Alongside, `lockfile.ts` records what was applied and `remover.ts` removes orpha
 
 A browser has no native TypeScript stripping or `tsx`, so `evaluatePjt` transpiles the `.pjt.ts` text with `sucrase` and runs it against a registry of importable modules; `@projitect/cli-internals/browser-blueprints` ships one holding the first-party blueprint packages. Failures (syntax error, unknown import, throwing top level, wrong default export) come back as a typed `PjtEvalFailure` and never throw. The restricted blueprint-list alternative was rejected because it needs its own parser and breaks pasting a real `.pjt.ts`.
 
-`evaluatePjt` executes the text as JavaScript in the calling realm (`new Function`) and the registry only limits what `import` resolves, so it is **not a security sandbox**: top-level code can reach the page's globals, network and storage. Evaluate only text the user wrote in their own tab; a host that evaluates untrusted or shared snippets must isolate them itself, for example in a sandboxed iframe or a Worker.
+`evaluatePjt` executes the text as JavaScript and is not a security sandbox; see [Browser demo boundary](#browser-demo-boundary-planned) for what hosts must do with untrusted snippets.
 
 ## Ownership modes
 
@@ -59,12 +59,12 @@ Blueprints never touch the disk directly. They use `BlueprintFileSystem`, which 
 
 ## Browser demo boundary (planned)
 
-The marketing site plans an interactive in-browser `pjt` demo. This section is the boundary a plan for it is judged against. The browser-safe engine entry, `@projitect/cli-internals/browser`, and its first-party registry, `@projitect/cli-internals/browser-blueprints`, are in review in PR #81 and not yet on `main`; confirm the names below against `main` before relying on them.
+The marketing site plans an interactive in-browser `pjt` demo. This section is the boundary a plan for it is judged against. The browser-safe engine entry, `@projitect/cli-internals/browser`, and its first-party registry, `@projitect/cli-internals/browser-blueprints`, are in place.
 
 - **Runtime model.** An in-memory filesystem and bundled first-party blueprints only. No Node capabilities, no real filesystem, and no undeclared remote packages.
 - **May be bundled.** `core`, `blueprint`, `test-kit`, the first-party `blueprint-*` packages, and the browser entry of `cli-internals`. That entry exposes plan, diff, apply, removal and lockfile logic, the gated layer and the `.pjt.ts` evaluator. In-memory operations may plan, diff, apply and remove; writing through the in-memory filesystem is allowed.
 - **Must stay out.** The `cli-internals` commands, loader, git, package-manager, edit-pjt, filesystem-impl and `platform/*` layers, and any `node:*` import.
-- **Guard.** ESLint `no-restricted-imports` bans `node:*` in `core`, `blueprint*`, `test-kit` and the browser-graph `cli-internals` modules (see [Tooling](./tooling.md#eslint-absorbs-prettier)). `packages/cli-internals/test/browser-bundle.test.ts` bundles the browser entry, the blueprint registry and `test-kit` for the browser with esbuild and fails if any `node:*` module is reachable. Both land with PR #81.
+- **Guard.** ESLint `no-restricted-imports` bans `node:*` in `core`, `blueprint*`, `test-kit` and the browser-graph `cli-internals` modules (see [Tooling](./tooling.md#eslint-absorbs-prettier)). `packages/cli-internals/test/browser-bundle.test.ts` bundles the browser entry, the blueprint registry and `test-kit` for the browser with esbuild and fails if any `node:*` module is reachable.
 - **Untrusted snippets.** `evaluatePjt` runs the `.pjt.ts` text as JavaScript in the calling realm (`new Function`); the registry only limits what `import` resolves. The initial demo accepts bundled examples and code a user chooses to run in their own tab. Running shared or untrusted snippets requires a separate host isolation design with restricted browser capabilities, network access and a validated messaging interface. Moving evaluation into a Worker alone does not provide that boundary: Workers still have network and storage APIs ([MDN](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Using_web_workers)). The demo PR must verify the actual isolation and network policy before enabling untrusted execution.
 - **Website tooling.** `apps/website` stays Astro Starlight. No separate Vite app is added; bundler configuration goes through Astro's own Vite integration.
 - **Where it lives.** The demo source is a component under `apps/website`. Its worked example lives under `apps/website/examples/` and is covered by `pnpm --filter website check:examples`. The demo's marketing pages ship in the same PR as the demo ([Marketing site](./marketing-site.md)).
