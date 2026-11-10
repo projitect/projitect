@@ -173,8 +173,9 @@ outside the declared globs.
 ## Owning `package.json` keys
 
 A merge-mode blueprint (`jsonMerge`) owns the dotted keys it lists in `ownedKeys`, such as
-`scripts.prepare` or `devDependencies.husky`. List leaves, not a whole parent like `scripts`, and
-keep `ownedKeys` identical to the keys in `value`.
+`scripts.prepare` or `devDependencies.husky`. List leaves, not a whole parent like `scripts`: removing a parent would also delete the user's own
+children, and the planner compares exact key strings, so it does not flag a `scripts` and
+`scripts.test` overlap. Keep `ownedKeys` identical to the keys in `value`.
 
 | Situation                                      | Result                                                                      |
 | ---------------------------------------------- | --------------------------------------------------------------------------- |
