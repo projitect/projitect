@@ -1,6 +1,6 @@
 {
   "name": "@projitect/blueprint-gitignore",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Composable .gitignore sections (macOS, Windows, Linux, Node, Next.js, VS Code, JetBrains, tsbuildinfo, Vite, Astro, Nuxt, SvelteKit, Angular, Vue, Storybook, Yarn, pnpm, Vim, Sublime Text, Eclipse) for projitect.",
   "repository": {
     "type": "git",

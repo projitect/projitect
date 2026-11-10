@@ -1,5 +1,12 @@
 # @projitect/test-kit
 
+## 1.0.1
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @projitect/core@1.0.1
+
 ## 1.0.0
 
 ### Minor Changes
