@@ -1,6 +1,6 @@
 # Blueprint authoring
 
-Rules for blueprint packages: the soft sandbox, where the `pjt add` CLI code lives, region markers, ownership modes and the error catalog. See also [architecture](./architecture.md).
+Rules for blueprint packages: the soft sandbox, where the `pjt add` CLI code lives, how a published package declares itself to `pjt add`, region markers, ownership modes and the error catalog. See also [architecture](./architecture.md).
 
 ## Blueprint authoring rules
 
@@ -43,6 +43,39 @@ splits along the sandbox line:
 - **No Node-dependent subpath** (such as `@projitect/blueprint/cli`) is allowed in
   `@projitect/blueprint`. The sandbox table and the lint bans for `packages/blueprint/**` and
   `packages/blueprint-*/**` are unchanged.
+
+## How a published blueprint package declares itself
+
+After installing a package, `pjt add` reads the `"projitect"` field of the installed package's
+`package.json` (`readProjitectMetadata` in `packages/cli-internals/src/pm.ts`;
+`packages/cli-internals/src/commands/add.ts` consumes it). The shape is `ProjitectPackageMetadata`
+in `packages/blueprint/src/add-sections.ts`. Today this field is the only way a package tells
+`pjt add` how to be spliced into `.pjt.ts`.
+
+| `type`          | Required | Used                                                                                                     |
+| --------------- | -------- | -------------------------------------------------------------------------------------------------------- |
+| `blueprint`     | `import` | `call`, the single call line. When `call` is absent a TODO placeholder is spliced.                       |
+| `blueprint-set` | `import` | `callTemplate`, where `{section}` is replaced per chosen section (default `{section}()`), and `sections` |
+
+`@projitect/blueprint-gitignore` is a `blueprint-set`: its `callTemplate` is `gitignores.{section}()`
+and its `sections` list the available gitignore sections (see its `package.json`). A field whose
+`type` is not one of the two values, or whose `import` is not a string, is treated as missing.
+
+**Several blueprints in one package.** Today the only shape is a `blueprint-set`. The user picks
+sections interactively when stdin is a TTY, or passes `pjt add <pkg> --section a,b`. With no TTY and
+no flag, all sections are added. No `--id` flag exists today.
+
+**Field missing.** The package stays installed and `pjt add` fails with `pjt.add.metadata-missing`.
+The user imports the package in `.pjt.ts` by hand and runs `pjt remodel`.
+
+**Bin ownership.** Only the `@projitect/cli` package ships a bin, the `pjt` binary
+(`packages/projitect/package.json`). No blueprint package ships one today. Generated blueprint-package
+bins are planned with the `pjt add` CLI work, which will document their ownership.
+
+**Documented later.** The relationship between an exported blueprint definition and this field
+(it-d83ef3d8), `--id` selection (it-750a5597), bin shim ownership (it-905f0c34) and where arguments
+are validated, with `pjt.blueprint.invalid-args` (it-c647cd1a), are documented by the tasks that
+build them.
 
 ## Region marker convention
 
