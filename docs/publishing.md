@@ -100,6 +100,14 @@ Before the owner merges the first release PR:
 
 A green version-PR job is not confirmation. The release is confirmed only when the public registry returns the released version for both `pnpm view @projitect/cli version` and `pnpm view @projitect/core version`.
 
+### Recovering a partial release
+
+Inspect the actual registry inventory before retrying a failed workflow. A successful publish is immutable; never unpublish it or attempt to overwrite the version as a recovery shortcut. Check every package, its exact version, tarball integrity and provenance, rather than inferring registry state from the job's exit code.
+
+An absent installable version does not mean its number is available. On 2026-11-10, the first `1.0.0` workflow reported thirteen successful publishes and rejected `@projitect/cli@1.0.0` because that version had been published in 2019 and unpublished in 2021. The full public registry document at `https://registry.npmjs.org/@projitect%2fcli` retained those timestamps under `time`, including `time.unpublished`, while the version lookup returned E404. npm permanently reserves unpublished version numbers. This attempt did not complete the release.
+
+For a retired version, add a patch changeset and let the ordinary version PR advance every public package together. Before merging it, inspect the registry's `versions` and `time` records for every package to confirm the proposed number is neither published nor retired. Keep the same exact-head checks and workflow-only publication. For a transient failure involving an available version, retry only after inspecting which packages were actually published; do not blindly rerun a partial publish.
+
 ## Verifying release and website state without gh
 
 When an agent environment has no `gh` or credentials, use the public read-only checks below. Commands marked _verified_ were run on 2026-11-10; the remaining checks were not run in that build environment and are marked _unverified_. These observations are dated evidence, not a claim about the current release state.
