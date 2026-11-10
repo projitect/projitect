@@ -16,14 +16,16 @@ import type { ProjectPlan } from "../src/plan.js"
  */
 
 const plan: ProjectPlan = {
+  commands: [],
   files: [
     {
       _tag: "Region",
       path: ".gitignore",
       commentPrefix: "#",
+      commentSuffix: "",
       regions: [{ ownerId: "pjt:a", content: ".DS_Store\n" }],
     },
-    { _tag: "Owned", path: "generated.ts", content: "// generated\n" },
+    { _tag: "Owned", path: "generated.ts", ownerId: "pjt:gen", content: "// generated\n" },
   ],
 }
 

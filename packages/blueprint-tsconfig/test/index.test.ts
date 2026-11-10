@@ -62,7 +62,7 @@ describe("tsconfig() — defaults", () => {
       moduleResolution: "NodeNext",
       lib: ["ES2023"],
     })
-    expect(json.compilerOptions.jsx).toBeUndefined()
+    expect(json.compilerOptions["jsx"]).toBeUndefined()
   })
 
   it("always-on hygiene flags are present regardless of strict", async () => {
@@ -81,8 +81,8 @@ describe("tsconfig() — defaults", () => {
 
   it("rootDir/outDir/include/exclude line up out of the box", async () => {
     const { json } = await planJson(tsconfig())
-    expect(json.compilerOptions.rootDir).toBe("./src")
-    expect(json.compilerOptions.outDir).toBe("./dist")
+    expect(json.compilerOptions["rootDir"]).toBe("./src")
+    expect(json.compilerOptions["outDir"]).toBe("./dist")
     expect(json.include).toEqual(["src/**/*"])
     expect(json.exclude).toEqual(["node_modules", "dist"])
   })
@@ -91,30 +91,30 @@ describe("tsconfig() — defaults", () => {
 describe("tsconfig() — strict: false", () => {
   it("drops the strict-family flags but keeps hygiene flags", async () => {
     const { json } = await planJson(tsconfig({ strict: false }))
-    expect(json.compilerOptions.strict).toBeUndefined()
-    expect(json.compilerOptions.noUncheckedIndexedAccess).toBeUndefined()
-    expect(json.compilerOptions.exactOptionalPropertyTypes).toBeUndefined()
-    expect(json.compilerOptions.esModuleInterop).toBe(true)
-    expect(json.compilerOptions.skipLibCheck).toBe(true)
+    expect(json.compilerOptions["strict"]).toBeUndefined()
+    expect(json.compilerOptions["noUncheckedIndexedAccess"]).toBeUndefined()
+    expect(json.compilerOptions["exactOptionalPropertyTypes"]).toBeUndefined()
+    expect(json.compilerOptions["esModuleInterop"]).toBe(true)
+    expect(json.compilerOptions["skipLibCheck"]).toBe(true)
   })
 })
 
 describe("tsconfig() — dom: true", () => {
   it("appends DOM + DOM.Iterable to lib", async () => {
     const { json } = await planJson(tsconfig({ dom: true }))
-    expect(json.compilerOptions.lib).toEqual(["ES2023", "DOM", "DOM.Iterable"])
+    expect(json.compilerOptions["lib"]).toEqual(["ES2023", "DOM", "DOM.Iterable"])
   })
 
   it("preserves custom lib + DOM additions together", async () => {
     const { json } = await planJson(tsconfig({ lib: ["ESNext"], dom: true }))
-    expect(json.compilerOptions.lib).toEqual(["ESNext", "DOM", "DOM.Iterable"])
+    expect(json.compilerOptions["lib"]).toEqual(["ESNext", "DOM", "DOM.Iterable"])
   })
 })
 
 describe("tsconfig() — jsx", () => {
   it("emits jsx field when set", async () => {
     const { json } = await planJson(tsconfig({ jsx: "react-jsx" }))
-    expect(json.compilerOptions.jsx).toBe("react-jsx")
+    expect(json.compilerOptions["jsx"]).toBe("react-jsx")
   })
 
   it("does not emit jsx field when null (default)", async () => {
@@ -126,26 +126,26 @@ describe("tsconfig() — jsx", () => {
 describe("tsconfig() — module variants", () => {
   it("ESNext picks Bundler resolution", async () => {
     const { json } = await planJson(tsconfig({ module: "ESNext" }))
-    expect(json.compilerOptions.module).toBe("ESNext")
-    expect(json.compilerOptions.moduleResolution).toBe("Bundler")
+    expect(json.compilerOptions["module"]).toBe("ESNext")
+    expect(json.compilerOptions["moduleResolution"]).toBe("Bundler")
   })
 
   it("CommonJS picks Node resolution", async () => {
     const { json } = await planJson(tsconfig({ module: "CommonJS" }))
-    expect(json.compilerOptions.moduleResolution).toBe("Node")
+    expect(json.compilerOptions["moduleResolution"]).toBe("Node")
   })
 
   it("Node16 picks Node16 resolution", async () => {
     const { json } = await planJson(tsconfig({ module: "Node16" }))
-    expect(json.compilerOptions.moduleResolution).toBe("Node16")
+    expect(json.compilerOptions["moduleResolution"]).toBe("Node16")
   })
 })
 
 describe("tsconfig() — custom rootDir/outDir", () => {
   it("flows the paths into compilerOptions, include, and exclude", async () => {
     const { json } = await planJson(tsconfig({ rootDir: "./app", outDir: "./build" }))
-    expect(json.compilerOptions.rootDir).toBe("./app")
-    expect(json.compilerOptions.outDir).toBe("./build")
+    expect(json.compilerOptions["rootDir"]).toBe("./app")
+    expect(json.compilerOptions["outDir"]).toBe("./build")
     expect(json.include).toEqual(["app/**/*"])
     expect(json.exclude).toEqual(["node_modules", "build"])
   })
