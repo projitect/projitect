@@ -59,9 +59,7 @@ terminal.
 
 Needs Node, `npm`, `python3` and built packages (`pnpm build`). Run from the repo root.
 
-**Status: not yet run end to end.** The image this was written in has no `python3`, so the pty
-driver, its 8s initial drain, the key sequences, the "exactly two toggled calls" result and the
-Ctrl-C exit 0 are unverified. Whoever first runs it fixes any failing step and removes this note.
+**Status:** run end to end on 2026-11-10 (steps 1, 2, 3, 4 and 6); step 5 and the `remodel`/`inspect` follow-up were not run.
 
 1. Pack and serve the blueprint, the way `scripts/smoke.sh` section 5d does. The registry runs in
    the background, so its PID goes to a file; every later command re-reads `$REG` from `/tmp/pty-recipe`:
@@ -108,7 +106,7 @@ Ctrl-C exit 0 are unverified. Whoever first runs it fixes any failing step and r
    import os, pty, sys, time, select
 
    keys = {"down": b"\x1b[B", "space": b" ", "enter": b"\r", "ctrl-c": b"\x03"}
-   script = sys.argv[1].split(",")  # e.g. space,down,space,enter or ctrl-c
+   script = sys.argv[1].split(",")  # e.g. down,down,space,down,space,enter or ctrl-c
    pid, fd = pty.fork()
    if pid == 0:
        os.execvp("node", ["node", "node_modules/projitect/bin/pjt.mjs", "add", "@projitect/blueprint-markdown"])
@@ -135,8 +133,11 @@ Ctrl-C exit 0 are unverified. Whoever first runs it fixes any failing step and r
    print("\nexit:", os.waitstatus_to_exitcode(status))
    ```
 
-   Run `python3 $REG/drive.py space,down,space,enter` from `$E2E`. The output contains
-   `Pick sections to add`, and `.pjt.ts` gains exactly the two toggled calls. Then run
+   The list opens with the cursor on the `Select All` row, followed by `Inverse Selection`, then the
+   sections; the first `down,down` lands on the first section. Run
+   `python3 $REG/drive.py down,down,space,down,space,enter` from `$E2E`. The output contains
+   `Pick sections to add` and `Added to .pjt.ts: agentsPackageManager, agentsVerification.`, and
+   `.pjt.ts` gains exactly those two calls (plus the `markdownSnippets` import). Then run
    `node_modules/projitect/bin/pjt.mjs remodel` and `... inspect`; inspect exits 0.
 
 4. Reset `.pjt.ts` to the committed `init` state with `git checkout .pjt.ts`. Run `python3 $REG/drive.py ctrl-c`; the
