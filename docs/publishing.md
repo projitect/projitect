@@ -95,6 +95,7 @@ Before the owner merges the first release PR:
 1. The owner has confirmed package permissions and installed an unexpired Actions secret covering every published package (steps 1–3 above). Later releases require configured OIDC trust instead of the temporary token.
 2. `pnpm build` then `./scripts/check-packs.sh` pass (every tarball has `dist/` and a LICENSE matching the root one, one shared version, correct `repository`). CI runs this in `publish-dry-run`.
 3. On the first release, watch the release job: `npm --version` must log >= 11.5.1, and the publish step must not fail with an auth error (E401/E403/E404).
+4. Open advisories are triaged per [Security advisories](#security-advisories); any accepted material risk has the owner's sign-off.
 
 ## Release confirmation
 
@@ -154,3 +155,31 @@ Renovate runs on this repo and opens PRs for dep upgrades. Configured at [renova
 - Non-major bumps, devDep majors, and lockfile maintenance auto-merge. Runtime-dep majors (Effect v3 → v4, etc.) wait for human approval. PRs queue for `minimumReleaseAge` (3-8 days depending on dep type) to dodge the npm 72-hour unpublish window.
 
 When adding a new published `@projitect/*` package: nothing to do — it inherits the default js-lib semantics. When adding a new `apps/*` private package: extend the `matchFileNames` rule to include it.
+
+## Security advisories
+
+### Listing open advisories (no `gh`, no token)
+
+Run `pnpm audit --json`. It queries the registry's advisory service for the current lockfile. Its coverage and observation time can differ from GitHub's dependency graph and Dependabot alerts; a clean audit does not prove the repository has no open alerts. Read these fields: `advisories` (one entry per advisory), `actions`, `muted`, and the per-severity counts in `metadata.vulnerabilities`. Report the result as a table with the columns package, severity, advisory id, vulnerable range, fixed version and path.
+
+Where bare `pnpm` is absent, `corepack pnpm audit --json` is the intended form. It is **unverified**: corepack failed signature verification when it was tried in one agent environment, so whether it works elsewhere is unknown.
+
+Where `gh` and authorized access are available, read the open Dependabot records with `gh api 'repos/projitect/projitect/dependabot/alerts?state=open&per_page=100' --paginate`. Those records are the source of truth for GitHub alert state. An alert list that could not be read (no network, no permission, a failed command) is reported as **unknown**, never as clean.
+
+### Triage record
+
+For each advisory, record the affected lockfile version, whether it is reachable at runtime, build time or dev time, the fixed version, and the regression checks run. Judge reachability from how the package is actually used, not from which dependency block lists it.
+
+### Overrides
+
+A transitive fix may use `overrides` in `pnpm-workspace.yaml` only when the upstream parent cannot take the fixed version or has not released it yet, and the override stays within that parent's declared semver range (check the parent's `package.json`, do not assume). Each entry carries a comment naming the advisory ids and the parent package, as the existing entries do.
+
+Retire an override once the parent depends on a fixed version: remove it, then confirm the lockfile still resolves fixed versions and the audit stays clean.
+
+### What clears an alert
+
+For a dependency fix, the lockfile resolves a fixed version, a re-run of the audit no longer lists the advisory, and `pnpm check-all` passes. Separately verify the corresponding GitHub alert state after GitHub processes the merged dependency graph; a local audit does not close or dismiss it. An alert dismissed as not applicable needs a recorded reason.
+
+### Release impact
+
+There is no blanket exemption for exposure in the private site or in dev dependencies, and no blanket block on every alert. Assess actual exploitability and the shipped or build impact of each advisory: what the published tarballs contain, and what runs in CI and release builds. Accepting a material risk is escalated to the owner, not decided by the agent. This feeds item 4 of the [Preflight](#preflight) list.
