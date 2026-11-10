@@ -111,14 +111,21 @@ For a retired version, add a patch changeset and let the ordinary version PR adv
 
 ## Verifying release and website state without gh
 
-When an agent environment has no `gh` or credentials, use the public read-only checks below. Commands marked _verified_ were run on 2026-11-10; the remaining checks were not run in that build environment and are marked _unverified_. These observations are dated evidence, not a claim about the current release state.
+When an agent environment has no `gh` or credentials, use the public read-only checks below. Commands marked _verified_ were run on the stated UTC date. Checks marked _unverified_ or _not verified_ carry the reason beside them. These observations are dated evidence, not a claim about the current release state.
+
+`jq` is not guaranteed in agent environments. Save the response to a throwaway path outside the repo and read fields with `python3 -I` (or a similar tool the image has), for example:
+
+```sh
+curl -fsS 'https://api.github.com/repos/projitect/projitect/pulls?state=all&per_page=100' -o /tmp/pulls.json
+python3 -I -c "import json;d=json.load(open('/tmp/pulls.json'));print([(p['title'],p['state'],p['merged_at']) for p in d if 'version packages' in p['title']])"
+```
 
 ### Release PR and `release.yml` run
 
 Unauthenticated GitHub access is limited to 60 requests an hour per IP, so fetch sparingly.
 
-- Version PR (`chore(release): version packages`): open `https://github.com/projitect/projitect/pulls?q=is%3Apr+%22chore%28release%29%3A+version+packages%22`, or `curl -fsS 'https://api.github.com/repos/projitect/projitect/pulls?state=all&per_page=100'` and read `title`, `state`, `merged_at`. Follow the response's pagination links if the matching PR is not on that page. _Unverified._
-- Release run: open `https://github.com/projitect/projitect/actions/workflows/release.yml`, or `curl -fsS 'https://api.github.com/repos/projitect/projitect/actions/workflows/release.yml/runs?per_page=5'` and read `status`, `conclusion`, `head_sha`. _Unverified._
+- Version PR (`chore(release): version packages`): open `https://github.com/projitect/projitect/pulls?q=is%3Apr+%22chore%28release%29%3A+version+packages%22`, or `curl -fsS 'https://api.github.com/repos/projitect/projitect/pulls?state=all&per_page=100'` and read `title`, `state`, `merged_at`. A full page of 100 means the matching PR may be on a later page: follow the `Link` header. _Verified on 2026-11-10 (UTC):_ HTTP 200, JSON parsed with `python3 -I`, 100 PRs returned, including a `chore(release): version packages` PR in state `open` with `merged_at` null and a closed one merged at `2026-11-10T19:26:58Z`.
+- Release run: open `https://github.com/projitect/projitect/actions/workflows/release.yml`, or `curl -fsS 'https://api.github.com/repos/projitect/projitect/actions/workflows/release.yml/runs?per_page=5'` and read `status`, `conclusion`, `head_sha`. _Verified on 2026-11-10 (UTC):_ HTTP 200, JSON parsed with `python3 -I`, and each run listed `status`, `conclusion` and `head_sha` (five completed runs, four `success` and one `failure`).
 
 ### Registry
 
@@ -126,13 +133,13 @@ Unauthenticated GitHub access is limited to 60 requests an hour per IP, so fetch
 
 ### Website hosting and commit served
 
-The repo proves no host: there is no deploy workflow (only `ci.yml` and `release.yml`) and no host config. `apps/website/astro.config.mjs` sets `site: https://projitect.dev`, and `BACKLOG.md` lists the Vercel project (OPS-8) and the projitect.dev domain as planned and unchecked. Treat the host and the deploy trigger as **unconfirmed** until a deploy mechanism lands.
+The repo proves no host: there is no deploy workflow (only `ci.yml` and `release.yml`) and no host config. `apps/website/astro.config.mjs` sets `site: https://projitect.dev`, and `BACKLOG.md` lists the Vercel project (OPS-8) and the projitect.dev domain as planned and unchecked. Treat the host and the deploy trigger as **unconfirmed** until a deploy mechanism lands. Current evidence: on 2026-11-10 `projitect.dev` did not resolve (`curl: (6) Could not resolve host: projitect.dev`).
 
 No mechanism reports which commit the site serves (there is no build stamp, and none is built here). The best read-only comparison is to fetch a built page or an asset and diff it against the source at the merged commit, for example `apps/website/public/schemas/inspect.v1.json`.
 
 ### Published asset check
 
-`curl -sS -o /dev/null -w '%{http_code}\n' https://projitect.dev/schemas/inspect.v1.json` must print `200`, and `curl -fsS -o inspect.v1.json https://projitect.dev/schemas/inspect.v1.json` followed by `python3 -m json.tool inspect.v1.json` must parse. A pass is HTTP 200 and valid JSON. If it fails, record the status code, the response headers (`curl -sSI`) and the UTC time, then check hosting/domain setup (OPS-8/OPS-9) and whether the asset was deployed. _Unverified._
+`curl -sS -o /dev/null -w '%{http_code}\n' https://projitect.dev/schemas/inspect.v1.json` must print `200`, and `curl -fsS -o inspect.v1.json https://projitect.dev/schemas/inspect.v1.json` followed by `python3 -m json.tool inspect.v1.json` must parse. A pass is HTTP 200 and valid JSON. If it fails, record the status code, the response headers (`curl -sSI`) and the UTC time, then check hosting/domain setup (OPS-8/OPS-9) and whether the asset was deployed. _Not verified:_ on 2026-11-10 the request failed with `curl: (6) Could not resolve host: projitect.dev` (exit 6), so no status code or JSON was obtained.
 
 ### First public release pass
 
@@ -143,7 +150,7 @@ The release or deploy agent runs this after the publish, in a throwaway git proj
 3. `pnpm exec pjt inspect` exits 0. Hand-edit a managed region: `pnpm exec pjt inspect` exits nonzero and reports the drift.
 4. Exercise upgrade, swap and remove where they apply, the way `./scripts/smoke.sh` does.
 
-It passes when every step behaves as stated and `pnpm view` returns the released version (with provenance) for every package in the `fixed` group. _Unverified on 2026-11-10:_ no public version was available for this journey.
+It passes when every step behaves as stated and `pnpm view` returns the released version (with provenance) for every package in the `fixed` group. _Unverified on 2026-11-10:_ no version is published to the registry, so the journey cannot run.
 
 The missing npm owner setup is tracked by the [Owner-only setup checklist](#owner-only-setup-checklist) and the first-release task. It does not block these instructions.
 
