@@ -12,11 +12,14 @@ it, rewrite the affected section cohesively — do not append patches to the bot
 ## What this repo is
 
 `projitect` is a project-scaffolding tool — Terraform for frontend projects. The user-facing
-binary is `pjt`. Project maintainers declare a list of **blueprints** in `.pjt.ts`; `pjt build`
-materializes them, `pjt remodel` updates the project to match, and `pjt inspect` reports drift
-with a nonzero exit for CI. The repository's canonical GitHub home is
-**github.com/projitect/projitect** — repo links, every published package's `repository` field,
-and the changesets changelog's `repo` option all use that slug.
+binary is `pjt`. Project maintainers declare a list of **blueprints** in `.pjt.ts`; `pjt init`
+scaffolds `.pjt.ts` (`--yes` bootstraps git and `package.json`), `pjt add` installs a blueprint
+package and splices it into `.pjt.ts`, `pjt build` materializes the blueprints, `pjt remodel`
+updates the project to match, and `pjt inspect` reports drift with a nonzero exit for CI. A new
+CLI command is a new public feature: a **minor** bump under the Versioning table below. The
+repository's canonical GitHub home is **github.com/projitect/projitect** — repo links, every
+published package's `repository` field, and the changesets changelog's `repo` option all use that
+slug.
 
 This is a **pnpm monorepo**. `packages/*` and `apps/*` are the workspaces:
 
@@ -45,20 +48,21 @@ changesets — one shared version, matching Effect v4's own release model.
 
 Pick the row that matches your task and open that document; each is one hop from here.
 
-| If you are…                                                                                | Open                                                                                                                     |
-| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
-| Setting up a clone and getting to a green `pnpm check-all`                                 | [Getting started](docs/getting-started.md)                                                                               |
-| Learning the packages, the loader → planner → differ → applier pipeline, the soft sandbox  | [Architecture](docs/architecture.md)                                                                                     |
-| Writing or reviewing Effect code (Services, errors, `Match`, predicates, `dual`, `Result`) | [effect-conventions skill](.claude/skills/effect-conventions/SKILL.md)                                                   |
-| Writing folds, merges, generic utilities or sorts (`Reducer`, `*X` utilities, `Order`)     | [fp-utilities skill](.claude/skills/fp-utilities/SKILL.md)                                                               |
-| Touching ESLint, Prettier, hooks, the Effect language service or CI                        | [Tooling](docs/tooling.md)                                                                                               |
-| Writing a blueprint, region markers, ownership modes, or adding an error id                | [Blueprint authoring](docs/blueprint-authoring.md)                                                                       |
-| Scoping a first-party blueprint, or shipping Markdown snippets and agent skills            | [First-party scope](docs/blueprint-authoring.md#first-party-blueprint-scope)                                             |
-| Making a user-facing change (the website must change in the same PR)                       | [Marketing site](docs/marketing-site.md)                                                                                 |
-| Shipping a release, changesets, or dependency upgrades                                     | [Publishing](docs/publishing.md), [verify without gh](docs/publishing.md#verifying-release-and-website-state-without-gh) |
-| Setting up commit signing                                                                  | [Signed commits](docs/agents-signing.md)                                                                                 |
-| Changing AGENTS.md, docs or skills (where a new rule goes, the guidance check)             | [Guidance maintenance](docs/guidance-maintenance.md), [docs index](docs/README.md)                                       |
-| Using the Trello kanban workflow (optional)                                                | [Kanban overview](docs/kanban/overview.md), [daily workflows](docs/kanban/workflows.md)                                  |
+| If you are…                                                                                       | Open                                                                                                                     |
+| ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Setting up a clone and getting to a green `pnpm check-all`                                        | [Getting started](docs/getting-started.md)                                                                               |
+| Learning the packages, the loader → planner → differ → applier pipeline, the soft sandbox         | [Architecture](docs/architecture.md)                                                                                     |
+| Writing or reviewing Effect code (Services, errors, `Match`, predicates, `dual`, `Result`)        | [effect-conventions skill](.claude/skills/effect-conventions/SKILL.md)                                                   |
+| Writing folds, merges, generic utilities or sorts (`Reducer`, `*X` utilities, `Order`)            | [fp-utilities skill](.claude/skills/fp-utilities/SKILL.md)                                                               |
+| Adding or changing a CLI command, prompt, `--yes`/`--section` flag, or missing-`.pjt.ts` handling | [CLI behavior](docs/cli-behavior.md)                                                                                     |
+| Touching ESLint, Prettier, hooks, the Effect language service or CI                               | [Tooling](docs/tooling.md)                                                                                               |
+| Writing a blueprint, region markers, ownership modes, or adding an error id                       | [Blueprint authoring](docs/blueprint-authoring.md)                                                                       |
+| Scoping a first-party blueprint, or shipping Markdown snippets and agent skills                   | [First-party scope](docs/blueprint-authoring.md#first-party-blueprint-scope)                                             |
+| Making a user-facing change (the website must change in the same PR)                              | [Marketing site](docs/marketing-site.md)                                                                                 |
+| Shipping a release, changesets, or dependency upgrades                                            | [Publishing](docs/publishing.md), [verify without gh](docs/publishing.md#verifying-release-and-website-state-without-gh) |
+| Setting up commit signing                                                                         | [Signed commits](docs/agents-signing.md)                                                                                 |
+| Changing AGENTS.md, docs or skills (where a new rule goes, the guidance check)                    | [Guidance maintenance](docs/guidance-maintenance.md), [docs index](docs/README.md)                                       |
+| Using the Trello kanban workflow (optional)                                                       | [Kanban overview](docs/kanban/overview.md), [daily workflows](docs/kanban/workflows.md)                                  |
 
 ## Contributor skills
 

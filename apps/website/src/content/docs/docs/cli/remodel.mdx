@@ -67,6 +67,7 @@ Running `pjt remodel` twice with no changes in between writes nothing the second
 
 ## Common errors
 
+- `pjt.config.blueprint-file-not-found` — `.pjt.ts` is missing. The message tells you to run `pjt init`; `pjt remodel` does not create the file.
 - `pjt.plan.conflict-region` — two blueprints share the same `ownerId` in one file.
 - `pjt.plan.conflict-merge` — two blueprints claim the same JSON key.
 - `pjt.region.missing-end` — a managed region's end marker was deleted.

@@ -20,6 +20,8 @@ Built for CI.
 
 On exit 1 the human-readable output ends with ``Drift detected. Run `pjt remodel` to apply the blueprints.`` A script or agent runs `pjt remodel` and then `pjt inspect` again to confirm exit 0.
 
+If `.pjt.ts` is missing, `pjt inspect` exits 1 with `pjt.config.blueprint-file-not-found` and tells you to run `pjt init`. It does not create the file.
+
 ## Output
 
 ```text
