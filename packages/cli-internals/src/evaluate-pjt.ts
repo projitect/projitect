@@ -1,9 +1,13 @@
-import { Array, Data, Effect, Match, Option, Predicate, Record, Result } from "effect"
-import { PredicateX } from "@nunofyobiz/effect-extras"
+import { Data, Effect, Match, Option, Record, Result } from "effect"
 import { transform } from "sucrase"
 import { identity } from "effect/Function"
 import type { BlueprintFileSystem, Errors } from "@projitect/core"
-import { describe, isEffectTree, isProjitectFile } from "./config-file.js"
+import {
+  describe,
+  isEffectTree,
+  isProjitectFile,
+  isWellFormedProjitectFile,
+} from "./config-file.js"
 import type { BlueprintTree, ProjitectFile } from "./config-file.js"
 
 /**
@@ -89,33 +93,6 @@ const execute = (code: string, registry: ModuleRegistry): Result.Result<unknown,
     catch: (cause) => runFailure(registry, cause),
   })
 
-const isBlueprint = (v: unknown): boolean =>
-  PredicateX.unsafeIsRecord(v) &&
-  Predicate.isString(v["id"]) &&
-  Predicate.isString(v["version"]) &&
-  Array.isArray(v["permissions"]) &&
-  Effect.isEffect(v["plan"])
-
-/** A blueprint, or a `directory(...)` node whose children are all valid in turn. */
-const isTreeNode = (v: unknown, ancestors: ReadonlySet<unknown>): boolean =>
-  PredicateX.unsafeIsRecord(v) && v["_tag"] === "Directory"
-    ? !ancestors.has(v) &&
-      Predicate.isString(v["name"]) &&
-      isBlueprintList(v["children"], new Set([...ancestors, v]))
-    : isBlueprint(v)
-
-const isBlueprintList = (v: unknown, ancestors: ReadonlySet<unknown> = new Set()): boolean =>
-  Array.isArray(v) && Array.every([...v], (node) => isTreeNode(node, ancestors))
-
-/**
- * `isProjitectFile` only checks the `_tag`; the evaluator also needs `blueprints` to be a
- * well-formed list or an Effect, or `blueprintTree` would hand back something that is not a tree.
- */
-const isWellFormedFile = (v: unknown): v is ProjitectFile =>
-  isProjitectFile(v) &&
-  (Effect.isEffect(v.blueprints) || isBlueprintList(v.blueprints)) &&
-  (v.config === undefined || PredicateX.unsafeIsRecord(v.config))
-
 const describeInvalid = (v: unknown): string =>
   isProjitectFile(v)
     ? "a pjt({...}) whose `blueprints` is not an array of blueprints (or `directory(...)` nodes) or an Effect, or whose `config` is not an object"
@@ -123,7 +100,7 @@ const describeInvalid = (v: unknown): string =>
 
 const validateFile = (value: unknown): Result.Result<ProjitectFile, PjtEvalFailure> =>
   Match.value(value).pipe(
-    Match.when(isWellFormedFile, (file) => Result.succeed(file)),
+    Match.when(isWellFormedProjitectFile, (file) => Result.succeed(file)),
     Match.orElse((other) => {
       const received = describeInvalid(other)
       return Result.fail(

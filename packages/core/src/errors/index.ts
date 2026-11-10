@@ -204,6 +204,14 @@ export class ApplyMergeAncestorNotObject extends Schema.TaggedError<ApplyMergeAn
   },
 ) {}
 
+export class ApplyConfirmationRequired extends Schema.TaggedError<ApplyConfirmationRequired>()(
+  "ApplyConfirmationRequired",
+  {
+    id: Schema.Literal("pjt.apply.confirmation-required"),
+    message: Schema.String,
+  },
+) {}
+
 export class InitGitMissing extends Schema.TaggedError<InitGitMissing>()("InitGitMissing", {
   id: Schema.Literal("pjt.init.git-missing"),
   message: Schema.String,
@@ -391,7 +399,7 @@ export type PlanError =
 
 export type RemoveClaimError = RemoveAmbiguousMergeClaim
 
-export type ApplyError = ApplyDirtyGit | ApplyMergeAncestorNotObject
+export type ApplyError = ApplyDirtyGit | ApplyMergeAncestorNotObject | ApplyConfirmationRequired
 
 export type InitError = InitGitMissing | InitPackageJsonMissing
 
@@ -447,6 +455,7 @@ export const ERROR_IDS = [
   "pjt.remove.ambiguous-merge-claim",
   "pjt.apply.dirty-git",
   "pjt.apply.merge-ancestor-not-object",
+  "pjt.apply.confirmation-required",
   "pjt.init.git-missing",
   "pjt.init.package-json-missing",
   "pjt.drift.detected",

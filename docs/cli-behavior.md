@@ -21,23 +21,27 @@ differ, the page says so.
 | ------- | --------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
 | `init`  | Never.                                                                | `--yes` creates a missing `.git/` and `package.json`. Without `--yes` it fails with `pjt.init.git-missing` or `pjt.init.package-json-missing`.  |
 | `add`   | Multi-select "Pick sections to add" when a package declares sections. | `--section a,b` is honoured verbatim. With no `--section` and no terminal, `add` installs every section the package declares. It never prompts. |
-| `build` | Confirmation before the wipe, whenever `--yes` is absent.             | **Does not follow the policy.** There is no terminal check; see below.                                                                          |
+| `build` | Confirmation on a terminal unless `--yes` is supplied.                | Without `--yes`, refuses with `pjt.apply.confirmation-required` before import or deletion.                                                      |
 
 `remodel`, `inspect` and `explain` never prompt.
 
-### `build` is the exception
+### Destructive build safety
 
-`pjt build` asks for confirmation whenever `--yes` is absent, with no terminal check. With piped
-or closed stdin it prints the question, then Node exits with code 13 and the warning
-`Detected unsettled top-level await` because nothing answers the prompt. In a terminal, Ctrl-C
-cancels with exit 130. **Scripts must pass `--yes`.** Making `build` follow the policy is a
-behaviour change and gets its own scoped, tested task; do not document it as done before then.
+`pjt build` checks `--force`, the git repository and the clean working tree first. On
+non-interactive input it requires `--yes`, otherwise it exits 1 with
+`pjt.apply.confirmation-required` before importing the config or deleting anything.
 
-The confirmation runs after the `--force` and clean-git checks. The wipe also runs before
-`.pjt.ts` is loaded (see below), so `pjt build --force --yes` with no `.pjt.ts` removes the
-unpreserved files before it fails. A clean git check does not guarantee recovery of ignored
-files. Initialise and verify the configuration before a destructive build; keep a separate
-backup for content git does not track.
+Next it imports `.pjt.ts` once and validates the default export, literal blueprint entries,
+permissions and nested directory structure. Missing, unimportable or structurally invalid
+configuration fails before deletion, even with `--force --yes`. A genuine terminal then gets
+the confirmation unless `--yes` was supplied. Declining leaves files unchanged; Ctrl-C exits130.
+
+Only then does the wipe run. Configuration-tree Effects and blueprint plans run against the
+fresh filesystem afterward, preserving fresh-build semantics rather than retaining old region
+content. Their failures, plan conflicts and apply or command failures can therefore happen
+after deletion. Build does not roll back the wipe or later partial changes. Importing a user
+module can itself have side effects; preflight does not make arbitrary JavaScript transactional.
+A clean git check cannot recover ignored content, so keep a separate backup for it.
 
 ## How post-apply commands resolve
 
@@ -61,7 +65,7 @@ macOS relies on the libraries.
 `remodel`, `inspect` and `explain` without an error id load `.pjt.ts` and fail with
 `pjt.config.blueprint-file-not-found` (exit 1) when it is missing. The message tells the user to
 run `pjt init`. They do not initialise automatically or offer an interactive init. `build` also
-loads the file, but its wipe happens first (above).
+validates the file before its wipe (above).
 
 `explain <error-id>` only looks up the error description and works without `.pjt.ts`. `add`
 installs the package before it attempts to splice the configuration. If metadata and a section
@@ -229,5 +233,6 @@ temporary registry, not unpublished workspace-directory installs or a moving Eff
 
 ### What `build` does without a terminal
 
-`pjt build --force < /dev/null` (clean git, no `--yes`) prints the confirmation and then Node exits
-13 with `Warning: Detected unsettled top-level await`. With `--yes` there is no prompt.
+`pjt build --force < /dev/null` (clean git, no `--yes`) exits 1 promptly with
+`pjt.apply.confirmation-required`, names `--yes` and does not prompt or delete files.
+`pjt build --force --yes` preflights the configuration and then deletes without prompting.

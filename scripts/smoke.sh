@@ -797,6 +797,8 @@ for id in pjt:gitignore:node pjt:tsconfig pjt:vitest pjt:changesets pjt:husky-li
   grep -A2 "\"$id\"" .pjt.lock | grep -q '"version": "1.1.0"' && pass "$id: .pjt.lock records 1.1.0" || fail "$id: .pjt.lock still at 1.0.0"
 done
 $BIN inspect > /dev/null 2>&1 && pass "clean after remodel of the first-party upgrade" || fail "drift after the first-party upgrade remodel"
+python3 "$ROOT/scripts/check-build-preflight.py" "$E2E/node_modules" && pass "packed build preflight and terminal safety" || fail "packed build preflight or terminal safety failed"
+
 kill "$REG_PID" 2>/dev/null
 cd "$SMOKE"
 rm -rf "$REG" "$E2E" "$FP"
