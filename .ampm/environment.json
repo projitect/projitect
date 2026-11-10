@@ -17,6 +17,22 @@
           "argv": ["bash", "-c", "test \"$(pnpm --version)\" = \"10.33.4\""],
           "expectedExitCode": 0,
           "provides": [{ "kind": "tool", "name": "pnpm" }]
+        },
+        {
+          "name": "curl",
+          "argv": [
+            "bash",
+            "-c",
+            "test \"$(curl --version | head -n1 | cut -d' ' -f2)\" = \"7.88.1\""
+          ],
+          "expectedExitCode": 0,
+          "provides": [{ "kind": "tool", "name": "curl" }]
+        },
+        {
+          "name": "python3",
+          "argv": ["bash", "-c", "python3 --version | grep -q '^Python 3\\.11\\.2$'"],
+          "expectedExitCode": 0,
+          "provides": [{ "kind": "tool", "name": "python3" }]
         }
       ]
     }
