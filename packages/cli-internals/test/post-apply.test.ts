@@ -9,8 +9,6 @@ import { exec as execBlueprint } from "@projitect/blueprint"
 import { Errors, ProjitectConfig } from "@projitect/core"
 import type { ChangeSet, Permission } from "@projitect/core"
 import { build, renderBuildResult } from "../src/commands/build.js"
-import { explain } from "../src/commands/explain.js"
-import { inspect } from "../src/commands/inspect.js"
 import { remodel } from "../src/commands/remodel.js"
 import { makeProjectRootLayer } from "../src/filesystem-impl.js"
 import { applyPlan } from "../src/applier.js"
@@ -207,8 +205,6 @@ describe("buildPlan with Exec ops", () => {
     } finally {
       await fs.rm(root, { recursive: true, force: true })
     }
-    const text = await Effect.runPromise(explain({ errorId: "pjt.inspect.operation-unsupported" }))
-    expect(text).toContain("pjt.inspect.operation-unsupported")
   })
 })
 
@@ -357,23 +353,6 @@ describe("remodel / build / inspect with Exec ops", () => {
       remodel: { written: [], removed: [], ran: [] },
     })
     expect(text).toBe("Cancelled. No changes made.\n")
-  })
-
-  it("inspect fails closed with the unsupported-operation error instead of reporting clean", async () => {
-    declare([{ id: "a", permissions: [exec("fmt")], operations: [execOp("a", "fmt")] }])
-    const exit = await Effect.runPromiseExit(inspect({ config: config() }))
-    const error = failureOf(exit)
-    expect(error).toBeInstanceOf(Errors.OperationUnsupportedOnInspect)
-    // The shape `--json` emits for an error: its id and fields.
-    const json = JSON.stringify({ error })
-    expect(json).toContain('"id":"pjt.inspect.operation-unsupported"')
-    expect(json).toContain('"operation":"Exec"')
-  })
-
-  it("inspect is unaffected when no blueprint declares a command", async () => {
-    declare([{ id: "a", operations: [gitignore("a")] }])
-    const result = await Effect.runPromise(inspect({ config: config() }))
-    expect(result.hasDrift).toBe(true)
   })
 })
 

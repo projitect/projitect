@@ -1,16 +1,16 @@
 ---
 title: pjt explain
-description: Print a description of a projitect error id.
+description: Print a description of a projitect error id, or list the project's post-apply commands.
 ---
 
 ```bash
-pjt explain <error-id>
+pjt explain [<error-id>] [--json]
 ```
 
-Looks up the canonical description of an error id and prints a short explanation plus a docs
-URL. No network call — the description ships in the CLI.
+With an error id, prints a short explanation plus a docs URL. No network call — the description
+ships in the CLI. Without one, lists the post-apply commands the project's blueprints declare.
 
-## Example
+## Error ids
 
 ```text
 $ pjt explain pjt.plan.conflict-region
@@ -19,8 +19,33 @@ Two blueprints share the same `ownerId` for a region in the same file. Pick dist
 More at: https://projitect.dev/errors/pjt.plan.conflict-region
 ```
 
-## Full registry
-
 Every error id projitect can produce is listed on the [Errors page](/errors/). The CLI
 guarantees a docs URL for every id — `pjt explain` and the website stay in lockstep via the
 `check:errors` CI gate.
+
+## Post-apply commands
+
+Loads `.pjt.ts`, builds the plan and lists each post-apply command with its owning blueprint, the
+fix command that `pjt build` and `pjt remodel` run, and the check command that `pjt inspect` runs.
+Every declaration is listed, including several blueprints that share one fix with different checks.
+
+```text
+$ pjt explain
+pjt:lint
+  fix:   pnpm lint:fix
+  check: pnpm lint
+```
+
+A command without a check shows `(none; \`pjt inspect\` does not run this command)`. A project with no
+post-apply commands prints `No blueprint declares post-apply commands.`
+
+### `--json`
+
+`--json` emits the same listing; `check` is absent for a command without one. An error is emitted
+as `{ "error": { ... } }` with the error's `id` and fields.
+
+```json
+{
+  "commands": [{ "ownerId": "pjt:lint", "fix": "pnpm lint:fix", "check": "pnpm lint" }]
+}
+```

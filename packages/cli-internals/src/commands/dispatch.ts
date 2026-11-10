@@ -10,7 +10,7 @@ import { InspectJsonSchemaUrl } from "./inspect-json.js"
 import { remodel } from "./remodel.js"
 import { build, renderBuildResult } from "./build.js"
 import { init } from "./init.js"
-import { explain } from "./explain.js"
+import { explain, explainCommands } from "./explain.js"
 import { add } from "./add.js"
 
 /**
@@ -260,12 +260,34 @@ const buildCmd = Command.make(
 // pjt explain <error-id>
 // ---------------------------------------------------------------------------
 
-const explainCmd = Command.make("explain", { errorId: Argument.string("error-id") }, (input) =>
-  Effect.gen(function* () {
-    const out = yield* explain({ errorId: input.errorId })
-    yield* display(`${out}\n`)
-  }),
-).pipe(Command.withDescription("Print a description of a projitect error id."))
+const explainCmd = Command.make(
+  "explain",
+  {
+    errorId: Argument.string("error-id").pipe(Argument.optional),
+    json: jsonFlag(
+      "With no error id, emit the post-apply command listing (or the error with its id and fields) as JSON.",
+    ),
+  },
+  (input) =>
+    Effect.gen(function* () {
+      const out = yield* Option.match(input.errorId, {
+        onSome: (errorId) => explain({ errorId }),
+        onNone: () =>
+          explainCommands({ config: configFromEnv(), json: input.json }).pipe(
+            Effect.catch((error: Errors.ProjitectError) =>
+              reportError(error, input.json).pipe(Effect.as(null)),
+            ),
+          ),
+      })
+      if (out !== null) {
+        yield* display(`${out}\n`)
+      }
+    }),
+).pipe(
+  Command.withDescription(
+    "Print a description of a projitect error id, or list the project's post-apply commands.",
+  ),
+)
 
 // ---------------------------------------------------------------------------
 // pjt add <package>

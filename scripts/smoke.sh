@@ -836,11 +836,21 @@ EXEC_OK=$?
 [ -f owned.txt ]  && pass "file operation applied"                 || fail "owned.txt missing"
 [ -f marker.txt ] && pass "build ran the post-apply command"       || fail "marker.txt missing"
 grep -q "Ran 1 command" /tmp/exec-ok.out && pass "build reports the command it ran" || fail "no Ran line"
+node node_modules/@projitect/cli/bin/pjt.mjs inspect > /dev/null 2>&1 && pass "inspect exits 0 while the check passes" || fail "inspect failed while the check passes"
+node node_modules/@projitect/cli/bin/pjt.mjs explain | grep -q "smoke:post-apply" && pass "explain lists the post-apply command" || fail "explain did not list the command"
+rm -f marker.txt
 node node_modules/@projitect/cli/bin/pjt.mjs inspect > /tmp/exec-inspect.out 2>&1
-[ $? -ne 0 ] && grep -q "pjt.inspect.operation-unsupported" /tmp/exec-inspect.out && pass "inspect fails closed on post-apply commands" || fail "inspect did not fail closed"
+[ $? -ne 0 ] && grep -q "check failed" /tmp/exec-inspect.out && pass "inspect exits nonzero and names the failing check" || fail "inspect did not report the failing check"
+node node_modules/@projitect/cli/bin/pjt.mjs inspect --json > /tmp/exec-inspect.json 2>/dev/null
+grep -q '"ownerId": "smoke:post-apply"' /tmp/exec-inspect.json && grep -q '"status": "failed"' /tmp/exec-inspect.json && pass "inspect --json carries a commands entry" || fail "inspect --json has no commands entry"
+node node_modules/@projitect/cli/bin/pjt.mjs remodel > /dev/null 2>&1
+[ -f marker.txt ] && pass "remodel ran the fix command" || fail "remodel did not run the fix"
+node node_modules/@projitect/cli/bin/pjt.mjs inspect > /dev/null 2>&1 && pass "inspect exits 0 after remodel" || fail "inspect still failing after remodel"
 
 rm -f marker.txt
 write_exec_blueprint '{ ...formatter, permissions: [] }'
+node node_modules/@projitect/cli/bin/pjt.mjs inspect --json > /tmp/exec-inspect-denied.out 2>&1
+[ $? -ne 0 ] && grep -q '"id": "pjt.exec.command-not-permitted"' /tmp/exec-inspect-denied.out && pass "inspect without the exec permission fails with the not-permitted id" || fail "inspect did not refuse the unpermitted check"
 node node_modules/@projitect/cli/bin/pjt.mjs build --force --force-dirty --yes --json > /tmp/exec-denied.out 2>&1
 EXEC_DENIED=$?
 [ $EXEC_DENIED -ne 0 ] && pass "build with a denied command exits nonzero" || fail "denied build exited 0"
