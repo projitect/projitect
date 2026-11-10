@@ -19,9 +19,46 @@ A PR that changes a published package adds a hand-written `.changeset/<kebab-nam
 
 Only the release job runs on Node 24 with `npm@^11.5.1`, because npm trusted publishing needs npm >= 11.5.1 and Node >= 22.14.0. `.nvmrc` and `engines.node` (`>=22.12.0`) are unchanged. The job keeps `id-token: write` for OIDC and provenance; no npm token is wired in, and none belongs in source or the workflow.
 
-When the publish succeeds (`published == 'true'`), a follow-up step runs [`scripts/comment-released.ts`](../scripts/comment-released.ts): it comments "Shipped in projitect vX.Y.Z" on each PR in the release (the commits since the previous `projitect@*` tag) and on the issues those PRs close. A hidden `<!-- pjt-release:vX.Y.Z -->` marker makes re-runs skip anything already commented, and a failed comment is logged without failing the job. Preview with `pnpm release:comment --dry-run` (needs `GITHUB_TOKEN`, `GITHUB_REPOSITORY`, `PUBLISHED_PACKAGES`).
-
 Agents never publish directly: there is no interactive `changeset publish` step to run by hand, only the changeset file that feeds the gated workflow above. The `release-bump` skill in `.claude/skills/release-bump/` walks through cutting a release.
+
+### Release job permissions
+
+The release job holds exactly these `GITHUB_TOKEN` permissions:
+
+- `contents: write` — push the version PR branch and the release tags.
+- `pull-requests: write` — open or update the version PR and comment on released PRs.
+- `issues: write` — comment on the issues the released PRs close.
+- `id-token: write` — OIDC for npm trusted publishing and provenance.
+
+Release automation that posts comments may use `issues: write` only in the release job, only after a successful publish (`published == 'true'`), and only with the built-in `GITHUB_TOKEN`. Such a step is best-effort (`continue-on-error: true`), so a comment failure never fails the publish. No new token or credential is allowed.
+
+### How a release maps to GitHub
+
+After a successful publish, [`scripts/comment-released.ts`](../scripts/comment-released.ts) comments "Shipped in projitect vX.Y.Z". The commits since the previous `projitect@*` tag give the PRs in the release; the issues those PRs close (`Fixes #…` or `Closes #…` in the PR) are included. A hidden `<!-- pjt-release:vX.Y.Z -->` marker makes re-runs skip anything already commented.
+
+GitHub issues are a supported work channel alongside the optional Trello board. The `[kanban #…]` commit suffix is not required for work tracked as a GitHub issue; see the [Kanban overview](./kanban/overview.md) for the board.
+
+### Local release-notes preview
+
+Preview the changelog a version PR would produce without publishing anything. `@changesets/changelog-github` calls the GitHub API, so the maintainer supplies a personal `GITHUB_TOKEN`; agents are not given one. Run it only in a disposable worktree, never in your own checkout, so uncommitted work cannot be discarded:
+
+1. `git worktree add --detach <tmp> HEAD`, then `pnpm install` inside `<tmp>`.
+2. In `<tmp>`, run `pnpm version-packages` (`changeset version`, the command the version PR runs) and read the diff.
+3. Discard only what that run generated. List it with `git status --porcelain`, then run `git restore --source=HEAD --staged --worktree -- <those paths>`. Tracked paths (` M`/` D`) are the consumed `.changeset/*.md` files, the `version` fields in `package.json` files, existing `CHANGELOG.md` files, and `pnpm-lock.yaml` if touched; restore them with that command. A `CHANGELOG.md` that did not exist yet shows as untracked (`??`), which `git restore` cannot touch: delete each by name with `rm`. Name files explicitly; never restore a whole directory such as `packages`, and never `.`.
+4. `git worktree remove --force <tmp>`.
+
+Do not use `git stash`, `git reset --hard` or `git clean -fd` as shortcuts: the stash stack is shared across worktrees, and the other two destroy unrelated work.
+
+To preview the release comments, run `pnpm release:comment --dry-run` (needs `GITHUB_TOKEN`, `GITHUB_REPOSITORY`, `PUBLISHED_PACKAGES`).
+
+### Snapshot publishes
+
+No snapshot-publish workflow exists today, and adding one is an owner decision; the feature is tracked as it-0379ce2e, which also owns snapshot security and account activation. Until the owner decides, these are constraints, not enabled behaviour (each is pending the owner's decision):
+
+- Fork PRs get no secrets and cannot publish.
+- `pull_request_target` is not used to run PR code.
+- Only maintainers with write access may apply a trigger label.
+- Snapshots, if added, must be published with npm provenance.
 
 ## License
 
