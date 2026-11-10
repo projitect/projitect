@@ -17,6 +17,18 @@
           "argv": ["bash", "-c", "test \"$(pnpm --version)\" = \"10.33.4\""],
           "expectedExitCode": 0,
           "provides": [{ "kind": "tool", "name": "pnpm" }]
+        },
+        {
+          "name": "curl",
+          "argv": ["curl", "--version"],
+          "expectedExitCode": 0,
+          "provides": [{ "kind": "tool", "name": "curl" }]
+        },
+        {
+          "name": "python3",
+          "argv": ["python3", "-c", "import json; assert json.loads('{\"a\": 1}')['a'] == 1"],
+          "expectedExitCode": 0,
+          "provides": [{ "kind": "tool", "name": "python3" }]
         }
       ]
     }
