@@ -55,18 +55,18 @@ A green version-PR job is not confirmation. The release is confirmed only when t
 
 ## Verifying release and website state without gh
 
-Release and deploy agents have no `gh` and no credentials. Everything below is read-only and public. Commands marked _verified_ were run when this section was written; the rest are marked _unverified_ because the build environment had no `curl` and the GitHub and site endpoints could not be fetched.
+When an agent environment has no `gh` or credentials, use the public read-only checks below. Commands marked _verified_ were run on 2026-11-10; the remaining checks were not run in that build environment and are marked _unverified_. These observations are dated evidence, not a claim about the current release state.
 
 ### Release PR and `release.yml` run
 
 Unauthenticated GitHub access is limited to 60 requests an hour per IP, so fetch sparingly.
 
-- Version PR (`chore(release): version packages`): open `https://github.com/projitect/projitect/pulls?q=is%3Apr+%22chore%28release%29%3A+version+packages%22`, or `curl -s 'https://api.github.com/repos/projitect/projitect/pulls?state=all&per_page=10'` and read `title`, `state`, `merged_at`. _Unverified._
-- Release run: open `https://github.com/projitect/projitect/actions/workflows/release.yml`, or `curl -s 'https://api.github.com/repos/projitect/projitect/actions/workflows/release.yml/runs?per_page=5'` and read `status`, `conclusion`, `head_sha`. _Unverified._
+- Version PR (`chore(release): version packages`): open `https://github.com/projitect/projitect/pulls?q=is%3Apr+%22chore%28release%29%3A+version+packages%22`, or `curl -fsS 'https://api.github.com/repos/projitect/projitect/pulls?state=all&per_page=100'` and read `title`, `state`, `merged_at`. Follow the response's pagination links if the matching PR is not on that page. _Unverified._
+- Release run: open `https://github.com/projitect/projitect/actions/workflows/release.yml`, or `curl -fsS 'https://api.github.com/repos/projitect/projitect/actions/workflows/release.yml/runs?per_page=5'` and read `status`, `conclusion`, `head_sha`. _Unverified._
 
 ### Registry
 
-`pnpm view projitect version` and `pnpm view @projitect/core version` (see [Release confirmation](#release-confirmation)). Registry state, not a green workflow run, confirms a release. For provenance, run `pnpm view projitect dist.attestations`; it is empty for an unpublished or unattested version. _Verified:_ today both version commands exit with `E404 ... is not in this registry`, which means "not released". The provenance command was not run, as there is nothing to query.
+`pnpm view projitect version` and `pnpm view @projitect/core version` (see [Release confirmation](#release-confirmation)). Registry state, not a green workflow run, confirms a release. For provenance, query the exact version with `pnpm view projitect@<released-version> dist.attestations`; a missing package or version returns a registry error, while a missing attestations field supplies no provenance evidence. _Verified on 2026-11-10:_ both version commands returned `E404 ... is not in this registry`, so no public release was found. The provenance command was not run, as there was no published version to query.
 
 ### Website hosting and commit served
 
@@ -76,7 +76,7 @@ No mechanism reports which commit the site serves (there is no build stamp, and 
 
 ### Published asset check
 
-`curl -sS -o /dev/null -w '%{http_code}\n' https://projitect.dev/schemas/inspect.v1.json` must print `200`, and `curl -sS -o inspect.v1.json https://projitect.dev/schemas/inspect.v1.json` followed by `jq . inspect.v1.json` must parse. A pass is HTTP 200 and valid JSON. If it fails, record the status code, the response headers (`curl -sSI`) and the UTC time, and note that OPS-8/OPS-9 (hosting and domain) are the likely cause. _Unverified._
+`curl -sS -o /dev/null -w '%{http_code}\n' https://projitect.dev/schemas/inspect.v1.json` must print `200`, and `curl -fsS -o inspect.v1.json https://projitect.dev/schemas/inspect.v1.json` followed by `python3 -m json.tool inspect.v1.json` must parse. A pass is HTTP 200 and valid JSON. If it fails, record the status code, the response headers (`curl -sSI`) and the UTC time, then check hosting/domain setup (OPS-8/OPS-9) and whether the asset was deployed. _Unverified._
 
 ### First public release pass
 
@@ -87,7 +87,7 @@ The release or deploy agent runs this after the publish, in a throwaway git proj
 3. `pnpm exec pjt inspect` exits 0. Hand-edit a managed region: `pnpm exec pjt inspect` exits nonzero and reports the drift.
 4. Exercise upgrade, swap and remove where they apply, the way `./scripts/smoke.sh` does.
 
-It passes when every step behaves as stated and `pnpm view` returns the released version (with provenance) for every package in the `fixed` group. _Unverified:_ nothing is published yet.
+It passes when every step behaves as stated and `pnpm view` returns the released version (with provenance) for every package in the `fixed` group. _Unverified on 2026-11-10:_ no public version was available for this journey.
 
 The missing npm owner setup is tracked by the [Owner-only setup checklist](#owner-only-setup-checklist) and the first-release task. It does not block these instructions.
 
