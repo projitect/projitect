@@ -50,7 +50,7 @@ A composite blueprint folds its parts with `ChangeSet.Reducer.combineAll`. See `
 
 ### 4. Marketing site (same PR)
 
-Per [AGENTS.md → Marketing site coordination](../../../AGENTS.md), update:
+Per [Marketing site → coordination](../../../docs/marketing-site.md#marketing-site-coordination-at-every-phase), update:
 
 - `apps/website/src/content/docs/docs/authoring.mdx` and `docs/concepts/blueprints.mdx` (the new package/export)
 - `apps/website/src/content/docs/docs/getting-started.mdx` if it is user-facing

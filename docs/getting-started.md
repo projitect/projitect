@@ -14,7 +14,7 @@ This repo uses pnpm only — never npm, yarn or bun. If `pnpm` is not found, fol
 pnpm install
 ```
 
-The `prepare` script installs the husky hooks and patches TypeScript with the Effect language service, so `tsc --build` reports Effect diagnostics. See [Effect language service](../AGENTS.md#effect-language-service).
+The `prepare` script installs the husky hooks and patches TypeScript with the Effect language service, so `tsc --build` reports Effect diagnostics. See [Effect language service](./tooling.md#effect-language-service).
 
 ## 3. Run the gate
 
@@ -34,4 +34,4 @@ CI also runs three checks that need built packages. Run `pnpm build` first, then
 
 ## Formatting and hooks
 
-`pnpm lint:fix` applies ESLint and Prettier fixes. `pnpm format` runs Prettier on markdown, YAML, JSON5 and CSS. Commits run `lint-staged`; see [Pre-commit hooks](../AGENTS.md#pre-commit-hooks-husky--lint-staged). When a check fails, fix the cause — see [No destructive shortcuts](../AGENTS.md#no-destructive-shortcuts). Agents should also read [Permission-prompt posture](../AGENTS.md#permission-prompt-posture-command-shape).
+`pnpm lint:fix` applies ESLint and Prettier fixes. `pnpm format` runs Prettier on markdown, YAML, JSON5 and CSS. Commits run `lint-staged`; see [Pre-commit hooks](./tooling.md#pre-commit-hooks-husky--lint-staged). When a check fails, fix the cause — see [No destructive shortcuts](../AGENTS.md#no-destructive-shortcuts). Agents should also read [Permission-prompt posture](../AGENTS.md#permission-prompt-posture-command-shape).

@@ -75,5 +75,5 @@ Increment `impl_review_attempts` in `## Meta` by 1.
 - **Don't move the card.** The orchestrator handles transitions.
 - **No destructive git ops** — no `git reset --hard`, no force-push, no branch deletion.
 - **If you're about to write a comment that says "this is a bit tricky", write it.** Future
-  reviewers and humans will thank you. But follow [AGENTS.md → Tone and style](../../../../AGENTS.md)'s
+  reviewers and humans will thank you. But keep to the rule of
   "no narrating WHAT the code does" — comments explain the WHY when non-obvious.
