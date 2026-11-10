@@ -59,7 +59,7 @@ terminal.
 
 Needs Node, `npm`, `python3` and built packages (`pnpm build`). Run from the repo root.
 
-**Status:** run end to end on 2026-11-10 (steps 1, 2, 3, 4 and 6); step 5 and the `remodel`/`inspect` follow-up were not run.
+**Status:** the corrected CLI path and steps 1-3 were verified by QA on 2026-11-10 (the `add` flow prints `Pick sections to add` and adds the two chosen sections, exit 0); steps 4 (Ctrl-C) and 5, and the `remodel`/`inspect` follow-up, have not been run since.
 
 1. Pack and serve the blueprint, the way `scripts/smoke.sh` section 5d does. The registry runs in
    the background, so its PID goes to a file; every later command re-reads `$REG` from `/tmp/pty-recipe`:
@@ -96,7 +96,7 @@ Needs Node, `npm`, `python3` and built packages (`pnpm build`). Run from the rep
    echo '{"name":"pty","version":"0.0.0","private":true,"type":"module"}' > package.json
    npm install --no-package-lock --silent file:$ROOT/packages/{core,blueprint,cli-internals,projitect} effect@rc tsx
    printf '@projitect:registry=http://127.0.0.1:%s/\n' $(cat $REG/port) > .npmrc
-   node_modules/projitect/bin/pjt.mjs init
+   node_modules/@projitect/cli/bin/pjt.mjs init
    git add -A && git commit -qm init
    ```
 
@@ -109,7 +109,7 @@ Needs Node, `npm`, `python3` and built packages (`pnpm build`). Run from the rep
    script = sys.argv[1].split(",")  # e.g. down,down,space,down,space,enter or ctrl-c
    pid, fd = pty.fork()
    if pid == 0:
-       os.execvp("node", ["node", "node_modules/projitect/bin/pjt.mjs", "add", "@projitect/blueprint-markdown"])
+       os.execvp("node", ["node", "node_modules/@projitect/cli/bin/pjt.mjs", "add", "@projitect/blueprint-markdown"])
 
    def drain(wait=0.5):
        out = b""
@@ -138,7 +138,7 @@ Needs Node, `npm`, `python3` and built packages (`pnpm build`). Run from the rep
    `python3 $REG/drive.py down,down,space,down,space,enter` from `$E2E`. The output contains
    `Pick sections to add` and `Added to .pjt.ts: agentsPackageManager, agentsVerification.`, and
    `.pjt.ts` gains exactly those two calls (plus the `markdownSnippets` import). Then run
-   `node_modules/projitect/bin/pjt.mjs remodel` and `... inspect`; inspect exits 0.
+   `node_modules/@projitect/cli/bin/pjt.mjs remodel` and `... inspect`; inspect exits 0.
 
 4. Reset `.pjt.ts` to the committed `init` state with `git checkout .pjt.ts`. Run `python3 $REG/drive.py ctrl-c`; the
    check is `git diff --exit-code .pjt.ts` (exit 0 means unchanged), and the driver prints exit 0.
