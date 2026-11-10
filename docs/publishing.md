@@ -55,7 +55,7 @@ Only the owner performs account, token and trusted-publisher setup. The first re
 
 Before the owner merges the first release PR:
 
-1. The **Before the first release** checklist above is complete for every published package. Later releases require configured OIDC trust instead of the temporary token.
+1. The owner has confirmed package permissions and installed an unexpired Actions secret covering every published package (steps 1–3 above). Later releases require configured OIDC trust instead of the temporary token.
 2. `pnpm build` then `./scripts/check-packs.sh` pass (every tarball has `dist/` and a LICENSE matching the root one, one shared version, correct `repository`). CI runs this in `publish-dry-run`.
 3. On the first release, watch the release job: `npm --version` must log >= 11.5.1, and the publish step must not fail with an auth error (E401/E403/E404).
 
