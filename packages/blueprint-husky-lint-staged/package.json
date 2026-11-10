@@ -1,6 +1,6 @@
 {
   "name": "@projitect/blueprint-husky-lint-staged",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Husky and lint-staged blueprint for projitect — owns .husky/pre-commit and the package.json lint-staged field, prepare script and husky and lint-staged devDependencies.",
   "repository": {
     "type": "git",
