@@ -1,6 +1,6 @@
 # Publishing
 
-How changes reach npm. The rules live in [AGENTS.md](../AGENTS.md); see also [getting started](./getting-started.md) and [architecture](./architecture.md).
+How changes reach npm. The index is [AGENTS.md](../AGENTS.md); see also [getting started](./getting-started.md) and [architecture](./architecture.md).
 
 ## Changesets
 
@@ -10,14 +10,18 @@ A PR that changes a published package adds a hand-written `.changeset/<kebab-nam
 
 `.changeset/config.json` sets `fixed: [["projitect", "@projitect/*"]]`, so every published package shares one version whichever package an entry names. `apps/website` is private and listed under `ignore`.
 
-## Release workflow
+## Shipping a release
 
-`.github/workflows/release.yml` runs on every push to `main`:
+[`.github/workflows/release.yml`](../.github/workflows/release.yml) runs on every push to `main`:
 
-1. `changesets/action` opens or updates a `chore(release): version packages` PR that applies pending changesets with `pnpm version-packages`.
-2. Merging that PR runs the workflow again, which runs `pnpm release` (`pnpm build`, then `changeset publish`) with npm provenance.
+1. `changesets/action` looks for `.changeset/*.md` files and opens or updates a `chore(release): version packages` PR that applies them with `pnpm version-packages`.
+2. Merging that PR runs the workflow again, which runs `pnpm release` (`pnpm build`, then `changeset publish`), publishing every package in the `fixed` group with npm provenance (`NPM_CONFIG_PROVENANCE=true`).
 
 Only the release job runs on Node 24 with `npm@^11.5.1`, because npm trusted publishing needs npm >= 11.5.1 and Node >= 22.14.0. `.nvmrc` and `engines.node` (`>=22.12.0`) are unchanged. The job keeps `id-token: write` for OIDC and provenance; no npm token is wired in, and none belongs in source or the workflow.
+
+When the publish succeeds (`published == 'true'`), a follow-up step runs [`scripts/comment-released.ts`](../scripts/comment-released.ts): it comments "Shipped in projitect vX.Y.Z" on each PR in the release (the commits since the previous `projitect@*` tag) and on the issues those PRs close. A hidden `<!-- pjt-release:vX.Y.Z -->` marker makes re-runs skip anything already commented, and a failed comment is logged without failing the job. Preview with `pnpm release:comment --dry-run` (needs `GITHUB_TOKEN`, `GITHUB_REPOSITORY`, `PUBLISHED_PACKAGES`).
+
+Agents never publish directly: there is no interactive `changeset publish` step to run by hand, only the changeset file that feeds the gated workflow above. The `release-bump` skill in `.claude/skills/release-bump/` walks through cutting a release.
 
 ## License
 
@@ -49,6 +53,11 @@ Before the owner merges the first release PR:
 
 A green version-PR job is not confirmation. The release is confirmed only when the public registry returns the released version for both `pnpm view projitect version` and `pnpm view @projitect/core version`.
 
-## Agents never publish
+## Dependency upgrades (Renovate)
 
-Agents only add the changeset file; the workflow publishes. The `release-bump` skill in `.claude/skills/release-bump/` walks through cutting a release. See [Shipping a release](../AGENTS.md#shipping-a-release).
+Renovate runs on this repo and opens PRs for dep upgrades. Configured at [renovate.json5](../renovate.json5). Two things to know:
+
+- Most packages are published libraries, so the default `rangeStrategy` is `update` (caret/tilde ranges preserved — consumers dedupe). The workspace root `package.json` and `apps/website/package.json` are private, so they pin exact versions via `matchFileNames` overrides.
+- Non-major bumps, devDep majors, and lockfile maintenance auto-merge. Runtime-dep majors (Effect v3 → v4, etc.) wait for human approval. PRs queue for `minimumReleaseAge` (3-8 days depending on dep type) to dodge the npm 72-hour unpublish window.
+
+When adding a new published `@projitect/*` package: nothing to do — it inherits the default js-lib semantics. When adding a new `apps/*` private package: extend the `matchFileNames` rule to include it.

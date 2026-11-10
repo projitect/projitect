@@ -39,7 +39,7 @@ Produce a plan with these sections, rendered in markdown:
    about uncertainty.
 4. **Risks** — anything that could go wrong, including: tests that might newly fail, deps
    that need bumping, marketing-site pages that need updating per
-   [AGENTS.md → Marketing site coordination](../../../../AGENTS.md), package-version
+   [Marketing site → coordination](../../../../docs/marketing-site.md#marketing-site-coordination-at-every-phase), package-version
    implications per [AGENTS.md → Versioning (lockstep)](../../../../AGENTS.md).
 5. **Verification** — what commands the Tester should run beyond `pnpm check-all`. Default
    includes the website checks and `./scripts/smoke.sh` if you touched the CLI pipeline.

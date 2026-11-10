@@ -1,6 +1,6 @@
 # Architecture
 
-A map of the monorepo. [AGENTS.md](../AGENTS.md) holds the rules; see also [getting started](./getting-started.md) and [publishing](./publishing.md).
+A map of the monorepo. [AGENTS.md](../AGENTS.md) is the index; see also [getting started](./getting-started.md) and [publishing](./publishing.md).
 
 ## Packages
 
@@ -40,8 +40,8 @@ Alongside, `lockfile.ts` records what was applied and `remover.ts` removes orpha
 | `owned`  | Generated file owned wholly by one blueprint                    |
 | `seed`   | Write-once, never enforced afterwards                           |
 
-Details: [File ownership modes](../AGENTS.md#file-ownership-modes) and [Region marker convention](../AGENTS.md#region-marker-convention).
+Details: [File ownership modes](./blueprint-authoring.md#file-ownership-modes) and [Region marker convention](./blueprint-authoring.md#region-marker-convention).
 
 ## Soft sandbox
 
-Blueprints never touch the disk directly. They use `BlueprintFileSystem`, which `cli-internals` gates by the `Permission`s each blueprint declares. ESLint backs this up with import bans: blueprint packages cannot import `@effect/platform`'s `FileSystem` or any `node:*`; `core` and `test-kit` cannot import `node:*`. Node-backed `pjt add` code lives in `cli-internals`, not in blueprint packages; see [Where the `pjt add` CLI code lives](../AGENTS.md#where-the-pjt-add-cli-code-lives). See [Blueprint authoring rules](../AGENTS.md#blueprint-authoring-rules) and [ESLint absorbs Prettier](../AGENTS.md#eslint-absorbs-prettier).
+Blueprints never touch the disk directly. They use `BlueprintFileSystem`, which `cli-internals` gates by the `Permission`s each blueprint declares. ESLint backs this up with import bans: blueprint packages cannot import `@effect/platform`'s `FileSystem` or any `node:*`; `core` and `test-kit` cannot import `node:*`. Node-backed `pjt add` code lives in `cli-internals`, not in blueprint packages; see [Where the `pjt add` CLI code lives](./blueprint-authoring.md#where-the-pjt-add-cli-code-lives). See [Blueprint authoring rules](./blueprint-authoring.md#blueprint-authoring-rules) and [ESLint absorbs Prettier](./tooling.md#eslint-absorbs-prettier).

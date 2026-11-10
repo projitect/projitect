@@ -37,13 +37,13 @@ projitect/
 ├── docs/kanban/workflows.md              ← human-facing playbook
 ├── knip.json                             ← entry: .claude/skills/kanban/scripts/*.ts
 ├── package.json                          ← tsx devDep, kanban:status / kanban:score scripts
-└── AGENTS.md § Kanban workflow           ← repo-level workflow rules
+└── docs/kanban/overview.md               ← repo-level workflow rules
 ```
 
 Nine of the nine skills + all the executable infrastructure live inside the kanban skill
 directory. The seven things outside that directory are project-config integrations
 (`.mcp.json`, `.env.local.example`, `.claude/settings.json`, `docs/kanban/`, `knip.json`,
-`package.json` entries, and the `AGENTS.md` section).
+`package.json` entries).
 
 ## Target state (Claude Code plugin)
 
@@ -108,7 +108,7 @@ omitted, but pinning explicitly is friendlier for marketplace consumers.
    `enabledMcpjsonServers: ["trello"]`) out of consumer `.claude/settings.json` and into
    the plugin's `settings.json`.
 5. **AGENTS.md references** — a few skill bodies (and the
-   [`scripts/README.md`](./scripts/README.md) footer) link to `AGENTS.md → Kanban workflow`.
+   [`scripts/README.md`](./scripts/README.md) footer) link to `docs/kanban/overview.md`.
    Replace with plugin-internal links or inline the load-bearing content into
    `kanban/shared.md` / a plugin README.
 6. **Project-rule citations in templates** — [`templates/builder.md`](./templates/builder.md)

@@ -4,9 +4,21 @@ Commits in this repo are signed with a dedicated **"Claude Code" SSH key**, so t
 green **Verified** badge on GitHub. After this one-time-per-machine setup, signing is automatic:
 the `SessionStart` hook in [`.claude/settings.json`](../.claude/settings.json) keeps the repo
 configured (via [`scripts/setup-signing.sh`](../scripts/setup-signing.sh)) and git signs every
-commit. See [AGENTS.md › Commit signing](../AGENTS.md) for how that automation works.
+commit. See [How signing stays configured](#how-signing-stays-configured) for how that automation works.
 
 **If your commits already show Verified, you're done — skip this.**
+
+Every commit in this repo is signed. You (the agent) do **not** decide whether to sign — git does it for you because `commit.gpgsign=true` is configured, and the [`scripts/setup-signing.sh`](../scripts/setup-signing.sh) helper keeps that config in place. You should never need a reminder to sign.
+
+## How signing stays configured
+
+- The `SessionStart` hook in [`.claude/settings.json`](../.claude/settings.json) runs `bash scripts/setup-signing.sh` at the start of every agent session. The script is idempotent — it sets the repo-local signing config (`gpg.format=ssh`, `user.signingkey`, `commit.gpgsign=true`, `tag.gpgsign=true`, `gpg.ssh.allowedSignersFile`) if it isn't already, then exits silently.
+- A fresh clone doesn't carry repo-local git config, so the hook re-applies it the first session in that clone. If you ever see an unsigned commit or git complains about `user.signingkey`, run `bash scripts/setup-signing.sh` directly — it's safe to run any time.
+- If `setup-signing.sh` finds no key, it prints a one-line hint and exits 0 — it never blocks a session or a CI install, so the only consequence of skipping setup is unsigned commits.
+
+## How this differs from StoryCut
+
+projitect's setup is adapted from StoryCut's. StoryCut rewrites the **author identity** to `Claude Code (<contributor>)` via per-worktree config, gated on `claude/*` branches. projitect keeps the contributor's normal authorship (you author as the contributor, with a `Co-Authored-By` trailer) and configures **signing only**, repo-local, on every branch. The goal here is the Verified badge on every commit, not a separate author identity.
 
 ## Why a dedicated key
 
@@ -55,6 +67,6 @@ Your next commit will be signed; confirm the **Verified** badge on its PR.
 
 - projitect signs **every** commit on **every** branch (repo-local config) and keeps your normal
   authorship. Unlike StoryCut, it does **not** rewrite the author to `Claude Code (<name>)` — see
-  the divergence note in [AGENTS.md › Commit signing](../AGENTS.md).
+  [How this differs from StoryCut](#how-this-differs-from-storycut).
 - Optional: store the signing settings in `~/.gitconfig.claude` (shared with StoryCut) and
   `setup-signing.sh` reads them from there instead of the conventional key path.
