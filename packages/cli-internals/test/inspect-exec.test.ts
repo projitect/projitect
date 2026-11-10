@@ -149,3 +149,34 @@ describe("pjt explain with no error id", () => {
     expect(text).toBe("No blueprint declares post-apply commands.")
   })
 })
+
+describe("two blueprints sharing one fix with different checks", () => {
+  it("explain lists both declarations and inspect reports the failing second check", async () => {
+    declare([
+      {
+        id: "a",
+        permissions: [exec("fmt:check-a")],
+        operations: [execOp("a", "fmt", "fmt:check-a")],
+      },
+      {
+        id: "b",
+        permissions: [exec("fmt:check-b")],
+        operations: [execOp("b", "fmt", "fmt:check-b")],
+      },
+    ])
+    const text = await Effect.runPromise(explainCommands({ config: config(), json: false }))
+    expect(text).toContain("a\n  fix:   fmt\n  check: fmt:check-a")
+    expect(text).toContain("b\n  fix:   fmt\n  check: fmt:check-b")
+    const json = await Effect.runPromise(explainCommands({ config: config(), json: true }))
+    expect(JSON.parse(json)).toEqual({
+      commands: [
+        { ownerId: "a", fix: "fmt", check: "fmt:check-a" },
+        { ownerId: "b", fix: "fmt", check: "fmt:check-b" },
+      ],
+    })
+    const { calls, spawner } = fakeSpawner({ "fmt:check-b": { exitCode: 1 } })
+    const result = await Effect.runPromise(inspect({ config: config(), spawner }))
+    expect(calls).toEqual(["fmt:check-a", "fmt:check-b"])
+    expect(result.commands.map((c) => c.ownerId)).toEqual(["b"])
+  })
+})

@@ -1,4 +1,4 @@
-import { Array, Effect, Option, Schema } from "effect"
+import { Effect, Option, Schema } from "effect"
 import { Errors } from "@projitect/core"
 import type { ProjitectConfig } from "@projitect/core"
 import { loadProjectPlan } from "./load-plan.js"
@@ -22,7 +22,7 @@ export const explain = (params: { readonly errorId: string }): Effect.Effect<str
 /**
  * `pjt explain` with no id — list the project's post-apply commands: for each, the owning
  * blueprint, the fix command (run by `build` and `remodel`) and the check command (run by
- * `inspect`, if any). Identical fix commands are listed once, as they run once. With `json`, the
+ * `inspect`, if any). Every declaration is listed, even when several share a fix, so no owner or check is hidden. With `json`, the
  * same entries as a JSON object under a `commands` key.
  */
 export const explainCommands = (params: {
@@ -31,13 +31,11 @@ export const explainCommands = (params: {
 }): Effect.Effect<string, Errors.ProjitectError> =>
   Effect.gen(function* () {
     const { plan } = yield* loadProjectPlan(params.config)
-    const commands = Array.dedupeWith(plan.commands, (a, b) => a.command === b.command).map(
-      (planned) => ({
-        ownerId: planned.ownerId,
-        fix: planned.command,
-        ...(planned.check === undefined ? {} : { check: planned.check }),
-      }),
-    )
+    const commands = plan.commands.map((planned) => ({
+      ownerId: planned.ownerId,
+      fix: planned.command,
+      ...(planned.check === undefined ? {} : { check: planned.check }),
+    }))
     if (params.json) {
       return `${JSON.stringify({ commands }, null, 2)}\n`.trimEnd()
     }
