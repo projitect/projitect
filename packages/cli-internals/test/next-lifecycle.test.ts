@@ -5,6 +5,7 @@ import { Effect, Schema } from "effect"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import { next } from "@projitect/blueprint-next"
 import type { Blueprint } from "@projitect/core"
+import { makeProjectRootLayer } from "../src/filesystem-impl.js"
 import { diffPlan } from "../src/differ.js"
 import { applyPlan } from "../src/applier.js"
 import { readLockfile, writeLockfile } from "../src/lockfile.js"
@@ -65,24 +66,24 @@ const remodelTree = (tree: readonly Blueprint.Blueprint[]) =>
   Effect.runPromise(
     Effect.gen(function* () {
       const { plan, byBlueprint } = yield* buildPlan({ tree, projectRoot: cwd })
-      const previous = yield* readLockfile({ projectRoot: cwd })
+      const previous = yield* readLockfile
       const { removals } = diffLockfile({ previous, current: byBlueprint })
-      const written = yield* applyPlan({ plan, projectRoot: cwd })
-      const removed = yield* applyRemovals({ removals, projectRoot: cwd })
-      yield* writeLockfile({ projectRoot: cwd, lock: { version: 1, blueprints: byBlueprint } })
+      const written = yield* applyPlan({ plan })
+      const removed = yield* applyRemovals({ removals })
+      yield* writeLockfile({ lock: { version: 1, blueprints: byBlueprint } })
       return { written, removed }
-    }),
+    }).pipe(Effect.provide(makeProjectRootLayer(cwd))),
   )
 
 const inspectTree = (tree: readonly Blueprint.Blueprint[]) =>
   Effect.runPromise(
     Effect.gen(function* () {
       const { plan, byBlueprint } = yield* buildPlan({ tree, projectRoot: cwd })
-      const previous = yield* readLockfile({ projectRoot: cwd })
+      const previous = yield* readLockfile
       const { removals } = diffLockfile({ previous, current: byBlueprint })
-      const diff = yield* diffPlan({ plan, projectRoot: cwd })
+      const diff = yield* diffPlan({ plan })
       return { hasDrift: diff.hasDrift || removals.length > 0, files: diff.files }
-    }),
+    }).pipe(Effect.provide(makeProjectRootLayer(cwd))),
   )
 
 const hasDrift = (tree: readonly Blueprint.Blueprint[]) =>
