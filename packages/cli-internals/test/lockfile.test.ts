@@ -155,6 +155,38 @@ describe("readLockfile / writeLockfile round-trip", () => {
   })
 })
 
+describe("lockfile versions", () => {
+  it("reads a v1 lockfile without error", async () => {
+    await writeFile(".pjt.lock", JSON.stringify(lockfile()))
+    const out = await run(readLockfile)
+    expect(out).toEqual(lockfile())
+  })
+
+  it("round-trips a v2 lockfile with and without a content hash", async () => {
+    const original: PjtLock.PjtLock = {
+      version: 2,
+      blueprints: {
+        "pjt:assets": {
+          version: "1",
+          operations: [
+            {
+              _tag: "Owned",
+              path: "logo.png",
+              ownerId: "pjt:assets",
+              contentHash: "sha256:abc123",
+            },
+            { _tag: "Owned", path: "notes.ts", ownerId: "pjt:assets" },
+          ],
+        },
+      },
+    }
+    await run(writeLockfile({ lock: original }))
+    expect(await readFile(".pjt.lock")).toContain('  "version": 2')
+    const out = await run(readLockfile)
+    expect(out).toEqual(original)
+  })
+})
+
 describe("readLockfile — error paths", () => {
   it("fails with pjt.lock.parse-failed on corrupted JSON", async () => {
     await writeFile(".pjt.lock", "{ not json")
@@ -177,6 +209,12 @@ describe("readLockfile — error paths", () => {
     const err = await runError(readLockfile)
     expect(err._tag).toBe("LockVersionMismatch")
     expect(err.id).toBe("pjt.lock.version-mismatch")
+  })
+
+  it("rejects the first unsupported version with pjt.lock.version-mismatch", async () => {
+    await writeFile(".pjt.lock", JSON.stringify({ version: 3, blueprints: {} }))
+    const err = await runError(readLockfile)
+    expect(err).toMatchObject({ id: "pjt.lock.version-mismatch", found: 3, expected: 2 })
   })
 })
 
