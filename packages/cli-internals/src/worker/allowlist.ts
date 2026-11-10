@@ -42,22 +42,38 @@ export const packageNameOf = (specifier: string): Option.Option<string> => {
     : Option.none()
 }
 
-/** Where a package was found: the `node_modules` entry Node resolves through, and its real path. */
+/**
+ * Where a package was found: the `node_modules` entry Node resolves through, its real path, and the
+ * lookups that found nothing on the way. Node stats each of those misses before it reaches the hit,
+ * and the permission model refuses a stat outside the allowlist, so the misses are granted too.
+ */
 interface PackageLocation {
   readonly link: string
   readonly real: string
+  readonly misses: readonly string[]
 }
 
 /** The package `name` as Node would find it when resolving from `fromDir`. */
-const findPackageDir = (name: string, fromDir: string): Option.Option<PackageLocation> => {
+const findPackageDir = (
+  name: string,
+  fromDir: string,
+  misses: readonly string[] = [],
+): Option.Option<PackageLocation> => {
   const candidate = path.join(fromDir, "node_modules", name)
   const parent = path.dirname(fromDir)
   return existsSync(path.join(candidate, "package.json"))
-    ? Option.some({ link: candidate, real: realpathSync(candidate) })
+    ? Option.some({ link: candidate, real: realpathSync(candidate), misses })
     : parent === fromDir
       ? Option.none()
-      : findPackageDir(name, parent)
+      : findPackageDir(name, parent, [...misses, candidate])
 }
+
+/**
+ * The grant for a lookup that found nothing (under pnpm, a scoped package's peers sit several
+ * `node_modules` levels away). The trailing separator keeps it from being a string prefix of a
+ * sibling's grant (`pkg-a` next to `pkg-a-b`), which Node's permission trie mishandles.
+ */
+const missGrant = (miss: string): string => `${miss}${path.sep}`
 
 const dependencyNames = (packageDir: string): readonly string[] => {
   const manifest: unknown = JSON.parse(readFileSync(path.join(packageDir, "package.json"), "utf8"))
@@ -76,9 +92,13 @@ const dependencyNames = (packageDir: string): readonly string[] => {
  */
 const packageClosure = (roots: readonly PackageLocation[]): ReadonlySet<string> => {
   const reals = new Set<string>()
+  const lookups = new Set<string>()
   const links = new Set<string>()
-  const visit = ({ link, real }: PackageLocation): void => {
+  const visit = ({ link, real, misses }: PackageLocation): void => {
     links.add(link)
+    for (const miss of misses) {
+      lookups.add(missGrant(miss))
+    }
     if (!reals.has(real)) {
       reals.add(real)
       for (const name of dependencyNames(real)) {
@@ -89,19 +109,26 @@ const packageClosure = (roots: readonly PackageLocation[]): ReadonlySet<string> 
   for (const root of roots) {
     visit(root)
   }
-  const entries = Array.dedupe([...reals, ...links])
+  const entries = Array.dedupe([...reals, ...lookups, ...links])
   // Node's permission trie loses an exact grant that is a string prefix of a sibling grant
   // (`…/blueprint` next to `…/blueprint-vitest`), and the resolver needs exactly that grant to
-  // `readlink` a symlinked package. A trailing `*` keeps such a link readable, provided the
-  // shorter grant is passed first — so the entries are sorted.
+  // `readlink` a symlinked package. A trailing `*` keeps such a link readable — and, being a prefix
+  // grant, it already covers the sibling, whose own grant must then be dropped or the trie loses the
+  // link again. The entries are sorted so the shorter grant is passed first.
   const shadows = (entry: string): boolean =>
     Array.some(
       entries,
       (other) =>
         other !== entry && other.startsWith(entry) && !other.startsWith(`${entry}${path.sep}`),
     )
+  const prefixes = Array.filter(entries, (entry) => links.has(entry) && shadows(entry))
+  const coveredByPrefix = (entry: string): boolean =>
+    Array.some(prefixes, (prefix) => entry !== prefix && entry.startsWith(prefix))
   return new Set(
-    Array.map(entries, (entry) => (links.has(entry) && shadows(entry) ? `${entry}*` : entry)),
+    Array.map(
+      Array.filter(entries, (entry) => !coveredByPrefix(entry)),
+      (entry) => (prefixes.includes(entry) ? `${entry}*` : entry),
+    ),
   )
 }
 
@@ -135,7 +162,7 @@ export const computeReadAllowlist = (params: {
   const entryDir = path.dirname(realpathSync(workerEntry))
   const distDir = path.dirname(entryDir)
   const ownManifest = path.join(path.dirname(distDir), "package.json")
-  const resolveFrom = [entryDir, path.dirname(blueprintFile), projectRoot]
+  const resolveFrom = [entryDir, path.dirname(moduleFile), path.dirname(blueprintFile), projectRoot]
   const names = pipe(
     imports,
     Array.flatMap((specifier) => Option.toArray(packageNameOf(specifier))),
