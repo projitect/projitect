@@ -83,7 +83,7 @@ linked `SKILL.md` directly:
 **pnpm only.** Never npm, never yarn, never bun in this repo. The lockfile is `pnpm-lock.yaml`.
 
 ampm agent sandboxes ship pnpm at the pinned `packageManager` version via `.ampm/Dockerfile`, so
-there the ladder below normally stops at step 1. It stays the fallback for every other environment.
+there the ladder below normally stops at step 1. It stays the fallback for every other environment. How the image provisions pnpm: [.ampm/README.md](.ampm/README.md).
 
 If `pnpm` is not found, escalate in this exact order — do not chain the steps:
 
