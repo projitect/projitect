@@ -232,6 +232,16 @@ export class AddMetadataMissing extends Schema.TaggedError<AddMetadataMissing>()
   },
 ) {}
 
+export class AddSpecUnsupported extends Schema.TaggedError<AddSpecUnsupported>()(
+  "AddSpecUnsupported",
+  {
+    id: Schema.Literal("pjt.add.spec-unsupported"),
+    spec: Schema.String,
+    reason: Schema.Literals(["empty", "unsafe-name", "alias", "url", "file", "git", "workspace"]),
+    message: Schema.String,
+  },
+) {}
+
 // ---------------------------------------------------------------------------
 // Git errors
 // ---------------------------------------------------------------------------
@@ -350,7 +360,7 @@ export type ExecError = CommandFailed | CommandNotPermitted
 
 export type PmError = PmNotDetected | PmInstallFailed
 
-export type AddError = AddMarkersMissing | AddMetadataMissing
+export type AddError = AddMarkersMissing | AddMetadataMissing | AddSpecUnsupported
 
 export type WorkerError = WorkerCrashed | WorkerTimedOut | WorkerExitedEarly
 
@@ -403,6 +413,7 @@ export const ERROR_IDS = [
   "pjt.pm.install-failed",
   "pjt.add.markers-missing",
   "pjt.add.metadata-missing",
+  "pjt.add.spec-unsupported",
   "pjt.worker.crashed",
   "pjt.worker.timed-out",
   "pjt.worker.exited-early",

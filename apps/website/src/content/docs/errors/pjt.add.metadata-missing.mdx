@@ -6,7 +6,7 @@ sidebar:
   label: pjt.add.metadata-missing
 ---
 
-**What**: `pjt add <package>` installed the package, then looked for a `"projitect"` field in its `package.json`. That field tells `pjt add` which import and call lines to splice into `.pjt.ts`. The package has none, so nothing was spliced and the command exits with code 1. The package itself stays installed.
+**What**: `pjt add <package>` installed the package (a versioned spec such as `name@1.2.3` is read by its bare name), then looked for a `"projitect"` field in its `package.json`. That field tells `pjt add` which import and call lines to splice into `.pjt.ts`. The package has none, so nothing was spliced and the command exits with code 1. The error names the package, not the version you typed. The package itself stays installed.
 
 **Why**: Either the package isn't a projitect blueprint, or its author didn't publish the `"projitect"` metadata.
 
