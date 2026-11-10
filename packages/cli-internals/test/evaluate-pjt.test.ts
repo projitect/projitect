@@ -134,4 +134,14 @@ export default pjt({ blueprints: Effect.succeed([directory("web", [gitignores.no
     )
     expect(tree).toMatchObject([{ _tag: "Directory", name: "web" }])
   })
+
+  it("uses the CLI structural guard for blueprint permissions", () => {
+    expect(
+      failureOf(`import { Effect } from "effect"
+export default { _tag: "ProjitectConfig", blueprints: [{
+  id: "invalid", version: "1", permissions: [{ kind: "write", glob: 42 }],
+  plan: Effect.succeed({ operations: [] })
+}] }`),
+    ).toMatchObject({ _tag: "InvalidDefaultExport" })
+  })
 })

@@ -1,7 +1,7 @@
-import { Array, Match, Predicate } from "effect"
-import type { Effect } from "effect"
+import { Array, Effect, Match, Predicate, Schema } from "effect"
 import { PredicateX, StructX } from "@nunofyobiz/effect-extras"
 import type { BlueprintFileSystem, Blueprint, Errors } from "@projitect/core"
+import { Permission } from "@projitect/core"
 import type { DirectoryBlueprint } from "@projitect/blueprint"
 
 /**
@@ -27,8 +27,7 @@ export interface ProjitectFile {
  *
  *   export default pjt({ blueprints: [...] })
  *
- * It's an identity tag — we only inspect the default export for the `_tag` marker so we can
- * distinguish accidental other exports from a real projitect config.
+ * It's an identity tag. Consumers validate the literal tree without running its Effects.
  */
 export const pjt = (input: {
   readonly blueprints: ProjitectFile["blueprints"]
@@ -43,10 +42,46 @@ export const pjt = (input: {
 export const isEffectTree = (
   v: ProjitectFile["blueprints"],
 ): v is Effect.Effect<BlueprintTree, Errors.BlueprintError, BlueprintFileSystem> =>
-  !Array.isArray(v)
+  Effect.isEffect(v)
 
 export const isProjitectFile = (v: unknown): v is ProjitectFile =>
   PredicateX.unsafeIsRecord(v) && v["_tag"] === "ProjitectConfig"
+
+export const isWellFormedProjitectFile = (v: unknown): v is ProjitectFile =>
+  PredicateX.unsafeIsRecord(v) &&
+  v["_tag"] === "ProjitectConfig" &&
+  (Predicate.isUndefined(v["config"]) || PredicateX.unsafeIsRecord(v["config"])) &&
+  (Effect.isEffect(v["blueprints"]) || isBlueprintTree(v["blueprints"]))
+
+/** Validate literal structure only. Effects are deliberately evaluated against the post-wipe FS. */
+const isBlueprintTree = (
+  value: unknown,
+  ancestors: ReadonlySet<unknown> = new Set(),
+): value is BlueprintTree =>
+  Array.isArray(value) &&
+  !ancestors.has(value) &&
+  [...value].every((entry) => {
+    if (!PredicateX.unsafeIsRecord(entry)) {
+      return false
+    }
+    if (Predicate.hasProperty(entry, "_tag")) {
+      return (
+        entry._tag === "Directory" &&
+        Predicate.hasProperty(entry, "name") &&
+        Predicate.isString(entry.name) &&
+        Predicate.hasProperty(entry, "children") &&
+        isBlueprintTree(entry.children, new Set([...ancestors, value]))
+      )
+    }
+    return (
+      Predicate.isString(entry["id"]) &&
+      Predicate.isString(entry["version"]) &&
+      (Predicate.isUndefined(entry["description"]) || Predicate.isString(entry["description"])) &&
+      Array.isArray(entry["permissions"]) &&
+      [...entry["permissions"]].every(Schema.is(Permission.Permission)) &&
+      Effect.isEffect(entry["plan"])
+    )
+  })
 
 /** Short name for what a `.pjt.ts` default export actually was, for error messages. */
 export const describe = (v: unknown): string =>

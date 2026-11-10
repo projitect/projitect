@@ -1,0 +1,13 @@
+---
+title: pjt.apply.confirmation-required
+slug: errors/pjt.apply.confirmation-required
+description: A destructive build needs explicit authorization on non-interactive input.
+sidebar:
+  label: pjt.apply.confirmation-required
+---
+
+**What**: `pjt build --force` received non-interactive input without `--yes`. It stopped before importing the configuration, prompting, or deleting files.
+
+**Why**: A CI job, agent, redirected input or closed stdin cannot answer the confirmation prompt.
+
+**How to fix**: Review the project and commit or back up your work, including ignored files. Run `pjt build --force --yes` only when you intend to wipe and rebuild. Use `pjt remodel` to update managed files without wiping the project tree.
