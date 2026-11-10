@@ -35,14 +35,23 @@ behaviour change and gets its own scoped, tested task; do not document it as don
 
 The confirmation runs after the `--force` and clean-git checks. The wipe also runs before
 `.pjt.ts` is loaded (see below), so `pjt build --force --yes` with no `.pjt.ts` removes the
-unpreserved files before it fails. The git-clean requirement means they are recoverable.
+unpreserved files before it fails. A clean git check does not guarantee recovery of ignored
+files. Initialise and verify the configuration before a destructive build; keep a separate
+backup for content git does not track.
 
 ## Missing `.pjt.ts`
 
-Commands other than `init` fail with `pjt.config.blueprint-file-not-found` (exit 1) when
-`.pjt.ts` is missing. The message is "No blueprint file found at <path>. Run `pjt init` to create
-one." They never initialise automatically and never offer an interactive init. `remodel` and
-`inspect` fail before touching anything; `build` fails after its wipe (above).
+`remodel`, `inspect` and `explain` without an error id load `.pjt.ts` and fail with
+`pjt.config.blueprint-file-not-found` (exit 1) when it is missing. The message tells the user to
+run `pjt init`. They do not initialise automatically or offer an interactive init. `build` also
+loads the file, but its wipe happens first (above).
+
+`explain <error-id>` only looks up the error description and works without `.pjt.ts`. `add`
+installs the package before it attempts to splice the configuration. If metadata and a section
+selection lead to a splice and `.pjt.ts` is missing, it fails with `pjt.fs.read-failed` (exit 1);
+the package may already be installed. That error currently says `Could not read .pjt.ts`, so
+run `pjt init` before adding a blueprint. A package without metadata instead reports
+`pjt.add.metadata-missing`, and an empty selection does not try to read or create `.pjt.ts`.
 
 ## Blueprint-argument prompts
 
@@ -57,97 +66,149 @@ Run it whenever a change touches prompts, `packages/cli-internals/src/platform/t
 `Terminal.readInput is not implemented` passed every automated check and only showed up in a real
 terminal.
 
-Needs Node, `npm`, `python3` and built packages (`pnpm build`). Run from the repo root.
+Needs Node, pnpm, Python 3.9+ and a Unix pseudo-terminal. Build packages with `pnpm build`
+first. Run the shell blocks in one Bash session, starting at the repository root. These are
+scripted pseudo-terminal checks; they do not replace a person's keyboard check or establish
+Windows terminal support.
 
-**Status:** the corrected CLI path and steps 1-3 were verified by QA on 2026-11-10 (the `add` flow prints `Pick sections to add` and adds the two chosen sections, exit 0); steps 4 (Ctrl-C) and 5, and the `remodel`/`inspect` follow-up, have not been run since.
+**Verified on 2026-11-10 with Node 22.12:** selection of the first two sections, remodel and
+clean inspect; Ctrl-C with exit 0 and unchanged `.pjt.ts`; and non-TTY `--section` parity for
+both the generated calls and `AGENTS.md`. The fixture used the locally packed packages and a
+temporary registry, not unpublished workspace-directory installs or a moving Effect tag.
 
-1. Pack and serve the blueprint, the way `scripts/smoke.sh` section 5d does. The registry runs in
-   the background, so its PID goes to a file; every later command re-reads `$REG` from `/tmp/pty-recipe`:
-
-   ```bash
-   REG=$(mktemp -d); E2E=$(mktemp -d); ROOT=$PWD
-   printf 'REG=%s\nE2E=%s\nROOT=%s\n' $REG $E2E $ROOT > /tmp/pty-recipe
-   mkdir -p $REG/pkg/package
-   cp -r packages/blueprint-markdown/dist packages/blueprint-markdown/package.json $REG/pkg/package/
-   node -e "
-   const fs = require('fs');
-   for (const f of ['package.json', 'dist/package.json']) {
-     const p = process.argv[1] + '/' + f;
-     const j = JSON.parse(fs.readFileSync(p, 'utf8'));
-     j.version = '1.0.0';
-     for (const k of ['peerDependencies', 'devDependencies', 'scripts']) delete j[k];
-     fs.writeFileSync(p, JSON.stringify(j, null, 2) + '\n');
-   }
-   " $REG/pkg/package
-   npm pack $REG/pkg/package --pack-destination $REG --silent
-   printf '{"packages":[{"name":"@projitect/blueprint-markdown","latest":"1.0.0","tarballs":{"1.0.0":"%s"}}]}' $REG/projitect-blueprint-markdown-1.0.0.tgz > $REG/state.json
-   node scripts/local-registry.mjs $REG/state.json $REG/port & echo $! > $REG/pid
-   for _ in $(seq 1 40); do [ -s $REG/port ] && break; sleep 0.25; done
-   cat $REG/port
-   ```
-
-   `cat $REG/port` must print a port number. If you run each command in a fresh shell, repeat the
-   `REG=… E2E=… ROOT=…` assignments from `/tmp/pty-recipe` first.
-
-2. Create the scratch project and install the CLI into it:
+1. Pack the current public packages and serve them through the smoke test's local registry:
 
    ```bash
-   cd $E2E && git init -q && git config user.email t@t && git config user.name t
-   echo '{"name":"pty","version":"0.0.0","private":true,"type":"module"}' > package.json
-   npm install --no-package-lock --silent file:$ROOT/packages/{core,blueprint,cli-internals,projitect} effect@rc tsx
-   printf '@projitect:registry=http://127.0.0.1:%s/\n' $(cat $REG/port) > .npmrc
-   node_modules/@projitect/cli/bin/pjt.mjs init
-   git add -A && git commit -qm init
+   ROOT=$PWD
+   REG=$(mktemp -d)
+   E2E=$(mktemp -d)
+   VERSION=$(node -p "require('./packages/projitect/package.json').version")
+   pnpm -r --filter './packages/*' pack --pack-destination "$REG"
+   node --input-type=module - "$ROOT" "$REG" <<'JS'
+   import fs from "node:fs"
+   import path from "node:path"
+   const [root, registry] = process.argv.slice(2)
+   const packages = fs.readdirSync(path.join(root, "packages"), { withFileTypes: true })
+     .filter((entry) => entry.isDirectory())
+     .map((entry) => JSON.parse(fs.readFileSync(path.join(root, "packages", entry.name, "package.json"), "utf8")))
+     .filter((pkg) => !pkg.private)
+     .map((pkg) => ({
+       name: pkg.name,
+       latest: pkg.version,
+       tarballs: {
+         [pkg.version]: path.join(registry, `${pkg.name.replace(/^@/, "").replaceAll("/", "-")}-${pkg.version}.tgz`),
+       },
+     }))
+   fs.writeFileSync(path.join(registry, "state.json"), JSON.stringify({ packages }))
+   JS
+   node "$ROOT/scripts/local-registry.mjs" "$REG/state.json" "$REG/port" > "$REG/server.log" 2>&1 &
+   REG_PID=$!
+   python3 - "$REG/port" <<'PY'
+   import pathlib, sys, time
+   port = pathlib.Path(sys.argv[1])
+   deadline = time.monotonic() + 10
+   while not port.exists() and time.monotonic() < deadline:
+       time.sleep(0.1)
+   print(port.read_text().strip())
+   PY
    ```
 
-3. Drive `add` through a pseudo-terminal. Save this as `$REG/drive.py` (outside the project):
+   The last command must print a port number. Keep `$REG_PID` for cleanup.
+
+2. Install from those tarballs and initialise a scratch project:
+
+   ```bash
+   cd "$E2E"
+   git init -q
+   printf '{"name":"pty","version":"0.0.0","private":true,"type":"module"}\n' > package.json
+   printf '@projitect:registry=http://127.0.0.1:%s/\n' "$(cat "$REG/port")" > .npmrc
+   pnpm add -D "@projitect/cli@$VERSION"
+   pnpm exec pjt init
+   cp .pjt.ts "$REG/init.pjt.ts"
+   ```
+
+   Packing converts workspace dependency ranges into published ranges. The registry serves
+   matching local packages; pnpm installs their pinned Effect peer and other dependencies.
+
+3. Save this driver as `$REG/drive.py`, outside the project:
 
    ```python
-   import os, pty, sys, time, select
+   import os, pty, select, signal, sys, time
 
    keys = {"down": b"\x1b[B", "space": b" ", "enter": b"\r", "ctrl-c": b"\x03"}
-   script = sys.argv[1].split(",")  # e.g. down,down,space,down,space,enter or ctrl-c
+   sequence = [keys[key] for key in sys.argv[1].split(",")]
    pid, fd = pty.fork()
    if pid == 0:
        os.execvp("node", ["node", "node_modules/@projitect/cli/bin/pjt.mjs", "add", "@projitect/blueprint-markdown"])
-
-   def drain(wait=0.5):
-       out = b""
-       while select.select([fd], [], [], wait)[0]:
-           try:
-               chunk = os.read(fd, 4096)
-           except OSError:
+   output, sent, status = bytearray(), False, None
+   deadline = time.monotonic() + 120
+   try:
+       while time.monotonic() < deadline:
+           if select.select([fd], [], [], 0.2)[0]:
+               try:
+                   output.extend(os.read(fd, 65536))
+               except OSError:
+                   pass
+           if not sent and b"Pick sections to add" in output:
+               for key in sequence:
+                   os.write(fd, key)
+                   time.sleep(0.25)
+               sent = True
+           ended, raw_status = os.waitpid(pid, os.WNOHANG)
+           if ended:
+               status = os.waitstatus_to_exitcode(raw_status)
                break
-           if not chunk:
-               break
-           out += chunk
-       return out
-
-   seen = drain(8)  # the package install takes a moment
-   for k in script:
-       os.write(fd, keys[k])
-       seen += drain()
-   seen += drain(3)
-   _, status = os.waitpid(pid, 0)
-   sys.stdout.write(seen.decode(errors="replace"))
-   print("\nexit:", os.waitstatus_to_exitcode(status))
+       if status is None:
+           os.kill(pid, signal.SIGTERM)
+           os.waitpid(pid, 0)
+           raise SystemExit("Prompt check timed out")
+       print(output.decode(errors="replace"))
+       print("exit:", status)
+       if not sent or status != 0:
+           raise SystemExit("Prompt check failed")
+   finally:
+       os.close(fd)
    ```
 
-   The list opens with the cursor on the `Select All` row, followed by `Inverse Selection`, then the
-   sections; the first `down,down` lands on the first section. Run
-   `python3 $REG/drive.py down,down,space,down,space,enter` from `$E2E`. The output contains
-   `Pick sections to add` and `Added to .pjt.ts: agentsPackageManager, agentsVerification.`, and
-   `.pjt.ts` gains exactly those two calls (plus the `markdownSnippets` import). Then run
-   `node_modules/@projitect/cli/bin/pjt.mjs remodel` and `... inspect`; inspect exits 0.
+   Run `python3 "$REG/drive.py" down,down,space,down,space,enter` from `$E2E`. The list starts
+   with `Select All`, then `Inverse Selection`, then the sections. The output must contain
+   `Pick sections to add` and `Added to .pjt.ts: agentsPackageManager, agentsVerification.`
+   Inspect `.pjt.ts` for exactly those two calls and the `markdownSnippets` import, then run:
 
-4. Reset `.pjt.ts` to the committed `init` state with `git checkout .pjt.ts`. Run `python3 $REG/drive.py ctrl-c`; the
-   check is `git diff --exit-code .pjt.ts` (exit 0 means unchanged), and the driver prints exit 0.
+   ```bash
+   cp .pjt.ts "$REG/selected.pjt.ts"
+   pnpm exec pjt remodel
+   pnpm exec pjt inspect
+   cp AGENTS.md "$REG/selected-agents.md"
+   ```
 
-5. Compare with the non-interactive path: `pjt add @projitect/blueprint-markdown --section <the two names>` installs the same files.
+   Inspect must exit 0.
 
-6. Clean up: `kill $(cat $REG/pid)`, then remove `$REG` and `$E2E`.
+4. Restore the initial configuration and cancel the prompt:
 
-Record the date and result in the "Last run" paragraph of the website's `journey.mdx`.
+   ```bash
+   cp "$REG/init.pjt.ts" .pjt.ts
+   python3 "$REG/drive.py" ctrl-c
+   cmp .pjt.ts "$REG/init.pjt.ts"
+   ```
+
+   The driver prints exit 0 and `cmp` exits 0: cancellation adds no calls.
+
+5. Compare the non-TTY flag path with the selected result:
+
+   ```bash
+   pnpm exec pjt add @projitect/blueprint-markdown --section agentsPackageManager,agentsVerification < /dev/null
+   cmp .pjt.ts "$REG/selected.pjt.ts"
+   pnpm exec pjt remodel
+   pnpm exec pjt inspect
+   cmp AGENTS.md "$REG/selected-agents.md"
+   ```
+
+   Every command must exit 0. This checks both configuration and materialised-file parity.
+
+6. Stop the fixture registry with `kill "$REG_PID"`, leave `$E2E`, then remove the two scratch
+   directories when their logs are no longer needed. Record the date, Node version and whether
+   the run was scripted or performed by a person in the website's `journey.mdx`.
 
 ### What `build` does without a terminal
 
