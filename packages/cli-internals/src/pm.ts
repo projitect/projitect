@@ -16,9 +16,9 @@ const LOCKFILES: readonly (readonly [string, PackageManager])[] = [
 ]
 
 /**
- * Detect the user's package manager by walking up from `projectRoot` looking for known
- * lockfiles. Falls back to `npm` if nothing is found. Used by `pjt add` to decide which install
- * command to shell out to.
+ * Detect the user's package manager from known lockfiles in `projectRoot`.
+ * Without a lockfile, uses the invoking package manager's user-agent, then `npm`.
+ * Used by `pjt add` and first-run bootstrap to select the install command.
  */
 export const detect = (params: {
   readonly projectRoot: string
@@ -34,7 +34,22 @@ export const detect = (params: {
     ),
     Option.match({
       onSome: ([, pm]) => pm,
-      onNone: (): PackageManager => "npm",
+      onNone: (): PackageManager =>
+        Match.value(process.env["npm_config_user_agent"] ?? "").pipe(
+          Match.when(
+            (agent) => agent.startsWith("pnpm/"),
+            () => "pnpm" as const,
+          ),
+          Match.when(
+            (agent) => agent.startsWith("yarn/"),
+            () => "yarn" as const,
+          ),
+          Match.when(
+            (agent) => agent.startsWith("bun/"),
+            () => "bun" as const,
+          ),
+          Match.orElse(() => "npm" as const),
+        ),
     }),
   )
 
@@ -46,12 +61,30 @@ export const installDev = (params: {
   readonly projectRoot: string
   readonly pm: PackageManager
   readonly pkg: string
-}): Effect.Effect<void, Errors.PmInstallFailed> => {
-  const args = installArgs(params.pm, params.pkg)
-  return Effect.tryPromise({
+}): Effect.Effect<void, Errors.PmInstallFailed> =>
+  runInstallation({ ...params, args: installArgs(params.pm, params.pkg) })
+
+/** Synchronize the lockfile after bootstrap has applied its managed manifest ranges. */
+export const installProject = (params: {
+  readonly projectRoot: string
+  readonly pm: PackageManager
+}): Effect.Effect<void, Errors.PmInstallFailed> =>
+  runInstallation({
+    ...params,
+    pkg: "project dependencies",
+    args: params.pm === "pnpm" ? ["install", "--no-frozen-lockfile"] : ["install"],
+  })
+
+const runInstallation = (params: {
+  readonly projectRoot: string
+  readonly pm: PackageManager
+  readonly pkg: string
+  readonly args: readonly string[]
+}): Effect.Effect<void, Errors.PmInstallFailed> =>
+  Effect.tryPromise({
     try: () =>
       new Promise<void>((resolve, reject) => {
-        const child = spawn(params.pm, args, {
+        const child = spawn(params.pm, params.args, {
           cwd: params.projectRoot,
           stdio: "inherit",
         })
@@ -60,7 +93,7 @@ export const installDev = (params: {
           if (code === 0) {
             resolve()
           } else {
-            reject(new Error(`${params.pm} ${args.join(" ")} exited with ${String(code)}`))
+            reject(new Error(`${params.pm} ${params.args.join(" ")} exited with ${String(code)}`))
           }
         })
       }),
@@ -73,7 +106,6 @@ export const installDev = (params: {
         message: `Failed to install \`${params.pkg}\` via ${params.pm}`,
       }),
   })
-}
 
 const installArgs = (pm: PackageManager, pkg: string): readonly string[] =>
   Match.value(pm).pipe(

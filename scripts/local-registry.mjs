@@ -10,6 +10,7 @@
  * The chosen port is written to `<port-file>` once the server is listening.
  */
 import { execFileSync } from "node:child_process"
+import { createHash } from "node:crypto"
 import { readFileSync, writeFileSync } from "node:fs"
 import { createServer } from "node:http"
 import process from "node:process"
@@ -39,7 +40,10 @@ const server = createServer((req, res) => {
         version,
         {
           ...manifestOf(tarball),
-          dist: { tarball: `${base}/tarballs/${packument.name}/${version}.tgz` },
+          dist: {
+            tarball: `${base}/tarballs/${packument.name}/${version}.tgz`,
+            integrity: `sha512-${createHash("sha512").update(readFileSync(tarball)).digest("base64")}`,
+          },
         },
       ]),
     )

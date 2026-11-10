@@ -25,7 +25,7 @@ FAILED=0
 pass() { echo "  ✓ $1"; }
 fail() { echo "  ✗ $1"; FAILED=1; }
 
-cleanup() { [ -n "${REG_PID:-}" ] && kill "$REG_PID" 2>/dev/null; [ -n "${REACT_REG_PID:-}" ] && kill "$REACT_REG_PID" 2>/dev/null; rm -rf "$SMOKE" "${SMOKE}-tools" "${REG:-}" "${E2E:-}" "${REACTDIR:-}" "${NEXTDIR:-}" "${REACTREG:-}"; }
+cleanup() { [ -n "${REG_PID:-}" ] && kill "$REG_PID" 2>/dev/null; [ -n "${REACT_REG_PID:-}" ] && kill "$REACT_REG_PID" 2>/dev/null; rm -rf "$SMOKE" "${SMOKE}-tools" "${REG:-}" "${E2E:-}" "${REACTDIR:-}" "${NEXTDIR:-}" "${REACTREG:-}" "${DLX_EMPTY:-}" "${DLX_EXISTING:-}"; }
 trap cleanup EXIT
 
 cd "$SMOKE"
@@ -902,12 +902,42 @@ REACT_REG_PID=$!
 for _ in $(seq 1 40); do [ -s "$REACTREG/port" ] && break; sleep 0.25; done
 [ -s "$REACTREG/port" ] && pass "local registry serves the packed packages" || fail "local registry did not start"
 
+# Start outside the repo and outside any local CLI installation: an installed bin cannot prove
+# that the documented dlx command resolves its freshly generated project imports.
+PNPM_SPEC="$(node -p "require('${ROOT}/package.json').packageManager")"
+DLX_EMPTY="$(mktemp -d -t pjt-dlx-empty.XXXXXX)"
+DLX_EXISTING="$(mktemp -d -t pjt-dlx-existing.XXXXXX)"
+check_dlx_init() {
+  local dir="$1" mode="$2"
+  cd "$dir"
+  printf '@projitect:registry=http://127.0.0.1:%s/\n' "$(cat "$REACTREG/port")" > .npmrc
+  if [ "$mode" = existing ]; then
+    git init -q
+    echo "{\"name\":\"dlx-existing\",\"private\":true,\"type\":\"module\",\"packageManager\":\"${PNPM_SPEC}\"}" > package.json
+  fi
+  [ ! -e node_modules ] && pass "dlx $mode starts without local dependencies" || fail "dlx $mode fixture already has dependencies"
+  if [ "$mode" = empty ]; then
+    pnpm --package="@projitect/cli@${BASE_VERSION}" dlx pjt init --yes > init.out 2>&1
+  else
+    pnpm --package="@projitect/cli@${BASE_VERSION}" dlx pjt init > init.out 2>&1
+  fi
+  [ $? -eq 0 ] && pass "dlx init $mode succeeds" || fail "dlx init $mode failed: $(tail -5 init.out)"
+  [ -f .pjt.lock ] && [ -f node_modules/@projitect/cli/package.json ] && [ -f node_modules/effect/package.json ] && pass "dlx $mode installed local dependencies and wrote its lock" || fail "dlx $mode did not finish local bootstrap"
+  pnpm install --frozen-lockfile --offline > frozen-install.out 2>&1
+  [ $? -eq 0 ] && pass "dlx $mode lockfile is ready for frozen CI installs" || fail "frozen install after dlx $mode failed: $(tail -5 frozen-install.out)"
+  pnpm exec pjt inspect > inspect.out 2>&1
+  [ $? -eq 0 ] && pass "fresh local inspect after dlx $mode is clean" || fail "inspect after dlx $mode failed: $(tail -5 inspect.out)"
+  pnpm exec pjt remodel > remodel.out 2>&1
+  [ $? -eq 0 ] && pass "fresh local remodel after dlx $mode succeeds" || fail "remodel after dlx $mode failed: $(tail -5 remodel.out)"
+}
+check_dlx_init "$DLX_EMPTY" empty
+check_dlx_init "$DLX_EXISTING" existing
+
 cd "$REACTDIR"
 git init -q
 git config user.email t@t
 git config user.name t
 # pnpm, like the repo itself: npm 10 crashes resolving any vitest 4.1 install ("edgesOut of null").
-PNPM_SPEC="$(node -p "require('${ROOT}/package.json').packageManager")"
 # The projitect blueprint owns `devDependencies.@projitect/cli` (a registry range), so an override keeps
 # resolving that range to the packed CLI tarball across every `build` and `remodel`.
 echo "{\"name\":\"smoke-react\",\"version\":\"0.0.0\",\"private\":true,\"type\":\"module\",\"packageManager\":\"${PNPM_SPEC}\",\"devDependencies\":{\"@projitect/cli\":\"^${BASE_VERSION}\"},\"pnpm\":{\"overrides\":{\"@projitect/cli\":\"file:${REACTREG}/projitect-cli-${BASE_VERSION}.tgz\"}}}" > package.json

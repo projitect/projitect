@@ -1,11 +1,20 @@
 import { promises as fs } from "node:fs"
 import { spawn } from "node:child_process"
+import { createRequire } from "node:module"
 import path from "node:path"
-import { Effect } from "effect"
+import { Array, Effect, Option, Schema } from "effect"
 import { Errors } from "@projitect/core"
 import type { ProjitectConfig } from "@projitect/core"
+import { detect, installDev as installDevelopment, installProject } from "../pm.js"
 import { remodel } from "./remodel.js"
 import type { RemodelResult } from "./remodel.js"
+
+const manifest = Schema.decodeUnknownSync(
+  Schema.Struct({
+    version: Schema.String,
+    peerDependencies: Schema.Struct({ effect: Schema.String }),
+  }),
+)(createRequire(import.meta.url)("../../package.json"))
 
 export interface InitResult {
   readonly seededBlueprintFile: boolean
@@ -21,7 +30,8 @@ export interface InitResult {
  * `.pjt.ts` with the marker structure if absent, then delegates to `remodel` which runs the
  * standard plan/apply/lockfile-write pipeline. The projitect blueprint (prepended automatically
  * by `@projitect/cli`'s `pjt()`) writes the package.json entries and the `.pjt.ts` import region
- * on its first apply.
+ * on its first apply. Before seeding or loading the config, missing local CLI and Effect
+ * dependencies are installed so an ephemeral dlx invocation can resolve those imports.
  *
  * With `yes: true`, both prerequisites are auto-bootstrapped instead of erroring:
  *   - Missing `.git/` → `git init -q` shell-out.
@@ -43,12 +53,18 @@ export const init = (params: {
       params.yes ?? false,
     )
 
+    const bootstrapPm = yield* ensureBootstrapDependencies(params.config.projectRoot)
+
     const seededBlueprintFile = yield* seedBlueprintFileIfAbsent(
       params.config.projectRoot,
       params.config.blueprintFile,
     )
 
     const remodelResult = yield* remodel({ config: params.config })
+    yield* Option.match(bootstrapPm, {
+      onNone: () => Effect.void,
+      onSome: (pm) => installProject({ projectRoot: params.config.projectRoot, pm }),
+    })
 
     return {
       seededBlueprintFile,
@@ -57,6 +73,30 @@ export const init = (params: {
       remodel: remodelResult,
     }
   })
+
+/** A dlx runner lives outside the project; generated imports must resolve locally first. */
+const ensureBootstrapDependencies = (projectRoot: string) =>
+  Effect.forEach(
+    [
+      { name: "@projitect/cli", spec: `@projitect/cli@${manifest.version}` },
+      { name: "effect", spec: `effect@${manifest.peerDependencies.effect}` },
+    ],
+    ({ name, spec }) =>
+      Effect.gen(function* () {
+        const installed = yield* Effect.promise(() =>
+          fs.access(path.join(projectRoot, "node_modules", name, "package.json")).then(
+            () => true,
+            () => false,
+          ),
+        )
+        if (installed) {
+          return Option.none()
+        }
+        const pm = yield* detect({ projectRoot })
+        yield* installDevelopment({ projectRoot, pm, pkg: spec })
+        return Option.some(pm)
+      }),
+  ).pipe(Effect.map((results) => Array.head(Array.getSomes(results))))
 
 const ensureGit = (
   projectRoot: string,
