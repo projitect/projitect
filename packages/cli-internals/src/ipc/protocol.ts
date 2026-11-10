@@ -14,6 +14,13 @@ export const Request = Schema.Union([
     path: Schema.String,
     content: Schema.String,
   }),
+  Schema.TaggedStruct("ReadFileBytes", { id: Schema.Number, path: Schema.String }),
+  // Bytes travel as base64 in the JSON frame; the transform keeps them exact.
+  Schema.TaggedStruct("WriteFileBytes", {
+    id: Schema.Number,
+    path: Schema.String,
+    bytes: Schema.Uint8ArrayFromBase64,
+  }),
   Schema.TaggedStruct("Exists", { id: Schema.Number, path: Schema.String }),
   Schema.TaggedStruct("Remove", { id: Schema.Number, path: Schema.String }),
   Schema.TaggedStruct("RemoveEmptyDir", { id: Schema.Number, path: Schema.String }),
@@ -32,6 +39,8 @@ export type FsError = typeof FsError.Type
 export const Response = Schema.Union([
   Schema.TaggedStruct("ReadFileOk", { id: Schema.Number, value: Schema.String }),
   Schema.TaggedStruct("WriteFileOk", { id: Schema.Number }),
+  Schema.TaggedStruct("ReadFileBytesOk", { id: Schema.Number, value: Schema.Uint8ArrayFromBase64 }),
+  Schema.TaggedStruct("WriteFileBytesOk", { id: Schema.Number }),
   Schema.TaggedStruct("ExistsOk", { id: Schema.Number, value: Schema.Boolean }),
   Schema.TaggedStruct("RemoveOk", { id: Schema.Number }),
   Schema.TaggedStruct("RemoveEmptyDirOk", { id: Schema.Number }),

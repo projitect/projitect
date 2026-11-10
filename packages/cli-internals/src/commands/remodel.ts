@@ -58,7 +58,7 @@ export const remodel = (params: {
       const written = yield* applyPlan({ plan })
       const removed = yield* applyRemovals({ removals })
 
-      const nextLock: PjtLock.PjtLock = { version: 1, blueprints: byBlueprint }
+      const nextLock: PjtLock.PjtLock = { version: 2, blueprints: byBlueprint }
       yield* writeLockfile({ lock: nextLock })
 
       const ran = yield* runPostApply({
