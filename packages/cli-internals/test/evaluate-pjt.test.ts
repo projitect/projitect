@@ -1,5 +1,6 @@
 import { Effect, Result } from "effect"
 import { describe, expect, it } from "vitest"
+import { makeInMemoryLayer } from "@projitect/test-kit"
 import { blueprintTree, evaluatePjt } from "../src/browser.js"
 import { firstPartyRegistry } from "../src/browser-blueprints.js"
 import type { PjtEvalFailure } from "../src/browser.js"
@@ -27,7 +28,9 @@ export default pjt({
     if (Result.isFailure(result)) {
       throw new Error(result.failure.message)
     }
-    const tree = await Effect.runPromise(blueprintTree(result.success))
+    const tree = await Effect.runPromise(
+      Effect.provide(blueprintTree(result.success), makeInMemoryLayer()),
+    )
     expect(tree.map((blueprint) => ("id" in blueprint ? blueprint.id : blueprint.name))).toEqual([
       "pjt:gitignore:macos",
       "pjt:gitignore:node",
@@ -96,7 +99,9 @@ export default pjt({ blueprints: Effect.succeed([directory("web", [gitignores.no
     if (Result.isFailure(result)) {
       throw new Error(result.failure.message)
     }
-    const tree = await Effect.runPromise(blueprintTree(result.success))
+    const tree = await Effect.runPromise(
+      Effect.provide(blueprintTree(result.success), makeInMemoryLayer()),
+    )
     expect(tree).toMatchObject([{ _tag: "Directory", name: "web" }])
   })
 })
