@@ -25,7 +25,7 @@ FAILED=0
 pass() { echo "  ✓ $1"; }
 fail() { echo "  ✗ $1"; FAILED=1; }
 
-cleanup() { [ -n "${REG_PID:-}" ] && kill "$REG_PID" 2>/dev/null; [ -n "${REACT_REG_PID:-}" ] && kill "$REACT_REG_PID" 2>/dev/null; rm -rf "$SMOKE" "${SMOKE}-tools" "${REG:-}" "${E2E:-}" "${REACTDIR:-}" "${NEXTDIR:-}" "${REACTREG:-}"; }
+cleanup() { [ -n "${REG_PID:-}" ] && kill "$REG_PID" 2>/dev/null; [ -n "${REACT_REG_PID:-}" ] && kill "$REACT_REG_PID" 2>/dev/null; rm -rf "$SMOKE" "${SMOKE}-tools" "${REG:-}" "${E2E:-}" "${REACTDIR:-}" "${NEXTDIR:-}" "${REACTREG:-}" "${NOGIT:-}" "${YESDIR:-}" "${EXECDIR:-}" "${FP:-}"; }
 trap cleanup EXIT
 
 cd "$SMOKE"
@@ -764,7 +764,8 @@ echo "$JSON_OUT" | python3 -c "import sys, json; json.loads(sys.stdin.read())" >
 
 echo "=== 7. init refuses without git ==="
 NOGIT="$(mktemp -d -t pjt-nogit.XXXXXX)"
-cp -r "${SMOKE}/node_modules" "${NOGIT}/"
+# Preserve workspace/package symlinks: following them recursively copies dependency cycles on macOS.
+cp -RP "${SMOKE}/node_modules" "${NOGIT}/"
 cd "$NOGIT"
 echo '{"name":"x","version":"0","private":true}' > package.json
 node node_modules/projitect/bin/pjt.mjs init 2>&1 | grep -q "pjt.init.git-missing" && pass "init refuses without git" || fail "no git error"
@@ -773,7 +774,7 @@ rm -rf "$NOGIT"
 
 echo "=== 7b. init --yes auto-bootstraps missing git + package.json ==="
 YESDIR="$(mktemp -d -t pjt-yes.XXXXXX)"
-cp -r "${SMOKE}/node_modules" "${YESDIR}/"
+cp -RP "${SMOKE}/node_modules" "${YESDIR}/"
 cd "$YESDIR"
 # Neither .git nor package.json present.
 [ ! -d .git ] && [ ! -f package.json ] && pass "yes-test starts clean" || fail "yes-test dirty start"
@@ -810,7 +811,7 @@ echo "=== 9b. post-apply commands run after the files; a denied command fails ==
 # The fix is a quoted `node -e` so no script file has to survive the wipe. The denied case spreads the
 # real helper's blueprint and drops its exec permissions, so the planned op is still the helper's.
 EXECDIR="$(mktemp -d -t pjt-exec.XXXXXX)"
-cp -r "${SMOKE}/node_modules" "${EXECDIR}/"
+cp -RP "${SMOKE}/node_modules" "${EXECDIR}/"
 cd "$EXECDIR"
 git init -q
 git config user.email t@t
