@@ -53,6 +53,44 @@ Before the owner merges the first release PR:
 
 A green version-PR job is not confirmation. The release is confirmed only when the public registry returns the released version for both `pnpm view projitect version` and `pnpm view @projitect/core version`.
 
+## Verifying release and website state without gh
+
+Release and deploy agents have no `gh` and no credentials. Everything below is read-only and public. Commands marked _verified_ were run when this section was written; the rest are marked _unverified_ because the build environment had no `curl` and the GitHub and site endpoints could not be fetched.
+
+### Release PR and `release.yml` run
+
+Unauthenticated GitHub access is limited to 60 requests an hour per IP, so fetch sparingly.
+
+- Version PR (`chore(release): version packages`): open `https://github.com/projitect/projitect/pulls?q=is%3Apr+%22chore%28release%29%3A+version+packages%22`, or `curl -s 'https://api.github.com/repos/projitect/projitect/pulls?state=all&per_page=10'` and read `title`, `state`, `merged_at`. _Unverified._
+- Release run: open `https://github.com/projitect/projitect/actions/workflows/release.yml`, or `curl -s 'https://api.github.com/repos/projitect/projitect/actions/workflows/release.yml/runs?per_page=5'` and read `status`, `conclusion`, `head_sha`. _Unverified._
+
+### Registry
+
+`pnpm view projitect version` and `pnpm view @projitect/core version` (see [Release confirmation](#release-confirmation)). Registry state, not a green workflow run, confirms a release. For provenance, run `pnpm view projitect dist.attestations`; it is empty for an unpublished or unattested version. _Verified:_ today both version commands exit with `E404 ... is not in this registry`, which means "not released". The provenance command was not run, as there is nothing to query.
+
+### Website hosting and commit served
+
+The repo proves no host: there is no deploy workflow (only `ci.yml` and `release.yml`) and no host config. `apps/website/astro.config.mjs` sets `site: https://projitect.dev`, and `BACKLOG.md` lists the Vercel project (OPS-8) and the projitect.dev domain as planned and unchecked. Treat the host and the deploy trigger as **unconfirmed** until a deploy mechanism lands.
+
+No mechanism reports which commit the site serves (there is no build stamp, and none is built here). The best read-only comparison is to fetch a built page or an asset and diff it against the source at the merged commit, for example `apps/website/public/schemas/inspect.v1.json`.
+
+### Published asset check
+
+`curl -sS -o /dev/null -w '%{http_code}\n' https://projitect.dev/schemas/inspect.v1.json` must print `200`, and `curl -sS -o inspect.v1.json https://projitect.dev/schemas/inspect.v1.json` followed by `jq . inspect.v1.json` must parse. A pass is HTTP 200 and valid JSON. If it fails, record the status code, the response headers (`curl -sSI`) and the UTC time, and note that OPS-8/OPS-9 (hosting and domain) are the likely cause. _Unverified._
+
+### First public release pass
+
+The release or deploy agent runs this after the publish, in a throwaway git project outside the repo, with pnpm only (never `npx pjt`):
+
+1. `git init`, then `pnpm add -D projitect@<released version>` from the public registry.
+2. `pnpm exec pjt init`, then add the markdown and skills blueprints and run `pnpm exec pjt remodel`.
+3. `pnpm exec pjt inspect` exits 0. Hand-edit a managed region: `pnpm exec pjt inspect` exits nonzero and reports the drift.
+4. Exercise upgrade, swap and remove where they apply, the way `./scripts/smoke.sh` does.
+
+It passes when every step behaves as stated and `pnpm view` returns the released version (with provenance) for every package in the `fixed` group. _Unverified:_ nothing is published yet.
+
+The missing npm owner setup is tracked by the [Owner-only setup checklist](#owner-only-setup-checklist) and the first-release task. It does not block these instructions.
+
 ## Dependency upgrades (Renovate)
 
 Renovate runs on this repo and opens PRs for dep upgrades. Configured at [renovate.json5](../renovate.json5). Two things to know:
