@@ -56,24 +56,27 @@ Pick the row that matches your task and open that document; each is one hop from
 | Making a user-facing change (the website must change in the same PR)                       | [Marketing site](docs/marketing-site.md)                                                |
 | Shipping a release, changesets, or dependency upgrades                                     | [Publishing](docs/publishing.md)                                                        |
 | Setting up commit signing                                                                  | [Signed commits](docs/agents-signing.md)                                                |
+| Changing AGENTS.md, docs or skills (where a new rule goes, the guidance check)             | [Guidance maintenance](docs/guidance-maintenance.md), [docs index](docs/README.md)      |
 | Using the Trello kanban workflow (optional)                                                | [Kanban overview](docs/kanban/overview.md), [daily workflows](docs/kanban/workflows.md) |
 
 ## Contributor skills
 
-Project skills under `.claude/skills/` cover the repeated chores. Prefer them over improvising:
+Project skills under `.claude/skills/` cover the repeated chores. Prefer them over improvising.
+Skill selection from the description is not guaranteed, so when a task matches a row, open the
+linked `SKILL.md` directly:
 
-| Skill                | Use for                                                                                |
-| -------------------- | -------------------------------------------------------------------------------------- |
-| `create-commit`      | Staging and committing: one concept, conventional subject, changeset, no `--no-verify` |
-| `verify-commit`      | Auditing commits against these rules, then `pnpm check-all`                            |
-| `push-pr`            | Pushing the branch and opening a merge-commit PR with a conventional title             |
-| `rebase-main`        | Rebasing onto `origin/main` without stash; `--force-with-lease` only                   |
-| `new-package`        | Scaffolding a published workspace package under `packages/`                            |
-| `new-blueprint`      | Scaffolding `@projitect/blueprint-<name>` plus its marketing-site pages                |
-| `new-error-code`     | Adding a `pjt.*` error end to end (class, registry, blurb, MDX page)                   |
-| `release-bump`       | Cutting a release (see [Publishing](docs/publishing.md))                               |
-| `effect-conventions` | Effect v4 conventions and patterns (see Where to look)                                 |
-| `fp-utilities`       | FP mindset, utility design and sort orders (see Where to look)                         |
+| Skill                                                              | Use for                                                                                |
+| ------------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
+| [`create-commit`](.claude/skills/create-commit/SKILL.md)           | Staging and committing: one concept, conventional subject, changeset, no `--no-verify` |
+| [`verify-commit`](.claude/skills/verify-commit/SKILL.md)           | Auditing commits against these rules, then `pnpm check-all`                            |
+| [`push-pr`](.claude/skills/push-pr/SKILL.md)                       | Pushing the branch and opening a merge-commit PR with a conventional title             |
+| [`rebase-main`](.claude/skills/rebase-main/SKILL.md)               | Rebasing onto `origin/main` without stash; `--force-with-lease` only                   |
+| [`new-package`](.claude/skills/new-package/SKILL.md)               | Scaffolding a published workspace package under `packages/`                            |
+| [`new-blueprint`](.claude/skills/new-blueprint/SKILL.md)           | Scaffolding `@projitect/blueprint-<name>` plus its marketing-site pages                |
+| [`new-error-code`](.claude/skills/new-error-code/SKILL.md)         | Adding a `pjt.*` error end to end (class, registry, blurb, MDX page)                   |
+| [`release-bump`](.claude/skills/release-bump/SKILL.md)             | Cutting a release (see [Publishing](docs/publishing.md))                               |
+| [`effect-conventions`](.claude/skills/effect-conventions/SKILL.md) | Effect v4 conventions and patterns (see Where to look)                                 |
+| [`fp-utilities`](.claude/skills/fp-utilities/SKILL.md)             | FP mindset, utility design and sort orders (see Where to look)                         |
 
 ## Package manager
 
@@ -154,6 +157,7 @@ Before claiming a task done, run **`pnpm check-all`** from the repo root. It run
 2. `pnpm lint` — ESLint flat config (covers code style + Prettier formatting via `eslint-plugin-prettier`; no separate `format:check` step)
 3. `pnpm test` — Vitest (unit + integration with the in-memory `BlueprintFileSystem`)
 4. `pnpm knip` — unused exports
+5. `pnpm check:guidance` — AGENTS.md size and symlink, links, docs index, skill frontmatter
 
 Tests live in `packages/<pkg>/test/*.test.ts` and lean on `makeInMemoryLayer` from
 `@projitect/test-kit`. Packages have no per-package `test` script, so to scope a run to one
