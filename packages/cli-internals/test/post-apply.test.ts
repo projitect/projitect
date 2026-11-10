@@ -371,6 +371,7 @@ describe("buildPlan with the exec helper", () => {
       buildPlan({
         tree: [helper("a", "fmt-a"), helper("b", "fmt-b")],
         projectRoot: os.tmpdir(),
+        layerFor: makeRealLayer,
       }),
     )
     expect(plan.commands).toEqual([
@@ -394,6 +395,7 @@ describe("buildPlan with the exec helper", () => {
       buildPlan({
         tree: [helper("a", "fmt"), helper("b", "fmt")],
         projectRoot: os.tmpdir(),
+        layerFor: makeRealLayer,
       }),
     )
     expect(plan.commands.map((c) => c.ownerId)).toEqual(["a", "b"])
@@ -409,6 +411,7 @@ describe("buildPlan with the exec helper", () => {
       buildPlan({
         tree: [{ ...helper("a", "fmt"), permissions: [] }],
         projectRoot: os.tmpdir(),
+        layerFor: makeRealLayer,
       }),
     )
     const { spawner } = fakeSpawner()
