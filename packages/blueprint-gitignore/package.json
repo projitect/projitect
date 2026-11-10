@@ -1,7 +1,7 @@
 {
   "name": "@projitect/blueprint-gitignore",
   "version": "0.0.0",
-  "description": "Composable .gitignore sections (macOS, Windows, Linux, Node, Next.js, VS Code, JetBrains, tsbuildinfo) for projitect.",
+  "description": "Composable .gitignore sections (macOS, Windows, Linux, Node, Next.js, VS Code, JetBrains, tsbuildinfo, Vite, Astro, Nuxt, SvelteKit, Angular, Vue, Storybook, Yarn, pnpm, Vim, Sublime Text, Eclipse) for projitect.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/projitect/projitect.git",
@@ -28,6 +28,7 @@
   "devDependencies": {
     "@projitect/blueprint": "workspace:*",
     "@projitect/core": "workspace:*",
+    "@projitect/test-kit": "workspace:*",
     "effect": "4.0.0-rc.111",
     "typescript": "5.9.3"
   },
@@ -51,7 +52,19 @@
       "next",
       "vscode",
       "jetbrains",
-      "tsbuildinfo"
+      "tsbuildinfo",
+      "vite",
+      "astro",
+      "nuxt",
+      "svelteKit",
+      "angular",
+      "vue",
+      "storybook",
+      "yarn",
+      "pnpm",
+      "vim",
+      "sublimeText",
+      "eclipse"
     ]
   }
 }

@@ -183,3 +183,148 @@ export const tsbuildinfo = `# TypeScript incremental compile artifacts
 *.tsbuildinfo
 .tsbuildinfo
 `
+
+// The templates below follow github/gitignore. Where one is trimmed, the comment above it says
+// why: lockfiles, `tsconfig*.json`, `*.tsbuildinfo` (the `tsbuildinfo` section owns that) and
+// `.vscode` are never ignored here, and rules the `node` section already carries are dropped.
+
+// Trimmed: the Node template covers the rest of what Vite writes.
+export const vite = `# Vite
+*.timestamp-*.mjs
+vite.config.*.timestamp*
+.vite/
+`
+
+// Trimmed: `.env*` rules live in the `node` section.
+export const astro = `# Astro
+dist/
+.astro/
+`
+
+// Trimmed: `.env` rules live in the `node` section; `tsconfig*.json` is never ignored.
+export const nuxt = `# Nuxt
+.nuxt
+.output
+.data
+.nitro
+.cache
+dist
+
+# Nuxt generate
+.nuxt-*
+`
+
+// Trimmed: only what SvelteKit generates; `.env*` rules live in the `node` section.
+export const svelteKit = `# SvelteKit
+.svelte-kit/
+build/
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+`
+
+// Trimmed: `tsconfig*.json`, `*.tsbuildinfo` and the rules the `node` and `vscode` sections
+// already carry (`/node_modules`, `npm-debug.log`, `.vscode`, `.idea`) are dropped.
+export const angular = `# Angular
+/dist
+/tmp
+/out-tsc
+/bazel-out
+/.angular/cache
+.sass-cache/
+/connect.lock
+/libpeerconnection.log
+testem.log
+/typings
+__screenshots__/
+`
+
+// Trimmed: only the build output; Vue projects ride on the `vite` and `node` sections.
+export const vue = `# Vue
+dist/
+dist-ssr/
+*.local
+.cache/
+`
+
+export const storybook = `# Storybook
+storybook-static/
+build-storybook.log
+debug-storybook.log
+`
+
+// Trimmed: `yarn.lock` and the tracked Yarn Berry directories (`.yarn/releases`,
+// `.yarn/patches`, `.yarn/plugins`, `.yarn/sdks`) stay tracked.
+export const yarn = `# Yarn
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
+`
+
+// Trimmed: `pnpm-lock.yaml` stays tracked; only the store and debug logs are ignored.
+export const pnpm = `# pnpm
+.pnpm-store/
+.pnpm-debug.log*
+`
+
+export const vim = `# Swap
+[._]*.s[a-v][a-z]
+!*.svg
+[._]*.sw[a-p]
+[._]s[a-rt-v][a-z]
+[._]ss[a-gi-z]
+[._]sw[a-p]
+
+# Session
+Session.vim
+Sessionx.vim
+
+# Temporary
+.netrwhist
+*~
+
+# Auto-generated tag files
+tags
+
+# Persistent undo
+[._]*.un~
+`
+
+export const sublimeText = `# Sublime Text
+*.tmlanguage.cache
+*.tmPreferences.cache
+*.stTheme.cache
+
+# Workspace files are user-specific
+*.sublime-workspace
+
+# Package control
+Package Control.last-run
+Package Control.ca-list
+Package Control.ca-bundle
+Package Control.system-ca-bundle
+Package Control.cache/
+Package Control.ca-certs/
+bh_unicode_properties.cache
+GitHub.sublime-settings
+`
+
+export const eclipse = `# Eclipse
+.metadata
+bin/
+tmp/
+*.tmp
+*.bak
+*.swp
+*~.nib
+local.properties
+.settings/
+.loadpath
+.recommenders
+.externalToolBuilders/
+*.launch
+.factorypath
+.project
+.classpath
+`

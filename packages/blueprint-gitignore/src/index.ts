@@ -1,7 +1,7 @@
 /**
  * @projitect/blueprint-gitignore
  *
- * Eight composable `.gitignore` sections. Each function returns a region-mode blueprint that
+ * Twenty composable `.gitignore` sections. Each function returns a region-mode blueprint that
  * owns its named section between `# pjt:gitignore:<name> start` and `# pjt:gitignore:<name> end`
  * markers — so multiple sections coexist in the same `.gitignore` file without stepping on each
  * other, and a CI run of `pjt inspect` catches any hand-edit drift.
@@ -40,6 +40,18 @@ export const gitignores = {
   vscode: (): Blueprint.Blueprint => makeSection("vscode", templates.vscode),
   jetbrains: (): Blueprint.Blueprint => makeSection("jetbrains", templates.jetbrains),
   tsbuildinfo: (): Blueprint.Blueprint => makeSection("tsbuildinfo", templates.tsbuildinfo),
+  vite: (): Blueprint.Blueprint => makeSection("vite", templates.vite),
+  astro: (): Blueprint.Blueprint => makeSection("astro", templates.astro),
+  nuxt: (): Blueprint.Blueprint => makeSection("nuxt", templates.nuxt),
+  svelteKit: (): Blueprint.Blueprint => makeSection("sveltekit", templates.svelteKit),
+  angular: (): Blueprint.Blueprint => makeSection("angular", templates.angular),
+  vue: (): Blueprint.Blueprint => makeSection("vue", templates.vue),
+  storybook: (): Blueprint.Blueprint => makeSection("storybook", templates.storybook),
+  yarn: (): Blueprint.Blueprint => makeSection("yarn", templates.yarn),
+  pnpm: (): Blueprint.Blueprint => makeSection("pnpm", templates.pnpm),
+  vim: (): Blueprint.Blueprint => makeSection("vim", templates.vim),
+  sublimeText: (): Blueprint.Blueprint => makeSection("sublime-text", templates.sublimeText),
+  eclipse: (): Blueprint.Blueprint => makeSection("eclipse", templates.eclipse),
 } as const
 
 export type GitignoreSection = keyof typeof gitignores
