@@ -152,11 +152,11 @@ When adding a new published `@projitect/*` package: nothing to do — it inherit
 
 ### Listing open advisories (no `gh`, no token)
 
-Run `pnpm audit --json`. It reads the same advisory database as Dependabot, but it reports the lockfile as it stands, not the default branch on GitHub. Read these fields: `advisories` (one entry per advisory), `actions`, `muted`, and the per-severity counts in `metadata.vulnerabilities`. Report the result as a table with the columns package, severity, advisory id, vulnerable range, fixed version and path.
+Run `pnpm audit --json`. It queries the registry's advisory service for the current lockfile. Its coverage and observation time can differ from GitHub's dependency graph and Dependabot alerts; a clean audit does not prove the repository has no open alerts. Read these fields: `advisories` (one entry per advisory), `actions`, `muted`, and the per-severity counts in `metadata.vulnerabilities`. Report the result as a table with the columns package, severity, advisory id, vulnerable range, fixed version and path.
 
 Where bare `pnpm` is absent, `corepack pnpm audit --json` is the intended form. It is **unverified**: corepack failed signature verification when it was tried in one agent environment, so whether it works elsewhere is unknown.
 
-Where `gh` and a token are available, Dependabot alerts remain the source of record. An alert list that could not be read (no network, no token, a failed command) is reported as **unknown**, never as clean.
+Where `gh` and authorized access are available, read the open Dependabot records with `gh api 'repos/projitect/projitect/dependabot/alerts?state=open&per_page=100' --paginate`. Those records are the source of truth for GitHub alert state. An alert list that could not be read (no network, no permission, a failed command) is reported as **unknown**, never as clean.
 
 ### Triage record
 
@@ -170,7 +170,7 @@ Retire an override once the parent depends on a fixed version: remove it, then c
 
 ### What clears an alert
 
-The lockfile resolves a fixed version, a re-run of the audit no longer lists the advisory, and `pnpm check-all` passes. An alert dismissed as not applicable needs a recorded reason.
+For a dependency fix, the lockfile resolves a fixed version, a re-run of the audit no longer lists the advisory, and `pnpm check-all` passes. Separately verify the corresponding GitHub alert state after GitHub processes the merged dependency graph; a local audit does not close or dismiss it. An alert dismissed as not applicable needs a recorded reason.
 
 ### Release impact
 
