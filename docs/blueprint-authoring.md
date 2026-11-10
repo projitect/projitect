@@ -133,8 +133,9 @@ website summarises this in `docs/authoring` and `docs/concepts/ownership-modes`.
 
 **Which keys a blueprint may own.** Any dotted path listed in `ownedKeys`, such as
 `scripts.prepare`, `devDependencies.husky` or the top-level `lint-staged`. Own the leaf (`scripts.<name>`,
-`devDependencies.<name>`), never a whole parent such as `scripts`: a parent claim would collide
-with every other blueprint under it. The planner checks `ownedKeys` only. `value` is deep-merged
+`devDependencies.<name>`), never a whole parent such as `scripts`: removing that parent would
+also delete user-owned children. The planner compares exact `ownedKeys` strings; it does not
+reject a parent/child overlap such as `scripts` and `scripts.test`. `value` is deep-merged
 whole, so a key in `value` that is not in `ownedKeys` is written but neither conflict-checked
 nor removed later; keep the two lists identical.
 
