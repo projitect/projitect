@@ -236,6 +236,14 @@ is the only one that ever existed, and **the PR that lands a code change also la
 docs follow-up PRs. A plan that introduces a user-facing change lists the marketing pages it will
 touch. The triggers, per-phase gates and CI checks are in [Marketing site](docs/marketing-site.md).
 
+## Browser demo boundary
+
+A planned in-browser `pjt` demo on the website runs on an in-memory filesystem and bundled
+first-party blueprints only: no Node capabilities, no `node:*` in the browser bundle, and no
+isolation for untrusted `.pjt.ts` snippets without extra work. `apps/website` stays Astro Starlight.
+The bundle-size budget is set from the measured demo bundle in the demo PR. Rules, guard and
+locations: [Browser demo boundary](docs/architecture.md#browser-demo-boundary-planned).
+
 ## Kanban workflow
 
 Day-to-day work can flow through an optional Trello board with `/kanban-*` skills and a human
