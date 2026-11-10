@@ -13,6 +13,41 @@ How to change the guidance agents and contributors read: [AGENTS.md](../AGENTS.m
 
 When you edit a section, rewrite it as a whole and trim stale text; do not append patches.
 
+## Move a topic out of AGENTS.md
+
+Move a topic when only some tasks need it. Reference or explanation becomes a docs page; a repeatable procedure becomes a skill.
+
+- **The page is the single home of the detail.** It does not restate AGENTS.md; it links back to the rule only where that helps the reader.
+- **AGENTS.md keeps a short rule or a routing row, never a duplicate paragraph.** A rule that applies to every task stays as one to three lines; otherwise a row in "Where to look" is enough.
+- **Update links and the [docs index](README.md) in the same change**, then run `pnpm check:guidance`.
+
+Existing splits: [Signed commits](agents-signing.md) (AGENTS.md keeps a short "Commit signing" pointer), [Kanban](kanban/overview.md) (a short "Kanban workflow" section), [Getting started](getting-started.md) and [Architecture](architecture.md) (routing rows only), and [Publishing](publishing.md) (a short "Releases and dependency upgrades" section).
+
+## Adopt a skill from another repository
+
+Skills here were adapted from sibling repositories such as StoryCut and ampm. Adapt, never copy verbatim.
+
+**Credit and licence.**
+
+- Put a one-line note in the skill's own text ("Adapted from `<repo>/<path>`") or in the commit message; keep it out of the `description` frontmatter.
+- Before adopting, check the source repo's LICENSE file, the `license` field in its `package.json`, and the git provenance (author and commit) of the source file. Preserve any copyright or licence notice the licence requires.
+- Licence evidence for the StoryCut sources is missing: the readable sources have no LICENSE file and their `package.json` says `"UNLICENSED"`. Several existing skills (such as `create-commit` and `push-pr`) were adapted from them without attribution.
+- When evidence is missing, record that precise gap, ask the repository owner, and never infer a copyright holder or a permission. The placement and rewrite rules below still apply.
+
+**Rewrite the skill to satisfy this repo's rules:**
+
+- Commit signing and author identity ([Signed commits](agents-signing.md)).
+- One concept per commit and conventional subjects.
+- The `[kanban #<id>]` card suffix when a card shipped.
+- pnpm only.
+- The permission-prompt posture: one command per call, `-m` or `-F` commits, no heredoc.
+- No auto mode: a human approves each transition.
+- The board-scope guard, for any skill that mutates cards (`.claude/skills/kanban/shared.md`).
+
+**Changeset.** The Versioning rule in AGENTS.md requires one only when a published package changes. A skill under `.claude/skills/` is not published, so it needs none; a skill shipped through `@projitect/blueprint-skills` is a package change and does.
+
+Add the skill to AGENTS.md's skill table only if it is a required procedure.
+
 ## Keep the entry point small
 
 AGENTS.md is a short index loaded into every session. `pnpm check:guidance` warns above 400 lines and fails above 24 KiB. Do not add "read all docs first" instructions; link the specific page or heading that applies.
