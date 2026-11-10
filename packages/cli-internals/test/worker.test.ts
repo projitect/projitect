@@ -24,7 +24,10 @@ const nodeMajor = Number(process.versions.node.split(".")[0])
 let cwd: string
 
 beforeEach(async () => {
-  cwd = await fs.mkdtemp(path.join(os.tmpdir(), "projitect-test-worker-"))
+  // Permission grants and synthetic package-link targets use canonical paths; a temporary directory
+  // reached through a symlink (macOS's /var -> /private/var) would add an unrelated lookup to them.
+  // Project-root aliases are exercised separately below.
+  cwd = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), "projitect-test-worker-")))
 })
 
 afterEach(async () => {
@@ -204,6 +207,20 @@ describe("Node permission model inside the worker flags", () => {
 })
 
 describe("planBlueprintFile", () => {
+  it("loads a config through a symlinked project root without granting the outer directory", async () => {
+    const project = path.join(cwd, "project")
+    const alias = path.join(cwd, "alias")
+    await fs.mkdir(project)
+    await fs.symlink(project, alias)
+    await fs.writeFile(
+      path.join(project, ".pjt.ts"),
+      'export default { _tag: "ProjitectConfig", blueprints: [] }',
+    )
+    expect(
+      await Effect.runPromise(planBlueprintFile({ blueprintFile: ".pjt.ts", projectRoot: alias })),
+    ).toEqual([])
+  })
+
   it("runs blueprint plans in the confined worker, where fs and process access are denied", async () => {
     const planned = await plan("worker-sandbox.pjt.ts")
     expect(planned).toHaveLength(1)
@@ -245,6 +262,24 @@ describe("planBlueprintFile", () => {
       marker: "docs",
       climbed: "FsPermissionDenied",
       linked: "FsPermissionDenied",
+    })
+  })
+
+  it.each([
+    ["a lexical escape", "worker-directory-escape.pjt.ts"],
+    ["a symlinked directory root", "worker-directory.pjt.ts"],
+  ])("denies %s before a scoped blueprint reads outside the project", async (_name, name) => {
+    const projectRoot = path.join(cwd, "project")
+    await fs.mkdir(projectRoot)
+    await fs.writeFile(path.join(cwd, "marker.txt"), "outside")
+    await fs.symlink(cwd, path.join(projectRoot, "docs"))
+    const error = await Effect.runPromise(
+      Effect.flip(planBlueprintFile({ blueprintFile: fixture(name), projectRoot })),
+    )
+    expect(error).toMatchObject({
+      _tag: "FsPermissionDenied",
+      id: "pjt.fs.permission-denied",
+      path: "marker.txt",
     })
   })
 
@@ -336,6 +371,99 @@ describe("planBlueprintFile", () => {
       planBlueprintFile({ blueprintFile: ".pjt.ts", projectRoot: cwd }),
     )
     expect(planned).toEqual([])
+  })
+
+  it("imports scoped, CJS, cyclic, nested-version and optional-dependency packages with their assets", async () => {
+    const modules = path.join(cwd, "node_modules")
+    const write = async (dir: string, files: Record<string, string>) => {
+      await fs.mkdir(dir, { recursive: true })
+      await Promise.all(
+        Object.entries(files).map(([file, content]) => fs.writeFile(path.join(dir, file), content)),
+      )
+    }
+    const link = async (name: string, files: Record<string, string>) => {
+      await write(path.join(cwd, "store", name), files)
+      await fs.mkdir(path.dirname(path.join(modules, name)), { recursive: true })
+      await fs.symlink(path.join(cwd, "store", name), path.join(modules, name))
+    }
+    const manifest = (value: Record<string, unknown>) => JSON.stringify(value)
+    await link("@sc/lib", {
+      "package.json": manifest({ name: "@sc/lib", type: "module", exports: "./index.js" }),
+      "index.js":
+        'import { readFileSync } from "node:fs"\nexport const asset = readFileSync(new URL("./asset.txt", import.meta.url), "utf8")\n',
+      "asset.txt": "scoped-asset",
+    })
+    await write(path.join(modules, "cjs-lib"), {
+      "package.json": manifest({ name: "cjs-lib", main: "index.cjs" }),
+      "index.cjs":
+        'const fs = require("node:fs")\nconst path = require("node:path")\nmodule.exports = { asset: fs.readFileSync(path.join(__dirname, "asset.txt"), "utf8") }\n',
+      "asset.txt": "cjs-asset",
+    })
+    await link("cyc-a", {
+      "package.json": manifest({
+        name: "cyc-a",
+        type: "module",
+        exports: "./index.js",
+        dependencies: { "cyc-b": "*" },
+      }),
+      "index.js":
+        'import { other } from "cyc-b"\nexport const name = "a"\nexport const viaB = () => other()\n',
+    })
+    await link("cyc-b", {
+      "package.json": manifest({
+        name: "cyc-b",
+        type: "module",
+        exports: "./index.js",
+        dependencies: { "cyc-a": "*" },
+      }),
+      "index.js": 'import { name } from "cyc-a"\nexport const other = () => "b>" + name\n',
+    })
+    await write(path.join(modules, "ver-lib"), {
+      "package.json": manifest({
+        name: "ver-lib",
+        version: "1.0.0",
+        type: "module",
+        exports: "./index.js",
+      }),
+      "index.js": 'export default "1"\n',
+    })
+    await write(path.join(modules, "holder", "node_modules", "ver-lib"), {
+      "package.json": manifest({
+        name: "ver-lib",
+        version: "2.0.0",
+        type: "module",
+        exports: "./index.js",
+      }),
+      "index.js": 'export default "2"\n',
+    })
+    await write(path.join(modules, "holder"), {
+      "package.json": manifest({
+        name: "holder",
+        type: "module",
+        exports: "./index.js",
+        dependencies: { "ver-lib": "*" },
+        optionalDependencies: { "absent-optional": "*" },
+      }),
+      "index.js":
+        'import version from "ver-lib"\nexport const nested = version\nexport const optional = await import("absent-optional").then(() => "present", () => "missing")\n',
+    })
+    const blueprintFile = path.join(cwd, ".pjt.ts")
+    await fs.writeFile(
+      blueprintFile,
+      [
+        'import { asset } from "@sc/lib"',
+        'import cjs from "cjs-lib"',
+        'import { nested, optional } from "holder"',
+        'import { viaB } from "cyc-a"',
+        'import verLib from "ver-lib"',
+        "const seen = [asset, cjs.asset, viaB(), nested, optional, verLib].join()",
+        'if (seen !== "scoped-asset,cjs-asset,b>a,2,missing,1") throw new Error(seen)',
+        'export default { _tag: "ProjitectConfig", blueprints: [] }',
+      ].join("\n"),
+    )
+    expect(
+      await Effect.runPromise(planBlueprintFile({ blueprintFile: ".pjt.ts", projectRoot: cwd })),
+    ).toEqual([])
   })
 
   it("reports a missing .pjt.ts without starting a worker", async () => {

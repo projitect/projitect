@@ -25,7 +25,7 @@ FAILED=0
 pass() { echo "  ✓ $1"; }
 fail() { echo "  ✗ $1"; FAILED=1; }
 
-cleanup() { [ -n "${REG_PID:-}" ] && kill "$REG_PID" 2>/dev/null; [ -n "${REACT_REG_PID:-}" ] && kill "$REACT_REG_PID" 2>/dev/null; rm -rf "$SMOKE" "${SMOKE}-tools" "${REG:-}" "${E2E:-}" "${REACTDIR:-}" "${NEXTDIR:-}" "${REACTREG:-}" "${DLX_EMPTY:-}" "${DLX_EXISTING:-}"; }
+cleanup() { [ -n "${REG_PID:-}" ] && kill "$REG_PID" 2>/dev/null; [ -n "${REACT_REG_PID:-}" ] && kill "$REACT_REG_PID" 2>/dev/null; rm -rf "$SMOKE" "${SMOKE}-tools" "${REG:-}" "${E2E:-}" "${REACTDIR:-}" "${NEXTDIR:-}" "${REACTREG:-}" "${DLX_EMPTY:-}" "${DLX_EXISTING:-}" "${NOGIT:-}" "${YESDIR:-}" "${EXECDIR:-}"; }
 trap cleanup EXIT
 
 cd "$SMOKE"

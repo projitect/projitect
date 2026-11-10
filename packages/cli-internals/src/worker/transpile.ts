@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto"
-import { mkdir, rm, writeFile } from "node:fs/promises"
+import { mkdir, realpath, rm, writeFile } from "node:fs/promises"
 import path from "node:path"
 import { Effect } from "effect"
 import type { Scope } from "effect"
@@ -53,7 +53,9 @@ export const transpileBlueprintFile = (params: {
         const imports = Object.values(result.metafile.outputs).flatMap((output) =>
           output.imports.filter((entry) => entry.external === true).map((entry) => entry.path),
         )
-        return { moduleFile, imports }
+        // Use the same canonical path the read allowlist grants, including on systems where the
+        // temporary/project directory itself is reached through a symlink.
+        return { moduleFile: await realpath(moduleFile), imports }
       },
       catch: (e) =>
         new Errors.LoaderImportFailed({
