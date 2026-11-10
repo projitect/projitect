@@ -11,11 +11,13 @@ Bootstraps projitect in the current project. Internally:
 
 1. Verifies `.git/` exists. If not: with `--yes` runs `git init -q`; without, fails with `pjt.init.git-missing`.
 2. Verifies `package.json` exists. If not: with `--yes` writes a minimal stub; without, fails with `pjt.init.package-json-missing`.
-3. Seeds `.pjt.ts` with the marker structure if absent.
-4. Runs the standard plan/apply/lockfile pipeline. The **projitect blueprint** (auto-prepended by `@projitect/cli`'s `pjt()`) writes `package.json` keys (`scripts.pjt`, `devDependencies.@projitect/cli`, `devDependencies.effect`) and the projitect import inside `.pjt.ts`'s `pjt:projitect:imports` region.
-5. Writes `.pjt.lock` with the projitect blueprint's claims.
+3. Installs missing local `@projitect/cli` and `effect` dependencies before loading the config. This is needed when the command runs from an ephemeral `pnpm dlx` installation. Existing local installations are reused. An install failure reports `pjt.pm.install-failed` and leaves any existing `.pjt.ts` untouched.
+4. Seeds `.pjt.ts` with the marker structure if absent.
+5. Runs the standard plan/apply/lockfile pipeline. The **projitect blueprint** (auto-prepended by `@projitect/cli`'s `pjt()`) writes `package.json` keys (`scripts.pjt`, `devDependencies.@projitect/cli`, `devDependencies.effect`) and the projitect import inside `.pjt.ts`'s `pjt:projitect:imports` region.
+6. Writes `.pjt.lock` with the projitect blueprint's claims.
+7. If dependencies were installed in step 3, synchronizes the package-manager lockfile with the managed manifest, so a frozen CI install can run immediately.
 
-After init you still need `pnpm install` (or your PM equivalent) to actually fetch the deps that were added.
+The first installation uses the running release's CLI version and Effect peer version. The project's lockfile selects the package manager; without one, the invoking package manager is used, with npm as the final fallback. After initialization, `pnpm exec pjt inspect` and `pnpm exec pjt remodel` can use the installed local CLI.
 
 ## Flags
 

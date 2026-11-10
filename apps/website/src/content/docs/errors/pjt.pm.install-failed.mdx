@@ -6,6 +6,6 @@ sidebar:
   label: pjt.pm.install-failed
 ---
 
-**What**: `pjt add <pkg>` shelled out to your detected package manager (`pnpm add -D`, `npm install -D`, etc.) and the command exited non-zero. The underlying error from the PM is included in the message.
+**What**: `pjt add <pkg>` or `pjt init` ran your detected package manager (`pnpm add -D`, `npm install -D`, etc.) and the command exited non-zero. The underlying error from the PM is included in the message. Failure during init's initial missing-dependency installation leaves an existing `.pjt.ts` untouched. The final lockfile synchronization runs after managed files have been applied; a failure there leaves those changes available for inspection and retry.
 
 **How to fix**: Read the cause. Common ones: package doesn't exist on the registry, network error, peer-dep conflict, registry auth required. Run the install command yourself with `--verbose` to see the full output.
