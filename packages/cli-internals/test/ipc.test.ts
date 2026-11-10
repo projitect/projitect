@@ -71,6 +71,31 @@ describe("BlueprintFileSystem over IPC", () => {
     expect(b).toEqual(a)
   })
 
+  it("round-trips non-UTF-8 bytes exactly", async () => {
+    const bytes = new Uint8Array([0xff, 0xfe, 0x00, 0x80])
+    const exit = await run(viaIpc, (f) =>
+      Effect.gen(function* () {
+        yield* f.writeFileBytes("allowed/asset.bin", bytes)
+        return yield* f.readFileBytes("allowed/asset.bin")
+      }),
+    )
+    expect(exit).toEqual(Exit.succeed(bytes))
+    expect(new Uint8Array(await fs.readFile(path.join(root, "allowed", "asset.bin")))).toEqual(
+      bytes,
+    )
+  })
+
+  it("denies both byte methods outside the granted globs", async () => {
+    const read = await run(viaIpc, (f) => Effect.flip(f.readFileBytes("secret/x.bin")))
+    const write = await run(viaIpc, (f) =>
+      Effect.flip(f.writeFileBytes("secret/x.bin", new Uint8Array())),
+    )
+    expect(Exit.isSuccess(read) ? read.value : undefined).toBeInstanceOf(Errors.FsPermissionDenied)
+    expect(Exit.isSuccess(write) ? write.value : undefined).toBeInstanceOf(
+      Errors.FsPermissionDenied,
+    )
+  })
+
   it("keeps FsPermissionDenied class, id and fields", async () => {
     const exit = await run(viaIpc, (f) => Effect.flip(f.readFile("secret/x.txt")))
     const failure = Exit.isSuccess(exit) ? exit.value : undefined

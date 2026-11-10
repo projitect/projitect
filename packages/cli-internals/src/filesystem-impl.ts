@@ -147,6 +147,42 @@ const makeDiskLayer = (config: {
           }),
         ),
       ),
+    readFileBytes: (p) =>
+      resolvePath(p, "read").pipe(
+        Effect.flatMap((full) =>
+          Effect.tryPromise({
+            try: async () => {
+              const buf = await fs.readFile(full)
+              return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength)
+            },
+            catch: (e) =>
+              new Errors.FsReadFailed({
+                id: "pjt.fs.read-failed",
+                path: p,
+                cause: e instanceof Error ? e.message : String(e),
+                message: `Failed to read ${p}`,
+              }),
+          }),
+        ),
+      ),
+    writeFileBytes: (p, bytes) =>
+      resolvePath(p, "write").pipe(
+        Effect.flatMap((full) =>
+          Effect.tryPromise({
+            try: async () => {
+              await fs.mkdir(path.dirname(full), { recursive: true })
+              await fs.writeFile(full, bytes)
+            },
+            catch: (e) =>
+              new Errors.FsWriteFailed({
+                id: "pjt.fs.write-failed",
+                path: p,
+                cause: e instanceof Error ? e.message : String(e),
+                message: `Failed to write ${p}`,
+              }),
+          }),
+        ),
+      ),
     exists: (p) =>
       resolvePath(p, "exists").pipe(
         Effect.flatMap((full) =>
