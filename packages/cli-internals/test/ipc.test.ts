@@ -90,10 +90,10 @@ describe("BlueprintFileSystem over IPC", () => {
     const write = await run(viaIpc, (f) =>
       Effect.flip(f.writeFileBytes("secret/x.bin", new Uint8Array())),
     )
-    for (const exit of [read, write]) {
-      const failure = Exit.isSuccess(exit) ? exit.value : undefined
-      expect(failure).toBeInstanceOf(Errors.FsPermissionDenied)
-    }
+    expect(Exit.isSuccess(read) ? read.value : undefined).toBeInstanceOf(Errors.FsPermissionDenied)
+    expect(Exit.isSuccess(write) ? write.value : undefined).toBeInstanceOf(
+      Errors.FsPermissionDenied,
+    )
   })
 
   it("keeps FsPermissionDenied class, id and fields", async () => {
