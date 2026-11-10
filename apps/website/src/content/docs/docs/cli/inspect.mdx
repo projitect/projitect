@@ -96,6 +96,9 @@ check several blueprints declare runs once, and a command without a `check` is n
 must be covered by the blueprint's `exec` permissions, matched as exact strings, before any starts.
 Checks must not change the project: inspect is read-only.
 
+Inspect no longer returns the `pjt.inspect.operation-unsupported` error: a failing check is drift
+and the same command's fix, run by `pjt remodel`, clears it.
+
 ### Schema
 
 Every `--json` output carries a `$schema` key naming the published contract:

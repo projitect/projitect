@@ -2,12 +2,13 @@ import { promises as fs } from "node:fs"
 import * as os from "node:os"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
-import { Cause, Effect, Exit } from "effect"
+import { Cause, Effect, Exit, Schema } from "effect"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import { Errors, ProjitectConfig } from "@projitect/core"
 import type { ChangeSet, Permission } from "@projitect/core"
 import { explainCommands } from "../src/commands/explain.js"
 import { inspect, renderInspectJson } from "../src/commands/inspect.js"
+import { InspectJson } from "../src/commands/inspect-json.js"
 import type { ProcessSpawner } from "../src/platform/process-runner.js"
 
 /**
@@ -89,7 +90,9 @@ describe("pjt inspect with Exec ops", () => {
     ])
     expect(result.output).toContain("! check failed: fmt:check (exit 3)")
     expect(result.output).toContain("bad format")
-    const json = JSON.parse(renderInspectJson(result)) as { commands: unknown[]; files: unknown[] }
+    const json = Schema.decodeUnknownSync(Schema.fromJsonString(InspectJson))(
+      renderInspectJson(result),
+    )
     expect(json.commands).toEqual([
       {
         ownerId: "a",
