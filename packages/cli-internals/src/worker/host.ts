@@ -10,6 +10,7 @@ import { makeRealShape } from "../filesystem-impl.js"
 import { computeReadAllowlist, permissionFlag } from "./allowlist.js"
 import { decodeFromChild, encodeToChild } from "./protocol.js"
 import type { ChildError, FromChild, PlannedBlueprint } from "./protocol.js"
+import { stageBlueprintModule } from "./stage.js"
 import { transpileBlueprintFile } from "./transpile.js"
 
 /** How long the worker may take to deliver every blueprint's plan before it is killed. */
@@ -217,13 +218,17 @@ export const planBlueprintFile = (params: {
         message: `No blueprint file found at ${full}. Run \`pjt init\` to create one.`,
       })
     }
-    const { moduleFile, imports } = yield* transpileBlueprintFile({ blueprintFile, full })
+    const transpiled = yield* transpileBlueprintFile({ blueprintFile, full })
+    const { moduleFile, stageDir } = yield* stageBlueprintModule({
+      workerEntry,
+      moduleFile: transpiled.moduleFile,
+      imports: transpiled.imports,
+      resolveFrom: Array.dedupe([path.dirname(full), projectRoot]),
+    })
     const allowlist = computeReadAllowlist({
       workerEntry,
       blueprintFile: full,
-      moduleFile,
-      imports,
-      projectRoot,
+      stageDir,
       execPath: process.execPath,
     })
     let stderr = ""

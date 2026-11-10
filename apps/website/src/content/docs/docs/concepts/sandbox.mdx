@@ -29,17 +29,25 @@ It is **not** a security boundary:
 
 1. The CLI transpiles `.pjt.ts` to plain JavaScript. Loaders such as `tsx` start a worker thread,
    which the sandboxed process is not allowed to do, so the worker only ever imports finished
-   JavaScript. Bare imports stay external and resolve from your `node_modules` as usual.
-2. The CLI computes the worker's **read allowlist**: its own code, the `.pjt.ts`, the dependency
-   closure of `effect`, `@projitect/core`, `@projitect/blueprint` and every package your `.pjt.ts`
-   imports, and the Node installation. Your project tree and your home directory are never on it.
-   The closure follows each package's `dependencies` and `peerDependencies`, so a blueprint package
-   must declare every package it imports. Grants name exact package directories, never a name
-   prefix: a worker that imports `pkg-a` and `pkg-a-b` cannot read an unimported `pkg-a-private`.
-3. The CLI starts the worker with the permission flag and one `--allow-fs-read` per allowlist
+   JavaScript. Bare imports stay external and resolve to the staged packages in the next step.
+2. The CLI stages the packages the `.pjt.ts` imports. It copies each package, and each package it
+   depends on, into a private temporary directory, and links the copies to one another the way your
+   installation resolves them (`dependencies` and `peerDependencies`, from each package's real
+   location). One copy exists per installed package instance, so two versions stay two copies and a
+   shared import stays shared. Cycles, scoped packages, CommonJS and ESM packages and the files next
+   to a package's code (found through `import.meta.url` or `__dirname`) all work. `effect`,
+   `@projitect/core` and `@projitect/blueprint` are not copied: blueprint code and the worker share
+   the installed instance. A blueprint package must declare every package it imports.
+3. The CLI computes the worker's **read allowlist**: its own code, the `.pjt.ts`, the staged
+   directory, the packages the worker runs on and their dependencies, and the Node installation.
+   Your project tree, your home directory and every installed package your `.pjt.ts` does not
+   import are never on it, and the list names directories exactly, never a name prefix: a worker
+   that imports `pkg-a` and `pkg-a-b` cannot read an unimported `pkg-a-private`. The staged
+   directory is removed when the run ends, whether it succeeds, fails, times out or crashes.
+4. The CLI starts the worker with the permission flag and one `--allow-fs-read` per allowlist
    entry. No write, child-process or worker-thread permission is granted, and the worker gets an
    empty environment.
-4. The worker runs the config-time Effect and each blueprint's plan, and returns each blueprint's
+5. The worker runs the config-time Effect and each blueprint's plan, and returns each blueprint's
    id, version, permissions and `ChangeSet` as plain data. The CLI reduces them into the plan.
 
 Blueprint authors change nothing: blueprints still use `BlueprintFileSystem`, and the code they

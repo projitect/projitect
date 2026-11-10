@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, realpathSync } from "node:fs"
 import { builtinModules } from "node:module"
 import path from "node:path"
-import { Array, Match, Option, Order, pipe } from "effect"
+import { Array, Match, Option, Order } from "effect"
 import { PredicateX } from "@nunofyobiz/effect-extras"
 
 /**
@@ -54,7 +54,7 @@ interface PackageLocation {
 }
 
 /** The package `name` as Node would find it when resolving from `fromDir`. */
-const findPackageDir = (
+export const findPackageDir = (
   name: string,
   fromDir: string,
   misses: readonly string[] = [],
@@ -78,7 +78,7 @@ const missGrant = (miss: string): string => `${miss}${path.sep}`
 /** See {@link packageClosure}: a path suffix no package name contains. */
 const prefixAnchor = "~"
 
-const dependencyNames = (packageDir: string): readonly string[] => {
+export const dependencyNames = (packageDir: string): readonly string[] => {
   const manifest: unknown = JSON.parse(readFileSync(path.join(packageDir, "package.json"), "utf8"))
   const section = (key: string): readonly string[] =>
     PredicateX.unsafeIsRecord(manifest) && PredicateX.unsafeIsRecord(manifest[key])
@@ -149,38 +149,35 @@ const workerPackages = [
   "@projitect/blueprint",
 ] as const
 
+const workerLocations = (workerEntry: string): readonly PackageLocation[] => {
+  const entryDir = path.dirname(realpathSync(workerEntry))
+  return Array.flatMap(workerPackages, (name) => Option.toArray(findPackageDir(name, entryDir)))
+}
+
+/** The real directories of the packages the worker runs on, which blueprint code shares by identity. */
+export const workerPackageRoots = (workerEntry: string): ReadonlySet<string> =>
+  new Set(Array.map(workerLocations(workerEntry), ({ real }) => real))
+
 /**
  * Everything the confined worker may read, as real paths:
  *   - the worker entry's own `dist` directory and its package manifest,
- *   - the dependency closure of `effect`, core, the blueprint SDK and every package the `.pjt.ts`
- *     imports,
- *   - the `.pjt.ts` and the plain-JS module the parent transpiled from it,
- *   - the Node installation prefix.
+ *   - the dependency closure of `effect`, core and the blueprint SDK, where the worker runs them,
+ *   - the staged directory holding the transpiled `.pjt.ts` and a private copy of every other
+ *     package it pulls in (see `stageBlueprintModule`),
+ *   - the `.pjt.ts` itself and the Node installation prefix.
  * The project tree and `$HOME` are never listed — blueprints reach project files only through the
  * IPC-marshalled `BlueprintFileSystem`.
  */
 export const computeReadAllowlist = (params: {
   readonly workerEntry: string
   readonly blueprintFile: string
-  readonly moduleFile: string
-  readonly imports: readonly string[]
-  readonly projectRoot: string
+  readonly stageDir: string
   readonly execPath: string
 }): readonly string[] => {
-  const { workerEntry, blueprintFile, moduleFile, imports, projectRoot, execPath } = params
+  const { workerEntry, blueprintFile, stageDir, execPath } = params
   const entryDir = path.dirname(realpathSync(workerEntry))
   const distDir = path.dirname(entryDir)
   const ownManifest = path.join(path.dirname(distDir), "package.json")
-  const resolveFrom = [entryDir, path.dirname(moduleFile), path.dirname(blueprintFile), projectRoot]
-  const names = pipe(
-    imports,
-    Array.flatMap((specifier) => Option.toArray(packageNameOf(specifier))),
-    (userPackages) => [...workerPackages, ...userPackages],
-    Array.dedupe,
-  )
-  const packageDirs = Array.flatMap(names, (name) =>
-    Array.flatMap(Array.dedupe(resolveFrom), (from) => Option.toArray(findPackageDir(name, from))),
-  )
   // `<prefix>/bin/node` → `<prefix>`; any other layout → the directory holding the binary.
   const binDir = path.dirname(realpathSync(execPath))
   const nodeInstall = path.basename(binDir) === "bin" ? path.dirname(binDir) : binDir
@@ -188,9 +185,9 @@ export const computeReadAllowlist = (params: {
     Array.dedupe([
       distDir,
       ownManifest,
-      ...packageClosure(packageDirs),
+      ...packageClosure(workerLocations(workerEntry)),
+      stageDir,
       realpathSync(blueprintFile),
-      realpathSync(moduleFile),
       nodeInstall,
     ]),
     Order.String,

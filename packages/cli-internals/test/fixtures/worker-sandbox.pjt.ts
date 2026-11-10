@@ -30,7 +30,8 @@ export default pjt({
             content: JSON.stringify({
               home: code(() => fs.readdirSync(os.homedir())),
               projectTree: code(() =>
-                fs.readdirSync(path.resolve(import.meta.dirname, "../../../../..")),
+                // The worker entry lives in `<repo>/packages/cli-internals/dist/worker`.
+                fs.readdirSync(path.resolve(path.dirname(process.argv[1] ?? ""), "../../../..")),
               ),
               spawn: code(() => {
                 const result = spawnSync("sh", ["-c", "true"])

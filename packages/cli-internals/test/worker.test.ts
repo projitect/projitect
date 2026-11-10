@@ -8,6 +8,7 @@ import { Effect, Schema } from "effect"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import { computeReadAllowlist, packageNameOf, permissionFlag } from "../src/worker/allowlist.js"
 import { planBlueprintFile } from "../src/worker/host.js"
+import { stageBlueprintModule } from "../src/worker/stage.js"
 import { transpileBlueprintFile } from "../src/worker/transpile.js"
 
 /**
@@ -33,6 +34,27 @@ beforeEach(async () => {
 afterEach(async () => {
   await fs.rm(cwd, { recursive: true, force: true })
 })
+
+/** The allowlist the parent computes for a `.pjt.ts`, with the staged package graph it points at. */
+const allowlistFor = (blueprintFile: string, resolveFrom: readonly string[]) =>
+  Effect.runPromise(
+    Effect.scoped(
+      transpileBlueprintFile({ blueprintFile, full: blueprintFile }).pipe(
+        Effect.flatMap(({ moduleFile, imports }) =>
+          stageBlueprintModule({ workerEntry, moduleFile, imports, resolveFrom }),
+        ),
+        Effect.map(({ stageDir }) => ({
+          stageDir,
+          allowlist: computeReadAllowlist({
+            workerEntry,
+            blueprintFile,
+            stageDir,
+            execPath: process.execPath,
+          }),
+        })),
+      ),
+    ),
+  )
 
 const plan = (name: string, timeoutMs?: number) =>
   Effect.runPromise(
@@ -83,22 +105,7 @@ describe("packageNameOf", () => {
 describe("read allowlist", () => {
   it("lists the worker's packages and the .pjt.ts, never the project tree or $HOME", async () => {
     const blueprintFile = fixture("worker-denied.pjt.ts")
-    const allowlist = await Effect.runPromise(
-      Effect.scoped(
-        transpileBlueprintFile({ blueprintFile, full: blueprintFile }).pipe(
-          Effect.map(({ moduleFile, imports }) =>
-            computeReadAllowlist({
-              workerEntry,
-              blueprintFile,
-              moduleFile,
-              imports,
-              projectRoot: cwd,
-              execPath: process.execPath,
-            }),
-          ),
-        ),
-      ),
-    )
+    const { allowlist } = await allowlistFor(blueprintFile, [cwd])
     expect(allowlist).toContain(blueprintFile)
     expect(allowlist.some((entry) => /[/\\]effect$/u.test(entry))).toBe(true)
     expect(allowlist.some((entry) => /[/\\]@projitect[/\\]core$/u.test(entry))).toBe(true)
@@ -345,26 +352,11 @@ describe("planBlueprintFile", () => {
         "  }",
         "}",
         `const reads = [a, b, "pkg-a-private"].map((name) => attempt(${JSON.stringify(modules)} + "/" + name + "/index.js"))`,
-        'if (reads.join() !== "allowed,allowed,ERR_ACCESS_DENIED") throw new Error(reads.join())',
+        'if (reads.join() !== "ERR_ACCESS_DENIED,ERR_ACCESS_DENIED,ERR_ACCESS_DENIED") throw new Error(reads.join())',
         'export default { _tag: "ProjitectConfig", blueprints: [] }',
       ].join("\n"),
     )
-    const allowlist = await Effect.runPromise(
-      Effect.scoped(
-        transpileBlueprintFile({ blueprintFile, full: blueprintFile }).pipe(
-          Effect.map(({ moduleFile, imports }) =>
-            computeReadAllowlist({
-              workerEntry,
-              blueprintFile,
-              moduleFile,
-              imports,
-              projectRoot: cwd,
-              execPath: process.execPath,
-            }),
-          ),
-        ),
-      ),
-    )
+    const { allowlist } = await allowlistFor(blueprintFile, [cwd])
     expect(allowlist.filter((entry) => entry.includes("pkg-a-private"))).toEqual([])
     expect(allowlist.filter((entry) => entry.endsWith("*"))).toEqual([])
     const planned = await Effect.runPromise(
@@ -394,10 +386,18 @@ describe("planBlueprintFile", () => {
       "asset.txt": "scoped-asset",
     })
     await write(path.join(modules, "cjs-lib"), {
-      "package.json": manifest({ name: "cjs-lib", main: "index.cjs" }),
+      "package.json": manifest({
+        name: "cjs-lib",
+        main: "index.cjs",
+        dependencies: { "cjs-dep": "*" },
+      }),
       "index.cjs":
-        'const fs = require("node:fs")\nconst path = require("node:path")\nmodule.exports = { asset: fs.readFileSync(path.join(__dirname, "asset.txt"), "utf8") }\n',
+        'const fs = require("node:fs")\nconst path = require("node:path")\nmodule.exports = { asset: fs.readFileSync(path.join(__dirname, "asset.txt"), "utf8"), dep: require("cjs-dep") }\n',
       "asset.txt": "cjs-asset",
+    })
+    await link("cjs-dep", {
+      "package.json": manifest({ name: "cjs-dep", main: "index.js" }),
+      "index.js": 'module.exports = "dep"\n',
     })
     await link("cyc-a", {
       "package.json": manifest({
@@ -456,14 +456,39 @@ describe("planBlueprintFile", () => {
         'import { nested, optional } from "holder"',
         'import { viaB } from "cyc-a"',
         'import verLib from "ver-lib"',
-        "const seen = [asset, cjs.asset, viaB(), nested, optional, verLib].join()",
-        'if (seen !== "scoped-asset,cjs-asset,b>a,2,missing,1") throw new Error(seen)',
+        "const seen = [asset, cjs.asset, cjs.dep, viaB(), nested, optional, verLib].join()",
+        'if (seen !== "scoped-asset,cjs-asset,dep,b>a,2,missing,1") throw new Error(seen)',
         'export default { _tag: "ProjitectConfig", blueprints: [] }',
       ].join("\n"),
     )
     expect(
       await Effect.runPromise(planBlueprintFile({ blueprintFile: ".pjt.ts", projectRoot: cwd })),
     ).toEqual([])
+  })
+
+  it("removes the staged package graph when the run ends, however it ends", async () => {
+    const staged = async (name: string) => {
+      const blueprintFile = fixture(name)
+      const stageDirs: string[] = []
+      const run = Effect.scoped(
+        transpileBlueprintFile({ blueprintFile, full: blueprintFile }).pipe(
+          Effect.flatMap(({ moduleFile, imports }) =>
+            stageBlueprintModule({ workerEntry, moduleFile, imports, resolveFrom: [cwd] }),
+          ),
+          Effect.tap(({ stageDir }) =>
+            Effect.sync(() => {
+              stageDirs.push(stageDir)
+            }),
+          ),
+          Effect.andThen(Effect.fail("stop")),
+        ),
+      )
+      await Effect.runPromise(Effect.flip(run))
+      return stageDirs
+    }
+    const [stageDir] = await staged("worker-denied.pjt.ts")
+    expect(stageDir).toBeDefined()
+    await expect(fs.access(stageDir ?? "")).rejects.toThrow()
   })
 
   it("reports a missing .pjt.ts without starting a worker", async () => {
