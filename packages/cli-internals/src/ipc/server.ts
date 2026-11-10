@@ -19,6 +19,18 @@ const respond = (shape: BlueprintFileSystemShape, request: Request): Effect.Effe
     Match.tag("WriteFile", ({ id, path, content }) =>
       Effect.map(shape.writeFile(path, content), (): Response => ({ _tag: "WriteFileOk", id })),
     ),
+    Match.tag("ReadFileBytes", ({ id, path }) =>
+      Effect.map(
+        shape.readFileBytes(path),
+        (value): Response => ({ _tag: "ReadFileBytesOk", id, value }),
+      ),
+    ),
+    Match.tag("WriteFileBytes", ({ id, path, bytes }) =>
+      Effect.map(
+        shape.writeFileBytes(path, bytes),
+        (): Response => ({ _tag: "WriteFileBytesOk", id }),
+      ),
+    ),
     Match.tag("Exists", ({ id, path }) =>
       Effect.map(shape.exists(path), (value): Response => ({ _tag: "ExistsOk", id, value })),
     ),

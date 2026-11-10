@@ -1,6 +1,6 @@
 {
   "name": "@projitect/blueprint-changesets",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Changesets release-tooling blueprint for projitect — owns .changeset/config.json and the package.json scripts and @changesets/cli devDependency.",
   "repository": {
     "type": "git",

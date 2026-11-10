@@ -33,12 +33,12 @@ skills({ id: "acme:skills", version: "1.0.0", target: ".agents/skills", skills: 
 Export a blueprint built with `skills({ id, version, skills })`; see the
 [skills-package example](/examples/skills-package/).
 
-| Option    | Meaning                                                                                        |
-| --------- | ---------------------------------------------------------------------------------------------- |
-| `skills`  | List of `{ name, files }`. `files` maps relative paths to content and must include `SKILL.md`. |
-| `id`      | Required. Stable, namespaced owner id such as `acme:skills`; every skill package has its own.  |
-| `version` | Required. The package's own version; `pjt inspect` reports upgrades from the lockfile.         |
-| `target`  | Skills root. Default `.claude/skills`. Literal path only: glob characters are rejected.        |
+| Option    | Meaning                                                                                          |
+| --------- | ------------------------------------------------------------------------------------------------ |
+| `skills`  | List of `{ name, files }`. `files` maps relative paths to content and must include `SKILL.md`.   |
+| `id`      | Required. Your own stable, namespaced owner id such as `acme:skills`; every package has its own. |
+| `version` | Required. The package's own version; `pjt inspect` reports upgrades from the lockfile.           |
+| `target`  | Skills root. Default `.claude/skills`. Literal path only: glob characters are rejected.          |
 
 Skill names are a single path segment. File paths are `/`-separated and relative. Empty values,
 absolute paths, glob characters in `target`, `.` or `..` segments, backslashes and separators inside a name fail with
@@ -48,6 +48,18 @@ The blueprint declares write permission for `<target>/**` only, so the
 [sandbox](/docs/concepts/sandbox/) refuses any write outside the skills directory.
 
 ## Consuming
+
+`pjt add @projitect/blueprint-skills` splices a valid starting call into `.pjt.ts`:
+
+```ts
+skills({ id: "your-org:your-skills", version: "0.1.0", skills: [] })
+```
+
+It has an empty skills list, so `pjt remodel` and `pjt inspect` succeed straight away and install
+nothing. Replace the placeholders: pick your own stable namespaced `id` and your own `version`.
+Neither is tied to the `@projitect/blueprint-skills` release, so the call needs no update when the
+SDK version changes. A missing or blank `id` or `version` fails with
+[`pjt.skills.invalid-path`](/errors/pjt.skills.invalid-path/).
 
 Add the package to `.pjt.ts` and run `pjt remodel`. Every file is written in
 [owned mode](/docs/concepts/ownership-modes/), so `pjt inspect` exits nonzero when someone edits an

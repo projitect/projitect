@@ -5,9 +5,10 @@ Start at [AGENTS.md](../AGENTS.md) for the short index and task routing. Read th
 | Need                                                           | Current guidance                                                                                                   |
 | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
 | Clone to a green `pnpm check-all`                              | [Getting started](getting-started.md)                                                                              |
-| Packages, pipeline, ownership modes, sandbox              | [Architecture](architecture.md)                                                                                    |
+| Packages, pipeline, ownership modes, sandbox                   | [Architecture](architecture.md)                                                                                    |
 | Blueprints, region markers, ownership, error ids               | [Blueprint authoring](blueprint-authoring.md)                                                                      |
 | ESLint, Prettier, hooks, Effect language service, CI           | [Tooling](tooling.md)                                                                                              |
+| CLI prompts, non-TTY and CI rules, missing `.pjt.ts`           | [CLI behavior](cli-behavior.md)                                                                                    |
 | Website changes that ship with a feature                       | [Marketing site](marketing-site.md)                                                                                |
 | Releases, changesets, lockstep versioning, security advisories | [Publishing](publishing.md)                                                                                        |
 | Commit signing                                                 | [Signed commits](agents-signing.md)                                                                                |

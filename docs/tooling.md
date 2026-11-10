@@ -14,11 +14,11 @@ One tool, one config, one command. Adapted from StoryCut's and effect-clue's fla
 
 Per-package sandbox enforcement at lint time (the lint-time half of the sandbox):
 
-| Files                                              | Banned imports                                                                                          |
-| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `packages/blueprint/**`, `packages/blueprint-*/**` | `@effect/platform`'s `FileSystem`, all `node:*` — blueprints must go through `BlueprintFileSystem`      |
-| `packages/core/**`                                 | All `node:*` — core stays runtime-pure so it can run in a browser (planned interactive in-browser demo) |
-| `packages/test-kit/**`                             | All `node:*` — test-kit is an in-memory FS by definition; touching the disk would defeat its purpose    |
+| Files                                              | Banned imports                                                                                                       |
+| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `packages/blueprint/**`, `packages/blueprint-*/**` | `@effect/platform`'s `FileSystem`, all `node:*` — blueprints must go through `BlueprintFileSystem`                   |
+| `packages/core/**`                                 | All `node:*` — core stays runtime-pure; see [Browser demo boundary](./architecture.md#browser-demo-boundary-planned) |
+| `packages/test-kit/**`                             | All `node:*` — test-kit is an in-memory FS by definition; touching the disk would defeat its purpose                 |
 
 `pnpm lint` is the single command. `pnpm lint:fix` applies autofixes. CI runs `pnpm lint`; no `format-check` job.
 

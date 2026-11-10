@@ -1,5 +1,23 @@
 # @projitect/cli
 
+## 1.0.1
+
+### Patch Changes
+
+- [#104](https://github.com/projitect/projitect/pull/104) [`c4241e2`](https://github.com/projitect/projitect/commit/c4241e202dc9a7fa282da0e203660efa1c649fe1) Thanks [@bigpopakap](https://github.com/bigpopakap)! - Make `pjt init` work when invoked through `pnpm dlx` in a project without local dependencies.
+  Install the running release's CLI and Effect dependencies before importing the generated
+  configuration. Reuse existing local installations without requiring a network call, and respect
+  the invoking package manager when the project has no lockfile. Synchronize newly installed
+  projects' package-manager lockfiles after applying the managed manifest, allowing frozen CI installs.
+
+- [#102](https://github.com/projitect/projitect/pull/102) [`7d9be35`](https://github.com/projitect/projitect/commit/7d9be35451c53e6df4f41b514c8f2a1c0eced1f9) Thanks [@bigpopakap](https://github.com/bigpopakap)! - Advance the lockstep release past the retired `@projitect/cli@1.0.0` version. That version was
+  published in 2019 and unpublished in 2021; npm permanently reserves it, so the first current
+  release cannot reuse it. The `pjt` command and package APIs are unchanged.
+- Updated dependencies []:
+  - @projitect/blueprint@1.0.1
+  - @projitect/cli-internals@1.0.1
+  - @projitect/core@1.0.1
+
 ## 1.0.0
 
 ### Major Changes

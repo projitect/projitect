@@ -1,0 +1,13 @@
+---
+title: pjt.add.spec-unsupported
+slug: errors/pjt.add.spec-unsupported
+description: The spec passed to pjt add is not a registry package name with an optional version, so nothing was installed.
+sidebar:
+  label: pjt.add.spec-unsupported
+---
+
+**What**: `pjt add <spec>` only accepts a registry package name (`name` or `@scope/name`), optionally followed by a version, range or dist-tag (`@1.2.3`, `@^1`, `@latest`). The spec you passed is something else, so the command exits with code 1 before it runs your package manager. Nothing is installed and `.pjt.ts` is unchanged. The error's `reason` is one of `empty`, `unsafe-name`, `alias`, `url`, `file`, `git` or `workspace`.
+
+**Why**: `pjt add` reads the blueprint's metadata from `node_modules/<name>/package.json` and never guesses an import path. That needs a plain package name. npm aliases (`npm:real@1`, `alias@npm:real@1`) install under a name the blueprint's own import does not use. URLs, tarballs, `file:`, git, GitHub shorthand, `workspace:` and `link:` specs don't tell `pjt add` the package name. Names with `..`, absolute paths, backslashes or empty segments could point outside `node_modules`.
+
+**How to fix**: For a registry package, pass its real name, for example `pjt add @scope/name@1.2.3`. For any other form, install it with your package manager, import it in `.pjt.ts` yourself, add its call to the `blueprints` array, then run `pjt remodel`.

@@ -91,6 +91,29 @@ $BIN inspect > /dev/null 2>&1
 $BIN remodel > /dev/null
 $BIN inspect > /dev/null 2>&1 && pass "clean after remodel re-applies" || fail "still dirty"
 
+echo "=== 4b. a v1 lockfile is read by inspect untouched, then migrated to v2 by remodel ==="
+node -e '
+const fs = require("node:fs");
+const lock = JSON.parse(fs.readFileSync(".pjt.lock", "utf8"));
+lock.version = 1;
+fs.writeFileSync(".pjt.lock", JSON.stringify(lock, null, 2) + "\n");
+'
+cp .pjt.lock lock.v1
+head -2 lock.v1 | grep -q '"version": 1,' && pass "lockfile downgraded to v1 for the fixture" || fail "could not build a v1 lockfile"
+$BIN inspect > /dev/null 2>&1 && pass "inspect reads the v1 lockfile and reports clean" || fail "inspect failed on a v1 lockfile"
+cmp -s .pjt.lock lock.v1 && pass "inspect leaves the v1 lockfile bytes unchanged" || fail "inspect rewrote the lockfile"
+$BIN remodel > /dev/null 2>&1 && pass "remodel reads the v1 lockfile without a rebuild" || fail "remodel failed on a v1 lockfile"
+head -2 .pjt.lock | grep -q '"version": 2,' && pass "remodel wrote the lockfile as v2" || fail "lockfile not migrated to v2"
+node -e '
+const fs = require("node:fs");
+const assert = require("node:assert/strict");
+const migrated = JSON.parse(fs.readFileSync(".pjt.lock", "utf8"));
+const original = JSON.parse(fs.readFileSync("lock.v1", "utf8"));
+assert.deepStrictEqual({ ...migrated, version: 1 }, original);
+' && pass "migration changed only the version" || fail "migration changed ownership data"
+rm lock.v1
+$BIN inspect > /dev/null 2>&1 && pass "clean after the v2 migration" || fail "dirty after the v2 migration"
+
 echo "=== 5. lockfile-driven removal ==="
 node -e "
 const fs = require('fs');
@@ -479,6 +502,20 @@ EOF
 }
 make_acme_skills 1.0.0
 make_acme_skills 1.1.0
+# The real @projitect/blueprint-skills, packed so `pjt add @projitect/blueprint-skills` resolves its
+# manifest `projitect.call` through the registry.
+mkdir -p "$REG/pkg-skills/package"
+cp -r "${PKG}/blueprint-skills/dist" "${PKG}/blueprint-skills/package.json" "$REG/pkg-skills/package/"
+node -e "
+const fs = require('fs');
+const p = process.argv[1] + '/package.json';
+const j = JSON.parse(fs.readFileSync(p, 'utf8'));
+j.version = '1.0.0';
+for (const k of ['peerDependencies', 'devDependencies', 'scripts']) delete j[k];
+fs.writeFileSync(p, JSON.stringify(j, null, 2) + '\n');
+" "$REG/pkg-skills/package"
+npm pack "$REG/pkg-skills/package" --pack-destination "$REG" --silent > /dev/null 2>&1
+SDK_SK="$REG/projitect-blueprint-skills-1.0.0.tgz"
 mkdir -p "$REG/plain"
 echo '{"name":"@acme/plain","version":"1.0.0"}' > "$REG/plain/package.json"
 npm pack "$REG/plain" --pack-destination "$REG" --silent > /dev/null 2>&1
@@ -489,7 +526,7 @@ publish() { # <markdown latest> [<skills latest>]: rewrite the registry state; a
   local md="\"1.0.0\":\"$TGZ1\"" sk="\"1.0.0\":\"$SK1\""
   [ "$1" = "1.1.0" ] && md="$md,\"1.1.0\":\"$TGZ2\""
   [ "${2:-1.0.0}" = "1.1.0" ] && sk="$sk,\"1.1.0\":\"$SK2\""
-  printf '{"packages":[{"name":"@projitect/blueprint-markdown","latest":"%s","tarballs":{%s}},{"name":"@acme/skills","latest":"%s","tarballs":{%s}},{"name":"@acme/plain","latest":"1.0.0","tarballs":{"1.0.0":"%s"}}]}' "$1" "$md" "${2:-1.0.0}" "$sk" "$PLAIN" > "$REG/state.json"
+  printf '{"packages":[{"name":"@projitect/blueprint-markdown","latest":"%s","tarballs":{%s}},{"name":"@projitect/blueprint-skills","latest":"1.0.0","tarballs":{"1.0.0":"%s"}},{"name":"@acme/skills","latest":"%s","tarballs":{%s}},{"name":"@acme/plain","latest":"1.0.0","tarballs":{"1.0.0":"%s"}}]}' "$1" "$md" "$SDK_SK" "${2:-1.0.0}" "$sk" "$PLAIN" > "$REG/state.json"
 }
 publish 1.0.0
 node "${ROOT}/scripts/local-registry.mjs" "$REG/state.json" "$REG/port" &
@@ -507,7 +544,6 @@ npm install --no-package-lock --silent \
   "file:${PKG}/blueprint" \
   "file:${PKG}/cli-internals" \
   "file:${PKG}/projitect" \
-  "file:${PKG}/blueprint-skills" \
   "effect@rc" "tsx" 2>&1 | tail -1
 printf '@projitect:registry=http://127.0.0.1:%s/\n@acme:registry=http://127.0.0.1:%s/\n' "$(cat "$REG/port")" "$(cat "$REG/port")" > .npmrc
 $BIN init > /dev/null 2>&1
@@ -519,8 +555,8 @@ unmanaged() { awk '/^<!-- pjt:markdown:.* start -->$/{skip=1} !skip{print} /^<!-
 
 # Install through the public CLI: `pjt add` shells out the package manager, reads the installed
 # package's "projitect" metadata and splices the chosen sections into .pjt.ts.
-$BIN add @projitect/blueprint-markdown --section agentsVerification,agentsCommits,readmeLicense > /dev/null 2>&1
-grep -q '"version": "1.0.0"' node_modules/@projitect/blueprint-markdown/package.json && pass "pjt add installed 1.0.0 from the registry" || fail "pjt add did not install 1.0.0"
+$BIN add @projitect/blueprint-markdown@1.0.0 --section agentsVerification,agentsCommits,readmeLicense > /dev/null 2>&1
+grep -q '"version": "1.0.0"' node_modules/@projitect/blueprint-markdown/package.json && pass "pjt add with a versioned spec installed 1.0.0 from the registry" || fail "pjt add did not install 1.0.0"
 grep -q "markdownSnippets.agentsCommits()" .pjt.ts && pass "pjt add spliced the chosen sections into .pjt.ts" || fail "pjt add did not splice .pjt.ts"
 $BIN remodel > /dev/null
 $BIN inspect > /dev/null 2>&1 && pass "clean after remodel of the installed package" || fail "drift after first remodel"
@@ -595,6 +631,15 @@ $BIN add @projitect/blueprint-markdown --section agentsPackageManager,agentsVeri
 $BIN remodel > /dev/null
 cmp -s AGENTS.md AGENTS.all && cmp -s README.md README.all && cmp -s .pjt.lock lock.all && cmp -s .pjt.ts pjt.all && pass "explicit --section run gives the same bytes as the all-sections run" || fail "explicit and implicit installs differ"
 
+# The unedited default call of the real skills blueprint must be valid: add, remodel, inspect.
+$BIN add @projitect/blueprint-skills < /dev/null > /dev/null 2>&1
+grep -q "skills({ id:" .pjt.ts && pass "pjt add spliced the default skills call into .pjt.ts" || fail "default skills call not spliced"
+$BIN remodel > /dev/null 2>&1 && pass "remodel of the unedited default skills call exits 0" || fail "remodel of the default skills call failed"
+$BIN inspect > /dev/null 2>&1 && pass "inspect of the unedited default skills call exits 0" || fail "inspect of the default skills call failed"
+sed -i.bak '/skills({ id:/d' .pjt.ts && rm .pjt.ts.bak
+$BIN remodel > /dev/null 2>&1
+$BIN inspect > /dev/null 2>&1 && pass "clean after removing the default skills call" || fail "drift after removing the default skills call"
+
 # Skills blueprint through the registry: add, upgrade, drift, remove.
 $BIN add @acme/skills < /dev/null > /dev/null 2>&1
 grep -q "acmeSkills," .pjt.ts && pass "pjt add spliced the skills blueprint into .pjt.ts" || fail "skills blueprint not spliced"
@@ -620,6 +665,19 @@ NOMETA_OUT=$($BIN add @acme/plain < /dev/null 2>&1)
 NOMETA_EXIT=$?
 [ "$NOMETA_EXIT" -ne 0 ] && pass "add of a package without metadata exits nonzero" || fail "add without metadata exited 0"
 echo "$NOMETA_OUT" | grep -q "pjt.add.metadata-missing" && echo "$NOMETA_OUT" | grep -q 'pjt remodel' && pass "metadata error names its id and the next command" || fail "metadata error lacks id or next command"
+
+# A versioned spec without metadata names the bare package, not the raw spec.
+NOMETA_V_OUT=$($BIN add @acme/plain@latest < /dev/null 2>&1)
+NOMETA_V_EXIT=$?
+[ "$NOMETA_V_EXIT" -ne 0 ] && echo "$NOMETA_V_OUT" | grep -q "pjt.add.metadata-missing" && echo "$NOMETA_V_OUT" | grep -q "@acme/plain was installed" && ! echo "$NOMETA_V_OUT" | grep -q "@acme/plain@latest was installed" && pass "versioned add without metadata names the bare package" || fail "versioned metadata error wrong: $NOMETA_V_OUT"
+
+# Unsupported and unsafe specs are rejected before the package manager runs.
+for SPEC in ../x npm:@acme/plain@1 alias@npm:@acme/plain@1 https://example.com/x.tgz file:../x github:user/repo workspace:*; do
+  REJECT_OUT=$($BIN add "$SPEC" < /dev/null 2>&1)
+  REJECT_EXIT=$?
+  [ "$REJECT_EXIT" -ne 0 ] && echo "$REJECT_OUT" | grep -q "pjt.add.spec-unsupported" && pass "add $SPEC is rejected with pjt.add.spec-unsupported" || fail "add $SPEC was not rejected: $REJECT_OUT"
+done
+[ ! -e node_modules/alias ] && pass "rejected specs installed nothing" || fail "a rejected spec was installed"
 
 
 echo "=== 5e. first-party blueprints report their installed version: two-version packed install ==="
@@ -841,11 +899,21 @@ EXEC_OK=$?
 [ -f owned.txt ]  && pass "file operation applied"                 || fail "owned.txt missing"
 [ -f marker.txt ] && pass "build ran the post-apply command"       || fail "marker.txt missing"
 grep -q "Ran 1 command" /tmp/exec-ok.out && pass "build reports the command it ran" || fail "no Ran line"
+node node_modules/@projitect/cli/bin/pjt.mjs inspect > /dev/null 2>&1 && pass "inspect exits 0 while the check passes" || fail "inspect failed while the check passes"
+node node_modules/@projitect/cli/bin/pjt.mjs explain | grep -q "smoke:post-apply" && pass "explain lists the post-apply command" || fail "explain did not list the command"
+rm -f marker.txt
 node node_modules/@projitect/cli/bin/pjt.mjs inspect > /tmp/exec-inspect.out 2>&1
-[ $? -ne 0 ] && grep -q "pjt.inspect.operation-unsupported" /tmp/exec-inspect.out && pass "inspect fails closed on post-apply commands" || fail "inspect did not fail closed"
+[ $? -ne 0 ] && grep -q "check failed" /tmp/exec-inspect.out && pass "inspect exits nonzero and names the failing check" || fail "inspect did not report the failing check"
+node node_modules/@projitect/cli/bin/pjt.mjs inspect --json > /tmp/exec-inspect.json 2>/dev/null
+grep -q '"ownerId": "smoke:post-apply"' /tmp/exec-inspect.json && grep -q '"status": "failed"' /tmp/exec-inspect.json && pass "inspect --json carries a commands entry" || fail "inspect --json has no commands entry"
+node node_modules/@projitect/cli/bin/pjt.mjs remodel > /dev/null 2>&1
+[ -f marker.txt ] && pass "remodel ran the fix command" || fail "remodel did not run the fix"
+node node_modules/@projitect/cli/bin/pjt.mjs inspect > /dev/null 2>&1 && pass "inspect exits 0 after remodel" || fail "inspect still failing after remodel"
 
 rm -f marker.txt
 write_exec_blueprint '{ ...formatter, permissions: [] }'
+node node_modules/@projitect/cli/bin/pjt.mjs inspect --json > /tmp/exec-inspect-denied.out 2>&1
+[ $? -ne 0 ] && grep -q '"id": "pjt.exec.command-not-permitted"' /tmp/exec-inspect-denied.out && pass "inspect without the exec permission fails with the not-permitted id" || fail "inspect did not refuse the unpermitted check"
 node node_modules/@projitect/cli/bin/pjt.mjs build --force --force-dirty --yes --json > /tmp/exec-denied.out 2>&1
 EXEC_DENIED=$?
 [ $EXEC_DENIED -ne 0 ] && pass "build with a denied command exits nonzero" || fail "denied build exited 0"

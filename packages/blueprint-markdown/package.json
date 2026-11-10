@@ -1,6 +1,6 @@
 {
   "name": "@projitect/blueprint-markdown",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Composable AGENTS.md and README.md snippets (package manager, verification, commits, license, ...) for projitect.",
   "repository": {
     "type": "git",

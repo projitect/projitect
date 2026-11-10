@@ -153,6 +153,23 @@ export const reactConfig = (opts: { typescript: boolean }): Blueprint.Blueprint 
 You get the full Effect surface area: `Effect.if`, `Effect.when`, `Effect.forEach`, error
 handling via `Effect.catchTag`, custom Layers for shared services, and so on.
 
+## Reading and writing files
+
+`BlueprintFileSystem` has a text pair and a byte pair:
+
+| Method                        | Value                           | Permission needed |
+| ----------------------------- | ------------------------------- | ----------------- |
+| `readFile(path)`              | `string` (UTF-8)                | `read`            |
+| `writeFile(path, content)`    | `string` (UTF-8)                | `write`           |
+| `readFileBytes(path)`         | `Uint8Array`, exactly as stored | `read`            |
+| `writeFileBytes(path, bytes)` | `Uint8Array`, exactly as given  | `write`           |
+
+Use the byte pair for content that is not text, such as images or fonts. Bytes that are not valid
+UTF-8, for example `0xFF 0xFE 0x00 0x80`, come back from `readFileBytes` identical to what
+`writeFileBytes` stored; `readFile` would replace them with substitution characters. Each byte
+method is gated exactly like its text counterpart and fails with `pjt.fs.permission-denied`
+outside the declared globs.
+
 ## Permissions
 
 Every blueprint declares what it needs:
@@ -192,10 +209,9 @@ export default exec({
 - `fix` is the command `pjt build` and `pjt remodel` run from the project root. Commands run in
   blueprint order; a command several blueprints declare runs once. Exec operations are not
   recorded in the lockfile, so the fix runs on every remodel.
-- `check` is the command that reports whether the fix is needed. It is carried in the plan next to
-  the fix as metadata: build and remodel never run it and it does not decide whether the fix runs.
-  `pjt inspect` currently reports `pjt.inspect.operation-unsupported` for a project with exec
-  operations; it does not run the check yet.
+- `check` is the command that reports whether the fix is needed. `pjt inspect` runs it from the
+  project root and reports a non-zero exit as drift; build and remodel never run it and it does not
+  decide whether the fix runs. A check must not change the project.
 - The permission is derived for you: `{ kind: "exec", command }` entries for the fix and
   the check, matched as exact strings. A command outside the declared set fails with
   `pjt.exec.command-not-permitted`. Add further permissions with `extraPermissions`.
@@ -224,7 +240,8 @@ This is useful for monorepos where the same blueprint should apply to multiple p
 
 ## Testing
 
-`@projitect/test-kit` exposes an in-memory `BlueprintFileSystem` Layer:
+`@projitect/test-kit` exposes an in-memory `BlueprintFileSystem` Layer. It stores every file as
+bytes, so the byte methods round-trip exactly and the text methods read and write UTF-8:
 
 ```ts
 import { makeInMemoryLayer, dumpFs } from "@projitect/test-kit"

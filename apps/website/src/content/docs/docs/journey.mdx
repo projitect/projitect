@@ -20,7 +20,7 @@ pjt remodel                                   # writes the managed files
 pjt inspect                                   # exit 0: in sync
 ```
 
-`pjt add` works for any package that carries `projitect` metadata, such as a Markdown snippet
+`pjt add` works for any package that carries `projitect` metadata (pin a version with `name@1.0.1`), such as a Markdown snippet
 package or a package built on `@projitect/blueprint-skills`. A package without that metadata fails
 with [`pjt.add.metadata-missing`](/errors/pjt.add.metadata-missing/), stays installed, and the
 message tells you to import it in `.pjt.ts` by hand and run `pjt remodel`.
@@ -98,8 +98,9 @@ Each failure prints an error id and a next command:
 ## Checking the interactive prompt
 
 In a real terminal, `pjt add <package>` without `--section` asks which sections to install for a
-package that declares sections. Automated tests have no terminal, so the prompt is checked by hand
-with this procedure:
+package that declares sections. The CI smoke suite uses non-TTY input. A person can check the
+interactive path with this procedure; contributors can also drive it through the scripted
+pseudo-terminal recipe in the repository's `docs/cli-behavior.md`:
 
 1. In a scratch git project run `pjt init`, then `pjt add @projitect/blueprint-markdown`.
 2. Confirm the multi-select prompt `Pick sections to add` lists every section.
@@ -108,8 +109,8 @@ with this procedure:
 5. Repeat step 1 and press Ctrl-C at the prompt. `.pjt.ts` is unchanged and the command exits 0.
 6. Compare with the non-interactive path: `pjt add @projitect/blueprint-markdown --section <the two names>` gives the same installed files.
 
-**Last run: 2026-11-07**, in a pseudo-terminal with Node 22 against a packed
-`@projitect/blueprint-markdown`: the prompt listed all six sections, toggling
-`agentsPackageManager` and `agentsVerification` added exactly those two calls, `pjt remodel` wrote
-`package.json` and `AGENTS.md`, `pjt inspect` exited 0, and Ctrl-C left `.pjt.ts` byte-identical
-with exit 0.
+**Last scripted run: 2026-11-10**, in a Unix pseudo-terminal with Node 22.12 and locally packed
+packages served by a temporary registry. Selecting `agentsPackageManager` and `agentsVerification`
+added exactly those two calls; remodel and inspect exited 0. Ctrl-C exited 0 and left `.pjt.ts`
+byte-identical. The non-TTY `--section` path produced identical calls and `AGENTS.md`, and inspect
+remained clean. This was a scripted pseudo-terminal run, not verification by a person at a keyboard.

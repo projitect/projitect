@@ -5,6 +5,7 @@ import { computeSplice, resolveSections } from "@projitect/blueprint"
 import type { ProjitectPackageMetadata, SectionStrategy } from "@projitect/blueprint"
 import { detect, installDev as installDevelopment, readProjitectMetadata } from "../pm.js"
 import { splice } from "../edit-pjt.js"
+import { parsePackageSpec } from "../package-spec.js"
 
 export interface AddResult {
   readonly pm: string
@@ -20,9 +21,13 @@ export interface AddResult {
  * `pjt add <package>` — install a blueprint package and splice it into `.pjt.ts`.
  *
  * Flow:
+ *   0. Parse the argument into an install spec and a package name; unsupported specs
+ *      (aliases, URLs, tarballs, file, git, workspace, unsafe names) fail with
+ *      `pjt.add.spec-unsupported` before anything is installed.
  *   1. Detect package manager (pnpm / yarn / bun / npm).
- *   2. Shell out `<pm> add -D <package>`.
- *   3. Read the installed package's `package.json` for the `"projitect"` metadata field.
+ *   2. Shell out `<pm> add -D <spec>` with the user's full spec, selector included.
+ *   3. Read `node_modules/<name>/package.json` of the installed package for the `"projitect"` metadata
+ *      field.
  *      - If present and `type: "blueprint-set"`: section selection resolves per `strategy`
  *        (all / explicit / ask).
  *      - If present and `type: "blueprint"`: a single call line, strategy ignored.
@@ -37,20 +42,21 @@ export const add = <R = never>(params: {
   readonly strategy: SectionStrategy<R>
 }): Effect.Effect<AddResult, Errors.ProjitectError, R> =>
   Effect.gen(function* () {
+    const { installSpec, name } = yield* parsePackageSpec(params.pkg)
     const pm = yield* detect({ projectRoot: params.config.projectRoot })
-    yield* installDevelopment({ projectRoot: params.config.projectRoot, pm, pkg: params.pkg })
+    yield* installDevelopment({ projectRoot: params.config.projectRoot, pm, pkg: installSpec })
     const metadata = yield* readProjitectMetadata({
       projectRoot: params.config.projectRoot,
-      pkg: params.pkg,
+      pkg: name,
     })
 
     if (metadata === null) {
       return yield* new Errors.AddMetadataMissing({
         id: "pjt.add.metadata-missing",
-        pkg: params.pkg,
+        pkg: name,
         blueprintFile: params.config.blueprintFile,
         message:
-          `${params.pkg} was installed but has no \`"projitect"\` metadata in its package.json, so \`pjt add\` can't splice it into ${params.config.blueprintFile}. ` +
+          `${name} was installed but has no \`"projitect"\` metadata in its package.json, so \`pjt add\` can't splice it into ${params.config.blueprintFile}. ` +
           `Import it in ${params.config.blueprintFile} by hand, then run \`pjt remodel\`.`,
       })
     }
@@ -60,7 +66,7 @@ export const add = <R = never>(params: {
     if (selection._tag === "Nothing") {
       return {
         pm,
-        pkg: params.pkg,
+        pkg: name,
         metadata,
         sectionsAdded: [],
         splicedIntoBlueprintFile: false,
@@ -79,7 +85,7 @@ export const add = <R = never>(params: {
 
     return {
       pm,
-      pkg: params.pkg,
+      pkg: name,
       metadata,
       sectionsAdded,
       splicedIntoBlueprintFile: true,

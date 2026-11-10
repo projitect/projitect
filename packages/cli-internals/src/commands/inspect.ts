@@ -1,13 +1,16 @@
 import { Array, Effect, Schema } from "effect"
-import { Errors } from "@projitect/core"
-import type { PjtLock, ProjitectConfig } from "@projitect/core"
-import { planBlueprintFile } from "../worker/host.js"
-import { buildPlan, diffLockfile } from "../plan.js"
+import type { Errors, PjtLock, ProjitectConfig } from "@projitect/core"
+import { StructX } from "@nunofyobiz/effect-extras"
+import { diffLockfile } from "../plan.js"
 import type { UpgradeRecord } from "../plan.js"
 import { diffPlan, renderInspectReport } from "../differ.js"
 import type { FileDiff } from "../differ.js"
 import { makeProjectRootLayer } from "../filesystem-impl.js"
 import { readLockfile } from "../lockfile.js"
+import { runChecks } from "../post-apply.js"
+import type { CheckFailure } from "../post-apply.js"
+import type { ProcessSpawner } from "../platform/process-runner.js"
+import { loadProjectPlan } from "./load-plan.js"
 import { InspectJson, InspectJsonSchemaUrl } from "./inspect-json.js"
 
 /**
@@ -21,6 +24,8 @@ export interface InspectResult {
   readonly files: readonly FileDiff[]
   readonly removals: readonly PjtLock.LockOperation[]
   readonly upgrades: readonly UpgradeRecord[]
+  /** Post-apply commands whose check failed; each one is drift. */
+  readonly commands: readonly CheckFailure[]
 }
 
 /**
@@ -34,32 +39,28 @@ export interface InspectResult {
  */
 export const inspect = (params: {
   readonly config: ProjitectConfig.ProjitectConfig
+  readonly spawner?: ProcessSpawner
 }): Effect.Effect<InspectResult, Errors.ProjitectError> =>
   Effect.gen(function* () {
-    const planned = yield* planBlueprintFile({
-      blueprintFile: params.config.blueprintFile,
-      projectRoot: params.config.projectRoot,
-    })
-    const { plan, byBlueprint } = yield* buildPlan({ planned })
-    // Fail closed: commands cannot be diffed yet, so a clean report would be a false one.
-    if (Array.isReadonlyArrayNonEmpty(plan.commands)) {
-      return yield* new Errors.OperationUnsupportedOnInspect({
-        id: "pjt.inspect.operation-unsupported",
-        operation: "Exec",
-        message: `\`pjt inspect\` cannot check post-apply commands, and ${plan.commands.length === 1 ? "1 is" : `${plan.commands.length} are`} declared (first: \`${plan.commands[0].command}\`).`,
-      })
-    }
+    const { plan, byBlueprint } = yield* loadProjectPlan(params.config)
     return yield* Effect.gen(function* () {
       const previous = yield* readLockfile
       const { removals, upgrades } = diffLockfile({ previous, current: byBlueprint })
       const diff = yield* diffPlan({ plan })
-      const hasDrift = diff.hasDrift || removals.length > 0
+      const commands = yield* runChecks({
+        commands: plan.commands,
+        projectRoot: params.config.projectRoot,
+        ...StructX.defined("spawner", params.spawner),
+      })
+      const hasDrift =
+        diff.hasDrift || removals.length > 0 || Array.isReadonlyArrayNonEmpty(commands)
       return {
         hasDrift,
-        output: withNextStep(renderInspectReport({ diff, removals, upgrades }), hasDrift),
+        output: withNextStep(renderInspectReport({ diff, removals, upgrades, commands }), hasDrift),
         files: diff.files,
         removals,
         upgrades,
+        commands,
       }
     }).pipe(Effect.provide(makeProjectRootLayer(params.config.projectRoot)))
   })
@@ -85,6 +86,7 @@ export const renderInspectJson = (result: InspectResult): string =>
       files: result.files,
       removals: result.removals,
       upgrades: result.upgrades,
+      commands: result.commands.map((failure) => ({ ...failure, status: "failed" as const })),
     }),
     null,
     2,

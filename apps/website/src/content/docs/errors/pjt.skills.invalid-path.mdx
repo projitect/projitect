@@ -1,13 +1,13 @@
 ---
 title: pjt.skills.invalid-path
 slug: errors/pjt.skills.invalid-path
-description: A skill name, target root, or file path is empty, absolute, or tries to leave the skills directory.
+description: A skill id, version, name, target root, or file path is missing, empty, absolute, or tries to leave the skills directory.
 sidebar:
   label: pjt.skills.invalid-path
 ---
 
-**What**: `skills()` validates every skill name, the `target` root, and every relative file path before it plans anything. This error fires when a value is empty, absolute (a leading `/` or a drive letter), contains a `..` or `.` segment, contains a backslash or NUL, or — for a skill name — contains a path separator. It also fires when a skill has no `SKILL.md` or when two skills in one package share a name.
+**What**: `skills()` validates the package `id` and `version`, every skill name, the `target` root, and every relative file path before it plans anything. This error fires when a value is empty, absolute (a leading `/` or a drive letter), contains a `..` or `.` segment, contains a backslash or NUL, or — for a skill name — contains a path separator. It also fires when `id` is not a namespaced id such as `acme:skills`, when `id` or `version` is missing, not a string or blank, when a skill has no `SKILL.md` or when two skills in one package share a name.
 
 **Why**: Every skill file must land at `<target>/<skill-name>/<relative path>`. Rejecting anything else keeps writes inside the target root.
 
-**How to fix**: Use a plain single-segment skill name such as `code-review`, and forward-slash relative paths such as `scripts/run.sh`. Add a `SKILL.md` entry to every skill's `files`, and give each skill in a package a distinct name.
+**How to fix**: Pick your own stable namespaced `id` and your own non-empty `version` (the `pjt add` placeholders `your-org:your-skills` and `0.1.0` are there to be replaced). Use a plain single-segment skill name such as `code-review`, and forward-slash relative paths such as `scripts/run.sh`. Add a `SKILL.md` entry to every skill's `files`, and give each skill in a package a distinct name.

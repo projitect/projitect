@@ -290,6 +290,17 @@ describe("planBlueprintFile", () => {
     })
   })
 
+  it("carries bytes across the worker boundary exactly, BOM and non-UTF-8 included", async () => {
+    const raw = Uint8Array.from([0xef, 0xbb, 0xbf, 0x68, 0xff, 0xfe, 0x00, 0xc3, 0x28, 0x0d, 0x0a])
+    await fs.writeFile(path.join(cwd, "raw.bin"), raw)
+    await fs.writeFile(path.join(cwd, "other.bin"), raw)
+    const planned = await plan("worker-bytes.pjt.ts")
+    const op = planned[0]?.changeSet.operations[0]
+    const report: unknown = JSON.parse(op?._tag === "Owned" ? op.content : "{}")
+    expect(report).toEqual({ bytes: Array.from(raw), denied: "FsPermissionDenied" })
+    expect(new Uint8Array(await fs.readFile(path.join(cwd, "copy.bin")))).toEqual(raw)
+  })
+
   it("maps a crashing worker to pjt.worker.crashed", async () => {
     expect(await planError("worker-crash.pjt.ts")).toMatchObject({
       _tag: "WorkerCrashed",

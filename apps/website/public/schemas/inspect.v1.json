@@ -135,6 +135,16 @@
                     "type": "null"
                   }
                 ]
+              },
+              "contentHash": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               }
             },
             "required": [
@@ -194,6 +204,73 @@
         "additionalProperties": true
       },
       "description": "Blueprints whose locked version differs from the tree's current version."
+    },
+    "commands": {
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "ownerId": {
+                "type": "string",
+                "description": "The blueprint that declared the command."
+              },
+              "check": {
+                "type": "string",
+                "description": "The check command that failed."
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "failed"
+                ]
+              },
+              "exitCode": {
+                "anyOf": [
+                  {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "string",
+                        "enum": [
+                          "Infinity",
+                          "-Infinity",
+                          "NaN"
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The exit code; absent when the process never started."
+              },
+              "stdout": {
+                "type": "string"
+              },
+              "stderr": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "ownerId",
+              "check",
+              "status",
+              "stdout",
+              "stderr"
+            ],
+            "additionalProperties": true
+          },
+          "description": "Post-apply commands whose check failed; each one is drift. Separate from `files`."
+        },
+        {
+          "type": "null"
+        }
+      ]
     }
   },
   "required": [

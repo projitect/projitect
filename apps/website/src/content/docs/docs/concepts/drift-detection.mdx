@@ -53,7 +53,7 @@ validated against a published, versioned [JSON Schema](/schemas/inspect.v1.json)
 
 ## The `.pjt.lock` file
 
-`.pjt.lock` is committed alongside `package.json`. It records which blueprints last applied to the project and which paths / regions / JSON keys each one owned — **not the file content** itself.
+`.pjt.lock` is committed alongside `package.json`. It records which blueprints last applied to the project and which paths / regions / JSON keys each one owned — **not the file content** itself. The one exception is a content hash: an entry for an owned binary file can carry a `contentHash` of the file's bytes.
 
 The lockfile is what makes the "swap frameworks cleanly" promise work:
 
@@ -61,7 +61,11 @@ The lockfile is what makes the "swap frameworks cleanly" promise work:
 - Remove a blueprint from `.pjt.ts` → next `inspect` sees the claim in the lockfile without a matching live blueprint and reports a removal; `remodel` deletes the orphaned region / keys / file.
 - Upgrade a blueprint package → the new version's claims override the old version's; if the claim set differs (e.g. the blueprint stopped owning a particular key), the old claim becomes a removal.
 
-The lockfile schema is versioned. If projitect ever introduces a breaking change to the format, projects running an older CLI will get `pjt.lock.version-mismatch` with instructions to upgrade.
+The lockfile schema is versioned. The current format is version 2. projitect reads version 1 and version 2 lockfiles, and `build`, `remodel` and `inspect` work on a project with a version 1 lockfile as it stands. Every lockfile projitect writes is version 2, so a version 1 lockfile becomes version 2 the next time `build` or `remodel` applies, with no rebuild step and every ownership claim carried over. `inspect` only reads: it leaves a version 1 lockfile's bytes as they are.
+
+Version 2 adds the optional per-entry `contentHash`. Entries without one are valid, which is why every version 1 entry reads unchanged.
+
+A lockfile written by a newer projitect than the CLI running (a version above 2) fails with `pjt.lock.version-mismatch` and instructions to upgrade.
 
 You should **never hand-edit `.pjt.lock`**. If it gets corrupted, delete it — the next `remodel` rebuilds it from the current blueprint state. The only thing you lose is orphan-cleanup for blueprints that were removed _between_ the previous good state and the corruption.
 

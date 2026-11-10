@@ -12,13 +12,15 @@ Built for CI.
 
 ## Exit codes
 
-| Code | Meaning                                                                                                                                                                                      |
-| ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 0    | In sync. Prints `Project is in sync with blueprints. No changes needed.`                                                                                                                     |
-| 1    | Drift: a managed region or key was edited or is missing, an upgrade changed a blueprint's content, or a blueprint left `.pjt.ts`. The drifted file is named in the output.                   |
-| 1    | A project whose blueprints declare post-apply commands also exits 1, with `pjt.inspect.operation-unsupported`: inspect cannot check commands, so it never reports such a project as in sync. |
+| Code | Meaning                                                                                                                                                                                                                |
+| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0    | In sync, and every post-apply check passes. Prints `Project is in sync with blueprints. No changes needed.`                                                                                                            |
+| 1    | Drift: a managed region or key was edited or is missing, an upgrade changed a blueprint's content, a blueprint left `.pjt.ts`, or a post-apply check failed. The drifted file or failing check is named in the output. |
+| 1    | A blueprint declares a check its `exec` permissions do not name: `pjt.exec.command-not-permitted`. Inspect never passes such a check silently.                                                                         |
 
 On exit 1 the human-readable output ends with ``Drift detected. Run `pjt remodel` to apply the blueprints.`` A script or agent runs `pjt remodel` and then `pjt inspect` again to confirm exit 0.
+
+If `.pjt.ts` is missing, `pjt inspect` exits 1 with `pjt.config.blueprint-file-not-found` and tells you to run `pjt init`. It does not create the file.
 
 ## Output
 
@@ -28,23 +30,26 @@ On exit 1 the human-readable output ends with ``Drift detected. Run `pjt remodel
 ~ modify .gitignore — region pjt:gitignore:macos content drift
 + create src/routes.generated.ts
   ok package.json
+! check failed: pnpm lint (exit 1)
+    src/index.ts: 3 problems
 ```
 
-Four kinds of lines:
+Five kinds of lines:
 
-| Symbol  | Meaning                                                                                                          |
-| ------- | ---------------------------------------------------------------------------------------------------------------- |
-| `↑`     | Blueprint version changed since the lockfile was written. `pjt remodel` rewrites with the new version's content. |
-| `+`     | File missing or new region/key claim. `pjt remodel` will create it.                                              |
-| `~`     | File exists but managed content drifts. `pjt remodel` will rewrite to match.                                     |
-| `-`     | Lockfile records this region/key/file but no current blueprint claims it. `pjt remodel` will delete the orphan.  |
-| (blank) | In sync.                                                                                                         |
+| Symbol  | Meaning                                                                                                                                                       |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `↑`     | Blueprint version changed since the lockfile was written. `pjt remodel` rewrites with the new version's content.                                              |
+| `+`     | File missing or new region/key claim. `pjt remodel` will create it.                                                                                           |
+| `~`     | File exists but managed content drifts. `pjt remodel` will rewrite to match.                                                                                  |
+| `-`     | Lockfile records this region/key/file but no current blueprint claims it. `pjt remodel` will delete the orphan.                                               |
+| `!`     | A post-apply check failed. The line names the command and its exit status, and the captured output follows, indented. `pjt remodel` runs the blueprint's fix. |
+| (blank) | In sync.                                                                                                                                                      |
 
 ## Flags
 
-| Flag     | Description                                                                                                                                                                                                |
-| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--json` | Emit structured JSON output `{ hasDrift, files, removals, upgrades }`. Exit code stays 1 on drift — useful for CI tooling. An error is emitted as `{ "error": { ... } }` with the error's `id` and fields. |
+| Flag     | Description                                                                                                                                                                                                          |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--json` | Emit structured JSON output `{ hasDrift, files, removals, upgrades, commands }`. Exit code stays 1 on drift — useful for CI tooling. An error is emitted as `{ "error": { ... } }` with the error's `id` and fields. |
 
 ### `--json` output shape
 
@@ -68,9 +73,36 @@ Four kinds of lines:
       "commentPrefix": "#"
     }
   ],
-  "upgrades": [{ "blueprintId": "pjt:gitignore:macos", "from": "0.0.0", "to": "0.1.0" }]
+  "upgrades": [{ "blueprintId": "pjt:gitignore:macos", "from": "0.0.0", "to": "0.1.0" }],
+  "commands": [
+    {
+      "ownerId": "pjt:lint",
+      "check": "pnpm lint",
+      "status": "failed",
+      "exitCode": 1,
+      "stdout": "",
+      "stderr": "src/index.ts: 3 problems\n"
+    }
+  ]
 }
 ```
+
+`commands` holds one entry per failing check, separate from `files`. `exitCode` is absent when the
+check could not be started; `stderr` then carries the reason.
+The current CLI always emits this array. Earlier `v1` reports may omit it and remain valid
+against the same schema.
+
+## Post-apply checks
+
+A blueprint that declares a [post-apply command](/docs/authoring/) may give it a `check`. Inspect
+runs each distinct check from the project root, in blueprint order, after the file comparison; a
+check several blueprints declare runs once, and a command without a `check` is not run. Every check
+must be covered by the blueprint's `exec` permissions, matched as exact strings, before any starts.
+Check authors must keep checks side-effect-free. The engine does not sandbox a permitted
+check's filesystem or network access; the same process-runner limits apply as for post-apply fixes.
+
+Inspect no longer returns the `pjt.inspect.operation-unsupported` error: a failing check is drift
+and the same command's fix, run by `pjt remodel`, clears it.
 
 ### Schema
 

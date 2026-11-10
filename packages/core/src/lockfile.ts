@@ -26,6 +26,11 @@ export const LockOwnedOp = Schema.TaggedStruct("Owned", {
   path: Schema.String,
   ownerId: Schema.String,
   ownedDir: Schema.optional(Schema.String),
+  /**
+   * Content hash of an owned binary file, recorded by lockfile v2. Absent for text files and for
+   * every entry read from a v1 lockfile.
+   */
+  contentHash: Schema.optional(Schema.String),
 })
 
 export const LockSeedOp = Schema.TaggedStruct("Seed", {
@@ -42,10 +47,11 @@ export const BlueprintLockEntry = Schema.Struct({
 
 /**
  * `.pjt.lock` schema. Committed alongside `package.json` so the team's drift-detection stays
- * consistent. Top-level `version` lets us evolve the file format with explicit migrations.
+ * consistent. Top-level `version` lets us evolve the file format with explicit migrations: readers
+ * accept v1 and v2, and the engine writes v2.
  */
 export const PjtLock = Schema.Struct({
-  version: Schema.Literal(1),
+  version: Schema.Literals([1, 2]),
   blueprints: Schema.Record(Schema.String, BlueprintLockEntry),
 })
 
@@ -58,4 +64,4 @@ export type BlueprintLockEntry = typeof BlueprintLockEntry.Type
 export type PjtLock = typeof PjtLock.Type
 
 /** Empty lockfile — used for the very first `pjt init`. */
-export const empty: PjtLock = { version: 1, blueprints: {} }
+export const empty: PjtLock = { version: 2, blueprints: {} }

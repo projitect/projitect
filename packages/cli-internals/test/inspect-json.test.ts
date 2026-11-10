@@ -49,6 +49,21 @@ describe("inspect-json", () => {
     )
   })
 
+  it("continues validating v1 reports produced before command checks were added", async () => {
+    const validate = new Ajv2020({ strict: false }).compile(
+      decodeObject(JSON.parse(await fs.readFile(SCHEMA_FILE, "utf8"))),
+    )
+    expect(
+      validate({
+        $schema: InspectJsonSchemaUrl,
+        hasDrift: false,
+        files: [],
+        removals: [],
+        upgrades: [],
+      }),
+    ).toBe(true)
+  })
+
   it("real --json output validates against the committed schema; malformed output doesn't", async () => {
     // `.gitignore` is left missing → create. `.dockerignore` holds drifted region content →
     // modify. `.npmignore` holds the exact region content → ok.

@@ -19,6 +19,15 @@ export interface BlueprintFileSystemShape {
     path: string,
     content: string,
   ) => Effect.Effect<void, FsWriteFailed | FsPermissionDenied>
+  /** Read a file as raw bytes, with no text decoding. Needs the same permission as `readFile`. */
+  readonly readFileBytes: (
+    path: string,
+  ) => Effect.Effect<Uint8Array, FsReadFailed | FsPermissionDenied>
+  /** Write raw bytes, with no text encoding. Needs the same permission as `writeFile`. */
+  readonly writeFileBytes: (
+    path: string,
+    bytes: Uint8Array,
+  ) => Effect.Effect<void, FsWriteFailed | FsPermissionDenied>
   readonly exists: (path: string) => Effect.Effect<boolean, FsPermissionDenied>
   readonly remove: (path: string) => Effect.Effect<void, FsWriteFailed | FsPermissionDenied>
   /**

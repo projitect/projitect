@@ -43,6 +43,8 @@ The rationale: keep the manifest, the blueprint spec, the lockfile, the dependen
 | `git status --porcelain` is empty | `pjt.apply.dirty-git` (override with `--force-dirty`) |
 | `--force` flag is present         | `pjt.apply.dirty-git` (with a clarifying message)     |
 
+If `.pjt.ts` is missing, `pjt build` exits 1 with `pjt.config.blueprint-file-not-found` and tells you to run `pjt init`. It does not create the file. The check runs after the wipe, so run `pjt init` before `pjt build`.
+
 ## Output
 
 ```text

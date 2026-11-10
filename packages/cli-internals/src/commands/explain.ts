@@ -1,5 +1,7 @@
 import { Effect, Option, Schema } from "effect"
 import { Errors } from "@projitect/core"
+import type { ProjitectConfig } from "@projitect/core"
+import { loadProjectPlan } from "./load-plan.js"
 
 const ErrorId = Schema.Literals(Errors.ERROR_IDS)
 
@@ -16,6 +18,37 @@ export const explain = (params: { readonly errorId: string }): Effect.Effect<str
       onSome: (id) => `${id}\n${ERROR_BLURBS[id]}\nMore at: ${Errors.docsUrl(id)}`,
     }),
   )
+
+/**
+ * `pjt explain` with no id — list the project's post-apply commands: for each, the owning
+ * blueprint, the fix command (run by `build` and `remodel`) and the check command (run by
+ * `inspect`, if any). Every declaration is listed, even when several share a fix, so no owner or check is hidden. With `json`, the
+ * same entries as a JSON object under a `commands` key.
+ */
+export const explainCommands = (params: {
+  readonly config: ProjitectConfig.ProjitectConfig
+  readonly json: boolean
+}): Effect.Effect<string, Errors.ProjitectError> =>
+  Effect.gen(function* () {
+    const { plan } = yield* loadProjectPlan(params.config)
+    const commands = plan.commands.map((planned) => ({
+      ownerId: planned.ownerId,
+      fix: planned.command,
+      ...(planned.check === undefined ? {} : { check: planned.check }),
+    }))
+    if (params.json) {
+      return `${JSON.stringify({ commands }, null, 2)}\n`.trimEnd()
+    }
+    if (commands.length === 0) {
+      return "No blueprint declares post-apply commands."
+    }
+    return commands
+      .map(
+        (c) =>
+          `${c.ownerId}\n  fix:   ${c.fix}\n  check: ${c.check ?? "(none; `pjt inspect` does not run this command)"}`,
+      )
+      .join("\n")
+  })
 
 const ERROR_BLURBS: Readonly<Record<Errors.ErrorId, string>> = {
   "pjt.fs.permission-denied":
@@ -62,8 +95,6 @@ const ERROR_BLURBS: Readonly<Record<Errors.ErrorId, string>> = {
     "A command run by projitect exited non-zero or could not be started. Its exit code, stdout and stderr are included.",
   "pjt.exec.command-not-permitted":
     "A blueprint tried to run a command that none of its declared `exec` permissions names exactly.",
-  "pjt.inspect.operation-unsupported":
-    "`pjt inspect` cannot check a project whose blueprints declare post-apply commands, so it fails instead of reporting clean.",
   "pjt.pm.not-detected":
     "Could not figure out which package manager you're using. Add a lockfile (`pnpm-lock.yaml`, `package-lock.json`, etc.) at your project root.",
   "pjt.pm.install-failed":
@@ -72,6 +103,8 @@ const ERROR_BLURBS: Readonly<Record<Errors.ErrorId, string>> = {
     "Your `.pjt.ts` is missing the marker comment pairs `pjt:imports` and `pjt:blueprints`. `pjt add` uses those as splice anchors. Restore them and re-run.",
   "pjt.add.metadata-missing":
     "The package you added has no `projitect` field in its package.json, so `pjt add` can't splice it. Import it in `.pjt.ts` by hand, then run `pjt remodel`.",
+  "pjt.add.spec-unsupported":
+    "`pjt add` accepts a registry package name with an optional version, range or dist-tag. Aliases, URLs, tarballs, file, git and workspace specs, and unsafe names are rejected before anything is installed.",
   "pjt.worker.crashed":
     "The worker process that runs blueprint code crashed before it returned a result. The exit code or signal is included in the message.",
   "pjt.worker.timed-out":

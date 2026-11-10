@@ -1,5 +1,13 @@
 # @projitect/blueprint-changesets
 
+## 1.0.1
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @projitect/blueprint@1.0.1
+  - @projitect/core@1.0.1
+
 ## 1.0.0
 
 ### Patch Changes

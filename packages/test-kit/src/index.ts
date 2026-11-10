@@ -18,26 +18,38 @@ import type { BlueprintFileSystemShape } from "@projitect/core"
 export const makeInMemoryLayer = (
   initial: Readonly<Record<string, string>> = {},
 ): Layer.Layer<BlueprintFileSystem> => {
-  const state = new Map<string, string>(Object.entries(initial))
+  const encoder = new TextEncoder()
+  const decoder = new TextDecoder("utf8", { ignoreBOM: true })
+  // Files are held as bytes; the text methods encode and decode UTF-8 around them.
+  const state = new Map<string, Uint8Array>(
+    Object.entries(initial).map(([path, content]) => [path, encoder.encode(content)]),
+  )
+
+  const readBytes = (path: string): Effect.Effect<Uint8Array, Errors.FsReadFailed> =>
+    Effect.suspend(() => {
+      const v = state.get(path)
+      return v === undefined
+        ? Effect.fail(
+            new Errors.FsReadFailed({
+              id: "pjt.fs.read-failed",
+              path,
+              cause: "ENOENT",
+              message: `In-memory FS: no file at ${path}`,
+            }),
+          )
+        : Effect.succeed(v.slice())
+    })
 
   const shape: BlueprintFileSystemShape = {
-    readFile: (path) =>
-      Effect.suspend(() => {
-        const v = state.get(path)
-        return v === undefined
-          ? Effect.fail(
-              new Errors.FsReadFailed({
-                id: "pjt.fs.read-failed",
-                path,
-                cause: "ENOENT",
-                message: `In-memory FS: no file at ${path}`,
-              }),
-            )
-          : Effect.succeed(v)
-      }),
+    readFile: (path) => Effect.map(readBytes(path), (bytes) => decoder.decode(bytes)),
     writeFile: (path, content) =>
       Effect.sync(() => {
-        state.set(path, content)
+        state.set(path, encoder.encode(content))
+      }),
+    readFileBytes: readBytes,
+    writeFileBytes: (path, bytes) =>
+      Effect.sync(() => {
+        state.set(path, bytes.slice())
       }),
     exists: (path) => Effect.sync(() => state.has(path)),
     remove: (path) =>
