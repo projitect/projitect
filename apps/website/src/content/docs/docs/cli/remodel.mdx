@@ -17,7 +17,7 @@ only touches files declared by blueprints.
 3. Reduces operations per file, detecting conflicts.
 4. Reads `.pjt.lock`; computes which blueprints left the tree since the last apply.
 5. Writes the current blueprints' changes to disk.
-6. Removes orphaned regions / JSON keys / files for blueprints that left.
+6. Removes orphaned regions / JSON fields / files for blueprints that left. A merge blueprint takes only the fields `.pjt.lock` records it wrote; keys you added stay. Before step 5 writes anything, a legacy lockfile claim that cannot be removed safely stops the run (see below).
 7. Rewrites `.pjt.lock` to record the new state.
 8. Runs the blueprints' post-apply commands (see below).
 
@@ -71,6 +71,7 @@ Running `pjt remodel` twice with no changes in between writes nothing the second
 - `pjt.plan.conflict-region` — two blueprints share the same `ownerId` in one file.
 - `pjt.plan.conflict-merge` — two blueprints claim the same JSON key, or one claims a key that contains the other's.
 - `pjt.plan.unowned-merge-write` — a merge blueprint writes a JSON field its `ownedKeys` do not cover. Nothing is written.
+- `pjt.remove.ambiguous-merge-claim` — a blueprint left `.pjt.ts` and its lockfile entry (written before lockfile version 3) only records a parent key whose object holds children. Nothing is written. Keep the blueprint in `.pjt.ts` and run `pjt remodel` once, or delete the key by hand.
 - `pjt.region.missing-end` — a managed region's end marker was deleted.
 - `pjt.exec.command-failed` — a post-apply command exited non-zero.
 - `pjt.exec.command-not-permitted` — a post-apply command is not named by the blueprint's `exec` permissions.

@@ -1,0 +1,13 @@
+---
+title: pjt.remove.ambiguous-merge-claim
+slug: errors/pjt.remove.ambiguous-merge-claim
+description: A blueprint left .pjt.ts, but its older lockfile entry cannot say which JSON fields it wrote.
+sidebar:
+  label: pjt.remove.ambiguous-merge-claim
+---
+
+**What**: A merge-mode blueprint left `.pjt.ts`, and `.pjt.lock` still has its entry from before lockfile version 3. That entry names only the key the blueprint owned (say `scripts`), not the fields it wrote under it. The key currently holds an object with children, so projitect cannot tell the blueprint's fields from ones you added, and deleting the key could delete yours. The error names the file, the key and the blueprint. Nothing is written, and `.pjt.lock` is left as it was. `pjt inspect` reports the same condition as drift.
+
+**Why**: Version 3 lockfiles record the exact fields each merge blueprint wrote and remove only those. Older entries never recorded them. A key that is absent, or holds a string, number, array or `null`, is removed without this error.
+
+**How to fix**: Put the blueprint back in `.pjt.ts` and run `pjt remodel` once; that re-plans it and rewrites `.pjt.lock` as version 3 with the fields it wrote. Then remove the blueprint again and run `pjt remodel`. Or delete the key from the file by hand and run `pjt remodel`.

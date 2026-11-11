@@ -6,6 +6,6 @@ sidebar:
   label: pjt.lock.version-mismatch
 ---
 
-**What**: The `version` field in `.pjt.lock` is higher than the version this projitect knows how to read. Means a teammate (or your future self) ran a newer projitect and committed the upgraded lockfile.
+**What**: The `version` field in `.pjt.lock` is higher than the version this projitect knows how to read. Version 3 is the first to record the JSON fields a merge blueprint wrote, so a project that ran a current projitect cannot be read by an older one. Means a teammate (or your future self) ran a newer projitect and committed the upgraded lockfile.
 
 **How to fix**: Upgrade the `@projitect/cli` devDep to the version that wrote the lockfile (or newer). Run `pnpm add -D @projitect/cli@latest` (or your PM equivalent), then `pnpm pjt remodel`. Downgrading the lockfile by hand is not supported — the new fields would silently disappear.

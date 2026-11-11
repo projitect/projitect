@@ -36,14 +36,14 @@ If `.pjt.ts` is missing, `pjt inspect` exits 1 with `pjt.config.blueprint-file-n
 
 Five kinds of lines:
 
-| Symbol  | Meaning                                                                                                                                                       |
-| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `↑`     | Blueprint version changed since the lockfile was written. `pjt remodel` rewrites with the new version's content.                                              |
-| `+`     | File missing or new region/key claim. `pjt remodel` will create it.                                                                                           |
-| `~`     | File exists but managed content drifts. `pjt remodel` will rewrite to match.                                                                                  |
-| `-`     | Lockfile records this region/key/file but no current blueprint claims it. `pjt remodel` will delete the orphan.                                               |
-| `!`     | A post-apply check failed. The line names the command and its exit status, and the captured output follows, indented. `pjt remodel` runs the blueprint's fix. |
-| (blank) | In sync.                                                                                                                                                      |
+| Symbol  | Meaning                                                                                                                                                                                                                                                                                     |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `↑`     | Blueprint version changed since the lockfile was written. `pjt remodel` rewrites with the new version's content.                                                                                                                                                                            |
+| `+`     | File missing or new region/key claim. `pjt remodel` will create it.                                                                                                                                                                                                                         |
+| `~`     | File exists but managed content drifts. `pjt remodel` will rewrite to match.                                                                                                                                                                                                                |
+| `-`     | Lockfile records this region/key/file but no current blueprint claims it. `pjt remodel` will delete the orphan.                                                                                                                                                                             |
+| `!`     | A post-apply check failed, or a pre-version-3 lockfile claim cannot be removed safely (`pjt remodel` will stop with `pjt.remove.ambiguous-merge-claim`). The line names the command and its exit status, and the captured output follows, indented. `pjt remodel` runs the blueprint's fix. |
+| (blank) | In sync.                                                                                                                                                                                                                                                                                    |
 
 ## Flags
 

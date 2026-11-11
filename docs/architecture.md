@@ -59,6 +59,11 @@ and every field a merge op writes must sit under that op's own `ownedKeys`
 (`packages/cli-internals/src/merge-ownership.ts`). The values can be computed, so this is a
 runtime check, not a lint rule.
 
+Removal is provenance-based. Lockfile v3 stores the fields each merge op wrote (`writtenPaths`),
+and a departing blueprint's removal deletes only those, minus anything a live blueprint claims.
+A v1 or v2 lock records only the claimed key, so a parent claim over a non-empty object is
+refused before any write (`pjt.remove.ambiguous-merge-claim`) rather than guessed at.
+
 Details: [File ownership modes](./blueprint-authoring.md#file-ownership-modes) and [Region marker convention](./blueprint-authoring.md#region-marker-convention).
 
 ## Soft sandbox

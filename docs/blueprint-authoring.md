@@ -131,16 +131,17 @@ See `docs/concepts/ownership-modes` on the marketing site for examples.
 
 ## Merge-mode `package.json` keys
 
-What `jsonMerge` does today, read from `merge-ownership.ts` (`reconcileOwnership`, `checkWriteCoverage`), `plan.ts` (`reduceMerge`, `diffLockfile`),
-`applier.ts` (`nextMerge`), `differ.ts` (`diffMerge`) and `remover.ts` (`removeMergeKeys`). The
+What `jsonMerge` does today, read from `merge-ownership.ts` (`reconcileOwnership`, `checkWriteCoverage`), `plan.ts` (`reduceMerge`, `toLockOp`, `diffLockfile`),
+`applier.ts` (`nextMerge`), `differ.ts` (`diffMerge`) and `remover.ts` (`removeMergeFields`). The
 website summarises this in `docs/authoring` and `docs/concepts/ownership-modes`.
 
 **Which keys a blueprint may own.** Any dotted path listed in `ownedKeys`, such as
 `scripts.prepare`, `devDependencies.husky` or the top-level `lint-staged`. Paths are compared
 segment by segment (`keySegments` in `merge-ownership.ts`): `scripts` covers `scripts.test` but
 not `scripts.testing`. Own the leaf (`scripts.<name>`, `devDependencies.<name>`) unless the blueprint
-really owns the whole subtree: an owned parent is deleted with everything under it when the
-blueprint leaves.
+really owns the whole subtree: an owned parent blocks every other blueprint from claiming
+anything under it. Removal deletes only the fields the blueprint wrote (see **Keys the user
+added**), so a parent claim does not take the user's children with it.
 
 **Every written field is owned.** The planner enumerates the fields the op's `value` writes as
 `RecordX.deepMerge` writes them: plain objects recurse, while arrays, primitives, `null` and an
@@ -176,12 +177,23 @@ never claim a key the user is likely to have set.
 
 **Keys the user added.** Every key not in the blueprint's `value` is preserved untouched by
 `pjt build` and `pjt remodel`, including sibling scripts under `scripts`. Output is re-serialised
-with two-space indentation and a trailing newline. On blueprint removal `removeMergeKeys` deletes
-only the lockfile's `ownedKeys`; everything else stays. `diffLockfile` first drops every
-departing key that equals, contains or sits inside a key a remaining blueprint still claims on
-the same file, so moving a parent claim to descendant claims never deletes the live owner's keys.
-The departing owner's other leaves under such a parent stay behind, because the lockfile records
-claims, not the leaves they wrote.
+with two-space indentation and a trailing newline. Lockfile v3 records, per merge op, the dotted fields the value wrote
+(`writtenFields` in `merge-ownership.ts`, stored by `toLockOp` as `writtenPaths`; objects recurse,
+arrays and scalars are one field). On blueprint removal `removeMergeFields` deletes exactly
+those fields and prunes an object only when that deletion emptied it; the owned parent and its
+other children stay. `diffLockfile` first drops every departing field that equals, contains or
+sits inside a key a remaining blueprint still claims on the same file, so moving a parent claim
+to descendant claims never deletes the live owner's keys. A still-present blueprint that stops
+writing a field has that field removed too, unless another live blueprint claims it.
+
+**Legacy lockfile claims.** A v1 or v2 merge entry has no `writtenPaths`. If its blueprint is
+still in `.pjt.ts`, the next remodel re-plans it and records them. If it left first, the claimed
+key is deleted only when unambiguous: absent, or holding a scalar, array, `null` or `{}`. A
+non-empty object cannot be attributed, so `remodel` runs `assertNoAmbiguousMergeClaims` after
+`buildPlan` and before `applyPlan`, `applyRemovals` and `writeLockfile`, and fails with
+`pjt.remove.ambiguous-merge-claim` while nothing has been written. `pjt inspect` reports the same
+claim as drift with a `!` line. The lockfile `version` is 3; v1 and v2 stay readable and are
+rewritten as v3, and an older projitect reading v3 gets `pjt.lock.version-mismatch`.
 
 **Drift.** `pjt inspect` deep-merges the blueprint value into the current file and compares
 canonical JSON (key order ignored). Differences print `~ modify package.json (JSON merge)` and
