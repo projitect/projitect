@@ -6,6 +6,7 @@ import type { Blueprint as _Blueprint, ChangeSet, PjtLock } from "@projitect/cor
 import { makeRealLayer } from "../src/filesystem-impl.js"
 import { buildPlan, diffLockfile } from "../src/plan.js"
 import type { ByBlueprint } from "../src/plan.js"
+import { planTree } from "./support/plan-tree.js"
 
 /**
  * `plan.ts` is the engine room: it walks the blueprint tree, runs each blueprint's plan Effect to
@@ -283,6 +284,37 @@ describe("buildPlan — happy paths", () => {
       path: "apps/web/tsconfig.json",
       ownerId: "pjt:scoped",
     })
+  })
+})
+
+describe("buildPlanFromPlanned", () => {
+  it("reduces what the worker planned into the same plan and lock entries as buildPlan", async () => {
+    const tree = [
+      makeBlueprint({
+        id: "pjt:a",
+        ops: [
+          {
+            _tag: "Region",
+            ownerId: "pjt:a",
+            path: ".gitignore",
+            commentPrefix: "#",
+            content: ".DS_Store\n",
+          },
+        ],
+      }),
+      directory("docs", [
+        makeBlueprint({
+          id: "pjt:docs",
+          ops: [{ _tag: "Owned", ownerId: "pjt:docs", path: "index.md", content: "hi" }],
+        }),
+      ]),
+    ]
+    const live = await Effect.runPromise(
+      buildPlan({ tree, projectRoot: ROOT, layerFor: makeRealLayer }),
+    )
+    const fromPlanned = await Effect.runPromise(planTree(tree, ROOT))
+    expect(fromPlanned).toEqual(live)
+    expect(fromPlanned.plan.files.map((f) => f.path)).toEqual([".gitignore", "docs/index.md"])
   })
 })
 

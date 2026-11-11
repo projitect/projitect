@@ -10,9 +10,8 @@ import type { FsPermissionDenied, FsReadFailed, FsWriteFailed } from "./errors/i
  * The interface lives in `@projitect/core` so it can be referenced from both `@projitect/blueprint`
  * (which exposes helpers built on it) and `@projitect/cli-internals` (which implements it).
  *
- * The current implementation is a soft sandbox: it enforces permissions at the Effect layer but
- * runs in the same process as the CLI. A worker-process implementation is a tracked v2 follow-up;
- * the interface is shaped so the swap is transparent to blueprint authors.
+ * Blueprint code runs in a permission-restricted child process; there this service is a client
+ * that forwards every call to the CLI, which enforces the declared permissions.
  */
 export interface BlueprintFileSystemShape {
   readonly readFile: (path: string) => Effect.Effect<string, FsReadFailed | FsPermissionDenied>

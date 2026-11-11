@@ -53,9 +53,6 @@ importers:
       ajv:
         specifier: 8.20.0
         version: 8.20.0
-      esbuild:
-        specifier: 0.28.1
-        version: 0.28.1
       eslint:
         specifier: 9.39.4
         version: 9.39.4(jiti@2.7.0)
@@ -364,6 +361,9 @@ importers:
       '@nunofyobiz/effect-extras':
         specifier: 3.2.0
         version: 3.2.0(effect@4.0.0-rc.111)
+      esbuild:
+        specifier: 0.28.1
+        version: 0.28.1
       sucrase:
         specifier: 3.35.1
         version: 3.35.1

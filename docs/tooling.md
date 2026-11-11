@@ -12,7 +12,7 @@ One tool, one config, one command. Adapted from StoryCut's and effect-clue's fla
 - `eslint-plugin-package-json` validates every `package.json` in the monorepo: required fields, npm-standard property order, alphabetized dependencies. Catches "would-publish-but-broken" mistakes alongside the `publish-dry-run` CI job.
 - Filenames are kebab-case (`unicorn/filename-case`) — uniformly, now that the PascalCase `*X` utility modules live in the external `@nunofyobiz/effect-extras` rather than in this repo.
 
-Per-package sandbox enforcement at lint time (the "soft" half of the soft sandbox):
+Per-package sandbox enforcement at lint time (the lint-time half of the sandbox):
 
 | Files                                              | Banned imports                                                                                                       |
 | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |

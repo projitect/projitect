@@ -1,53 +1,110 @@
 ---
 title: Sandbox
-description: How projitect limits what blueprints can do to your filesystem.
+description: How projitect confines blueprint code, what that prevents, and what it does not.
 ---
 
-A blueprint is npm-installed code that runs on your machine. That's a security boundary. projitect
-narrows it on three fronts: **a soft sandbox today**, with a **worker-process replacement** on
-the roadmap and a **lint rule** that prevents the most common bypass.
+A blueprint is npm-installed code that runs on your machine. projitect runs your `.pjt.ts` and
+every blueprint's plan in a separate **worker process** started with Node's **permission model**,
+and gives that process one way to reach your project: a permission-gated `BlueprintFileSystem`.
 
-## The soft sandbox
+## Threat model
 
-Blueprints never receive `@effect/platform`'s real `FileSystem`. Instead, the CLI provides a
-`BlueprintFileSystem` service from `@projitect/blueprint` — a wrapper that:
+The sandbox **reduces accidental filesystem and process access** by blueprint code and its
+dependencies. A blueprint that forgets to declare a permission, a dependency that reads `~/.ssh` to
+"detect" something, or a helper that shells out without being asked, fails with an error instead of
+quietly succeeding.
 
-- Resolves all paths relative to the **project root**. Absolute paths and `..` escapes are
-  rejected with `pjt.fs.permission-denied`.
-- Gates every operation against the blueprint's declared **permissions**
-  (`{ kind: "read", glob: "..." }`, `{ kind: "write", glob: "..." }`). A blueprint that didn't
-  ask to write `package.json` cannot write it, even if it tries.
-- Inside `directory("docs", [...])` blocks, the FS for child blueprints is **re-rooted** at
-  `docs/`. A child can't reach back up.
+It is **not** a security boundary:
 
-The implementation is in `packages/cli-internals/src/filesystem-impl.ts`. It uses raw
-`node:fs/promises` under a permission gate and exposes the same `BlueprintFileSystem` interface
-the in-memory test layer does — so blueprint tests and production share contracts.
+- It does **not** contain deliberately malicious code. Node's own documentation says the permission
+  model does not protect against malicious code and can be bypassed.
+- It does **not** defend against supply-chain attacks. Treat a new blueprint package like any new
+  npm dependency and read its source before adding it.
+- It provides **no OS-level confinement**: no Linux namespaces, Landlock, seccomp or container, and
+  no macOS sandbox. Network access is not restricted on the supported Node versions (see below).
 
-## Why "soft"?
+## How it works
 
-Because the sandbox runs **in the same Node process** as the CLI. A determined blueprint author
-could:
+`pjt build`, `pjt remodel` and `pjt inspect` start one worker per run:
 
-- Import `node:fs` directly and bypass the gate.
-- Use `require("child_process")` to shell out.
-- Re-import `@effect/platform` (when it lands for v4) to grab the real `FileSystem`.
+1. The CLI transpiles `.pjt.ts` to plain JavaScript. Loaders such as `tsx` start a worker thread,
+   which the sandboxed process is not allowed to do, so the worker only ever imports finished
+   JavaScript. Bare imports stay external and resolve to the staged packages in the next step.
+2. The CLI stages the packages the `.pjt.ts` imports. It copies each package, and each package it
+   depends on, into a private temporary directory, and links the copies to one another the way your
+   installation resolves them (`dependencies` and `peerDependencies`, from each package's real
+   location). One copy exists per installed package instance, so two versions stay two copies and a
+   shared import stays shared. Cycles, scoped packages, CommonJS and ESM packages and the files next
+   to a package's code (found through `import.meta.url` or `__dirname`) all work. `effect`,
+   `@projitect/core` and `@projitect/blueprint` are not copied: blueprint code and the worker share
+   the installed instance. A blueprint package must declare every package it imports.
+3. The CLI computes the worker's **read allowlist**: its own code, the `.pjt.ts`, the staged
+   directory, the packages the worker runs on and their dependencies, and the Node installation.
+   Your project tree, your home directory and every installed package your `.pjt.ts` does not
+   import are never on it, and the list names directories exactly, never a name prefix: a worker
+   that imports `pkg-a` and `pkg-a-b` cannot read an unimported `pkg-a-private`. The staged
+   directory is removed when the run ends, whether it succeeds, fails, times out or crashes.
+4. The CLI starts the worker with the permission flag and one `--allow-fs-read` per allowlist
+   entry. No write, child-process or worker-thread permission is granted, and the worker gets an
+   empty environment.
+5. The worker runs the config-time Effect and each blueprint's plan, and returns each blueprint's
+   id, version, permissions and `ChangeSet` as plain data. The CLI reduces them into the plan.
 
-We close the first two with a lint rule (the `@projitect/blueprint` ESLint preset forbids both
-`node:fs` and `child_process` inside blueprint packages). The third becomes a non-issue once we
-ship the worker-process implementation — at that point, the FS in the worker is the
-permission-gated one and there's nothing to escape to.
+Blueprint authors change nothing: blueprints still use `BlueprintFileSystem`, and the code they
+write is the same.
 
-## The worker-process sandbox (roadmap)
+## The permission-gated filesystem
 
-Once `@effect/platform-node` ships for v4 (or we hand-roll equivalent primitives), each blueprint
-will run in its own Node worker thread with `--permission` flags restricting the filesystem to
-the project root. The `BlueprintFileSystem` interface stays identical from the author's
-perspective — the swap is transparent.
+Every `BlueprintFileSystem` call in the worker travels to the CLI over the worker's IPC channel,
+where it is checked against the blueprint's declared **permissions**
+(`{ kind: "read", glob: "..." }`, `{ kind: "write", glob: "..." }`):
 
-Until then: trust your blueprint authors, run the lint rule, and treat new blueprint packages
-the way you'd treat any new npm dep — read the source before adding it.
+- Paths resolve relative to the **project root**. Absolute paths and `..` escapes are rejected
+  with `pjt.fs.permission-denied`.
+- Symlinks are resolved to their real path and the glob is checked again, so a link inside the
+  project that points outside it is denied.
+- A blueprint that did not ask to write `package.json` cannot write it, even if it tries.
+- Inside `directory("docs", [...])` blocks, child blueprints are **re-rooted** at `docs/`.
+
+Errors cross the process boundary as the same typed errors the CLI raises, so a permission denial
+reaches the blueprint's Effect unchanged and shows up in `pjt inspect --json` as before.
+
+## What each Node version restricts
+
+The worker uses the launch flag the Node documentation names for the running version. The
+`engines.node` floor is `>=22.12.0`.
+
+| Capability in the worker            | Node 22.12                        | Node 22.13+ and 24                |
+| ----------------------------------- | --------------------------------- | --------------------------------- |
+| Launch flag                         | `--experimental-permission`       | `--permission`                    |
+| Read files outside the allowlist    | Denied (`ERR_ACCESS_DENIED`)      | Denied (`ERR_ACCESS_DENIED`)      |
+| Write files directly with `node:fs` | Denied (`ERR_ACCESS_DENIED`)      | Denied (`ERR_ACCESS_DENIED`)      |
+| Spawn processes (`child_process`)   | Denied (`ERR_ACCESS_DENIED`)      | Denied (`ERR_ACCESS_DENIED`)      |
+| Start worker threads                | Denied (`ERR_ACCESS_DENIED`)      | Denied (`ERR_ACCESS_DENIED`)      |
+| Load native addons                  | Denied                            | Denied                            |
+| Network connections                 | **Not restricted**                | **Not restricted**                |
+| Environment variables of the CLI    | Not passed to the worker          | Not passed to the worker          |
+| `.pjt.ts` loading                   | Transpiled to JavaScript by `pjt` | Transpiled to JavaScript by `pjt` |
+
+Node 22.12 through 24 document no network permission, so a blueprint or dependency in the worker
+can open outbound connections on these versions. The sandbox does not claim otherwise.
+
+Direct `node:fs` and `child_process` use inside blueprint packages is also rejected at lint time:
+the `@projitect/blueprint` ESLint preset forbids both.
+
+## When the worker fails
+
+A worker that crashes, exits before returning a plan, or runs past its time limit is stopped and
+reported as one of [`pjt.worker.crashed`](/errors/pjt.worker.crashed/),
+[`pjt.worker.exited-early`](/errors/pjt.worker.exited-early/) or
+[`pjt.worker.timed-out`](/errors/pjt.worker.timed-out/).
 
 ## What about exec?
 
-A blueprint declares `{ kind: "exec", command: "..." }` in its permissions to run a command. `pjt build` and `pjt remodel` run the commands in a final phase after every file operation, and only a command that a blueprint's `exec` permissions name exactly (the whole command string, no globs) is started. See [`pjt remodel`](/docs/cli/remodel/#post-apply-commands) for the ordering, deduplication and failure rules. Blueprint authors cannot declare commands from the SDK yet; see the [roadmap](/docs/roadmap/).
+A blueprint declares `{ kind: "exec", command: "..." }` in its permissions to name a command it may
+run. The worker never starts processes: it has no child-process permission, so a blueprint cannot
+shell out while it plans. `pjt build` and `pjt remodel` run the commands themselves, in the CLI
+process, in a final phase after every file operation, and only a command that a blueprint's `exec`
+permissions name exactly (the whole command string, no globs) is started. See
+[`pjt remodel`](/docs/cli/remodel/#post-apply-commands) for the ordering, deduplication and failure
+rules.
