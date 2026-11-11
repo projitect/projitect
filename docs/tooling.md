@@ -54,6 +54,17 @@ multiplies its leverage:
 If no plugin or rule fits your case, leave a one-line note in the PR description so the next dep
 upgrade or refactor pass can revisit. Don't silently absorb the constraint into "team lore."
 
+## Process-spawning dependencies
+
+`@projitect/cli-internals` spawns post-apply commands with `cross-spawn` 7.0.6 (MIT) and resolves
+bare tool names with `which` 7.0.0 (ISC), both pinned exactly. Review: both licences are permissive;
+both are long-standing, widely depended-on packages (`cross-spawn` last published November 2024,
+`which` maintained under the npm org); `pnpm audit --prod` reports no known vulnerabilities;
+neither ships an ESLint plugin; both load only in the Node platform layer, never in core or the
+browser graph. No lint rule bans raw `node:child_process`: `git.ts`, `pm.ts` and `init.ts` use it
+legitimately, blueprint packages are already banned from it by the sandbox rule, and
+`process-runner.ts` is the only place that spawns user-declared exec commands.
+
 ## Effect language service
 
 The package's `prepare` script runs `effect-language-service patch` on every `pnpm install`. This patches the local `node_modules/typescript` so that **`tsc --build` produces Effect-specific diagnostics in addition to the standard TS checks** — things like `yield* Effect.fail(new X())` being flagged as redundant (since `new X()` is itself yieldable for `Schema.TaggedError` errors), `Effect.sync` thunks accidentally returning a Promise, missing Effect requirements, etc.

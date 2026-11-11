@@ -291,6 +291,21 @@ describe.skipIf(process.platform === "win32")(
       expect(JSON.parse(out.stdout)).toEqual(["a", "&&", "b", ";", "$HOME", "*.ts"])
     })
 
+    it("resolves relative and empty PATH entries against the project root, as the child would", async () => {
+      const root = mkdtempSync(path.join(tmpdir(), "pjt-resolve-"))
+      makeTool(path.join(root, "review-relative-bin"), "rel-tool", 'console.log("relative")')
+      makeTool(root, "empty-entry-tool", 'console.log("empty")')
+      const original = process.env["PATH"]
+      try {
+        process.env["PATH"] = `review-relative-bin${path.delimiter}${original ?? ""}`
+        expect(await stdoutOf("rel-tool", root)).toBe("relative")
+        process.env["PATH"] = `${path.delimiter}${original ?? ""}`
+        expect(await stdoutOf("empty-entry-tool", root)).toBe("empty")
+      } finally {
+        process.env["PATH"] = original
+      }
+    })
+
     it("keeps two projects' tools and the process PATH apart", async () => {
       const one = makeProject("which-project", 'console.log("one")')
       const two = makeProject("which-project", 'console.log("two")')

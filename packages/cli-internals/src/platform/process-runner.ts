@@ -34,10 +34,23 @@ const pathKey = (env: NodeJS.ProcessEnv): string =>
   Object.keys(env).find((key) => key.toUpperCase() === "PATH") ?? "PATH"
 
 /**
+ * Windows runs `.cmd`/`.bat` shims through `cmd.exe` (cross-spawn escapes the metacharacters but
+ * cannot stop `%VAR%` expansion, and a line break ends the command), so those arguments are
+ * refused instead of being rewritten. `undefined` means the argument is safe to pass literally.
+ */
+const unsafeShimArgument = (file: string, args: readonly string[]): string | undefined =>
+  process.platform === "win32" && /\.(?:cmd|bat)$/iu.test(file)
+    ? args.find((arg) => /[\0\n\r%]/u.test(arg))
+    : undefined
+
+/**
  * Real spawner: `cross-spawn` without a shell, so `&&`, `;` and pipes are plain arguments. A bare
  * program name resolves against `<cwd>/node_modules/.bin` first, then the caller's PATH; an explicit
  * path runs as given (relative to `cwd`). The child gets a fresh env whose PATH has the local bin
- * directory prepended; `process.env` is never modified.
+ * directory prepended; `process.env` is never modified. Relative and empty PATH entries mean the
+ * same directory they mean to the child (resolved against `cwd`), never the caller's working
+ * directory. On Windows, cross-spawn runs `.cmd`/`.bat` shims through `cmd.exe`: an argument that
+ * cannot be passed literally there fails with an explicit message instead of being altered.
  */
 export const nodeSpawner: ProcessSpawner = (program, args, cwd) =>
   Effect.callback((resume) => {
@@ -45,7 +58,11 @@ export const nodeSpawner: ProcessSpawner = (program, args, cwd) =>
     const env: NodeJS.ProcessEnv = { ...process.env }
     const key = pathKey(env)
     const callerPath = env[key] ?? ""
-    const searched = [localBin, ...callerPath.split(path.delimiter).filter((entry) => entry !== "")]
+    const callerEntries =
+      env[key] === undefined
+        ? []
+        : callerPath.split(path.delimiter).map((e) => path.resolve(cwd, e))
+    const searched = [localBin, ...callerEntries]
     let file: string
     if (isExplicitPath(program)) {
       file = path.isAbsolute(program) ? program : path.resolve(cwd, program)
@@ -61,7 +78,16 @@ export const nodeSpawner: ProcessSpawner = (program, args, cwd) =>
       }
       file = found
     }
-    env[key] = [localBin, callerPath].filter((entry) => entry !== "").join(path.delimiter)
+    const unsafe = unsafeShimArgument(file, args)
+    if (unsafe !== undefined) {
+      resume(
+        Effect.fail(
+          `${file} is a Windows shim run through cmd.exe, which cannot pass ${JSON.stringify(unsafe)} literally (%, line breaks and NUL); run the tool's script directly instead`,
+        ),
+      )
+      return Effect.void
+    }
+    env[key] = env[key] === undefined ? localBin : `${localBin}${path.delimiter}${callerPath}`
     const child = spawn(file, [...args], { cwd, env, shell: false })
     let stdout = ""
     let stderr = ""
