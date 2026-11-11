@@ -250,11 +250,13 @@ Scripts blueprints write into user projects, from each package's `ownedKeys`:
 | `blueprint-react`             | `dev`, `build`, `preview`                |
 | `blueprint-next`              | `dev`, `build`, `start`, `lint`          |
 | `blueprint-vitest`            | `test`, `test:watch` (names are options) |
+| `blueprint-eslint`            | `lint`, `lint:fix`                       |
 | `blueprint-changesets`        | `changeset`, `version-packages`          |
 | `blueprint-husky-lint-staged` | `prepare` (`husky`)                      |
 
 `blueprint-react` and `blueprint-next` both claim `scripts.build` (and the React dependencies),
-so they conflict if combined; pick one framework blueprint. No set of scripts is required of a
+so they conflict if combined; pick one framework blueprint. `blueprint-next` also claims `scripts.lint`, so it
+conflicts with `blueprint-eslint`. No set of scripts is required of a
 blueprint: carry only what it needs.
 
 ## Error catalog

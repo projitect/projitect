@@ -11,6 +11,7 @@ A map of the monorepo. [AGENTS.md](../AGENTS.md) is the index; see also [getting
 | `@projitect/blueprint-gitignore`         | First-party blueprint: composable `.gitignore` sections.                                              |
 | `@projitect/blueprint-tsconfig`          | First-party blueprint: managed `tsconfig.json`.                                                       |
 | `@projitect/blueprint-vitest`            | First-party blueprint: managed Vitest config.                                                         |
+| `@projitect/blueprint-eslint`            | First-party blueprint: managed ESLint flat config, plus an `eslint --fix` post-apply command.         |
 | `@projitect/blueprint-changesets`        | First-party blueprint: managed Changesets config, scripts and devDependency.                          |
 | `@projitect/blueprint-husky-lint-staged` | First-party blueprint: managed husky pre-commit hook, lint-staged config and devDependencies.         |
 | `@projitect/blueprint-markdown`          | First-party blueprint: composable `AGENTS.md` / `README.md` snippets.                                 |

@@ -1,0 +1,48 @@
+{
+  "name": "@projitect/blueprint-eslint",
+  "version": "1.0.1",
+  "description": "ESLint blueprints for projitect — eslint.config() owns eslint.config.mjs plus lint scripts and devDeps; eslint.fix() runs eslint --fix as a post-apply command.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/projitect/projitect.git",
+    "directory": "packages/blueprint-eslint"
+  },
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "!**/*.tsbuildinfo"
+  ],
+  "scripts": {
+    "build": "tsc --build",
+    "build:clean": "tsc --build --clean",
+    "tc": "tsc --build"
+  },
+  "devDependencies": {
+    "@projitect/blueprint": "workspace:*",
+    "@projitect/core": "workspace:*",
+    "@projitect/test-kit": "workspace:*",
+    "effect": "4.0.0-rc.111",
+    "typescript": "5.9.3"
+  },
+  "peerDependencies": {
+    "@projitect/blueprint": "workspace:*",
+    "@projitect/core": "workspace:*",
+    "effect": "4.0.0-rc.111"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "projitect": {
+    "type": "blueprint",
+    "import": "import { eslint } from \"@projitect/blueprint-eslint\"",
+    "call": "eslint.config()"
+  }
+}

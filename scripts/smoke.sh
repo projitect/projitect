@@ -42,6 +42,7 @@ npm install --no-package-lock --silent \
   "file:${PKG}/projitect" \
   "file:${PKG}/blueprint-gitignore" \
   "file:${PKG}/blueprint-vitest" \
+  "file:${PKG}/blueprint-eslint" \
   "file:${PKG}/blueprint-changesets" \
   "file:${PKG}/blueprint-markdown" \
   "file:${PKG}/blueprint-skills" \
@@ -916,6 +917,58 @@ grep -q '"id": "pjt.exec.command-not-permitted"' /tmp/exec-denied.out && pass "-
 [ ! -f marker.txt ] && pass "denied command was never started" || fail "denied command ran"
 cd "$SMOKE"
 rm -rf "$EXECDIR"
+
+echo "=== 9c. eslint blueprint from a packed tarball with real eslint: config loads, check is read-only, fix repairs ==="
+# Needs network (CI has it): eslint 9, typescript-eslint and eslint-config-prettier come from the
+# `prefer-const` is an autofixable error, used to prove fix and check.
+ESLINTREG="$(mktemp -d -t pjt-eslint-reg.XXXXXX)"
+(cd "$ROOT" && pnpm --filter "@projitect/blueprint-eslint" pack --pack-destination "$ESLINTREG" > /dev/null)
+ESLINT_TGZ="$(ls "$ESLINTREG"/projitect-blueprint-eslint-*.tgz)"
+ESLINT_TYPE=module
+  ESLINTDIR="$(mktemp -d -t pjt-eslint.XXXXXX)"
+  cd "$ESLINTDIR"
+  git init -q
+  git config user.email t@t
+  git config user.name t
+  echo "{\"name\":\"smoke-eslint\",\"version\":\"0.0.0\",\"private\":true,\"type\":\"${ESLINT_TYPE}\",\"scripts\":{\"custom\":\"echo hi\"},\"dependencies\":{\"left-pad\":\"1.0.0\"}}" > package.json
+  npm install --no-package-lock --silent --legacy-peer-deps "file:${PKG}/core" "file:${PKG}/blueprint" "file:${PKG}/cli-internals" "file:${PKG}/projitect" "$ESLINT_TGZ" "effect@rc" "tsx" "eslint@^9" "@eslint/js@^9" "typescript-eslint@^8" "eslint-config-prettier@^10" "typescript@5" > /dev/null 2>&1 && pass "[$ESLINT_TYPE] packed eslint blueprint and real eslint installed" || fail "[$ESLINT_TYPE] eslint install failed"
+  cat > .pjt.ts <<'EOT'
+import { pjt } from "@projitect/cli"
+import { eslint } from "@projitect/blueprint-eslint"
+
+export default pjt({
+  blueprints: [
+    eslint.config({ ignores: ["build"], prettier: "config", extends: "eslint.rules.mjs" }),
+    eslint.fix(),
+  ],
+})
+EOT
+  mkdir -p src build
+  printf 'let a = 1\nexport { a }\n' > src/bad.ts
+  printf 'let b = 1\nexport { b }\n' > build/ignored.js
+  PJT="node node_modules/@projitect/cli/bin/pjt.mjs"
+  $PJT remodel > /tmp/eslint-remodel.out 2>&1 && pass "[$ESLINT_TYPE] remodel exits 0" || fail "[$ESLINT_TYPE] remodel failed"
+  [ -f eslint.config.mjs ] && [ ! -f eslint.config.js ] && pass "[$ESLINT_TYPE] eslint.config.mjs written" || fail "[$ESLINT_TYPE] config file missing"
+  [ -f eslint.rules.mjs ] && pass "[$ESLINT_TYPE] extends module seeded" || fail "[$ESLINT_TYPE] extends module missing"
+  grep -q '"lint:fix": "eslint --fix ."' package.json && grep -q '"custom": "echo hi"' package.json && grep -q '"left-pad"' package.json && pass "[$ESLINT_TYPE] scripts merged, other keys survive" || fail "[$ESLINT_TYPE] package.json merge wrong"
+  grep -q 'let a' src/bad.ts && fail "[$ESLINT_TYPE] remodel left src/bad.ts unfixed" || pass "[$ESLINT_TYPE] remodel's eslint --fix repaired src/bad.ts"
+  grep -q 'let b' build/ignored.js && pass "[$ESLINT_TYPE] ignored directory untouched" || fail "[$ESLINT_TYPE] ignores not honoured"
+  $PJT inspect > /dev/null 2>&1 && pass "[$ESLINT_TYPE] inspect clean after remodel" || fail "[$ESLINT_TYPE] inspect not clean"
+  printf 'let c = 1\nexport { c }\n' > src/worse.ts
+  cp src/worse.ts /tmp/worse.before
+  $PJT inspect > /dev/null 2>&1
+  [ $? -ne 0 ] && cmp -s src/worse.ts /tmp/worse.before && pass "[$ESLINT_TYPE] inspect fails on lint errors and leaves files unchanged" || fail "[$ESLINT_TYPE] inspect not read-only or not failing"
+  # `pjt` itself cannot load a .pjt.ts in a "type": "commonjs" project, so the CommonJS proof flips
+  # the project type after the build and runs eslint directly: the generated .mjs config must load.
+  sed -i 's/"type":"module"/"type":"commonjs"/' package.json
+  grep -q '"type":"commonjs"' package.json || sed -i 's/"type": "module"/"type": "commonjs"/' package.json
+  printf 'let d = 1\nexport { d }\n' > src/cjs.ts
+  ./node_modules/.bin/eslint . > /dev/null 2>&1
+  [ $? -eq 1 ] && pass "[commonjs] generated eslint.config.mjs loads and reports lint errors" || fail "[commonjs] eslint did not load or report"
+  ./node_modules/.bin/eslint --fix . > /dev/null 2>&1 && ! grep -q 'let d' src/cjs.ts && pass "[commonjs] eslint --fix repairs the file" || fail "[commonjs] eslint --fix failed"
+  cd "$SMOKE"
+  rm -rf "$ESLINTDIR"
+rm -rf "$ESLINTREG"
 
 echo "=== 10. react blueprint from packed tarballs: add, build, install, vite build, test, dev server, drift, upgrade, remove ==="
 # A published-package journey for a real app. Every package is packed with `pnpm pack` (which
