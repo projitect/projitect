@@ -91,7 +91,7 @@ $BIN inspect > /dev/null 2>&1
 $BIN remodel > /dev/null
 $BIN inspect > /dev/null 2>&1 && pass "clean after remodel re-applies" || fail "still dirty"
 
-echo "=== 4b. a v1 lockfile is read by inspect untouched, then migrated to v2 by remodel ==="
+echo "=== 4b. a v1 lockfile is read by inspect untouched, then migrated to v3 by remodel ==="
 node -e '
 const fs = require("node:fs");
 const lock = JSON.parse(fs.readFileSync(".pjt.lock", "utf8"));
