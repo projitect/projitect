@@ -162,6 +162,25 @@ jobs:
       - run: ./scripts/smoke.sh
 
   # ────────────────────────────────────────────────────────────────
+  # Windows: real `.cmd` shim tests for the post-apply runner (cross-spawn / which / PATHEXT).
+  # ────────────────────────────────────────────────────────────────
+
+  windows-runner:
+    name: windows runner (node ${{ matrix.node }})
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ["22.12.0", "24"]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup
+        with:
+          node-version: ${{ matrix.node }}
+      - run: pnpm build
+      - run: pnpm test packages/cli-internals/test/process-runner.test.ts packages/cli-internals/test/process-runner.windows.test.ts packages/cli-internals/test/post-apply.test.ts packages/cli-internals/test/inspect-exec.test.ts
+
+  # ────────────────────────────────────────────────────────────────
   # `pnpm publish --dry-run` for every workspace library. Catches
   # `files` / `exports` map misconfigurations that would otherwise
   # only surface during a real release.

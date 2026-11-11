@@ -39,6 +39,23 @@ unpreserved files before it fails. A clean git check does not guarantee recovery
 files. Initialise and verify the configuration before a destructive build; keep a separate
 backup for content git does not track.
 
+## How post-apply commands resolve
+
+`remodel`, `build` and `inspect` run granted `exec` commands from the project root. There is no
+shell of ours: `&&`, `;`, `$VAR` and globs reach the program as literal arguments, and spaces,
+quotes, `&` and `$` stay literal. After the exact permission check, a bare program is looked up in
+`<projectRoot>/node_modules/.bin` (project root only, no ancestors), then the caller's `PATH`
+(relative and empty entries resolve from the project root); a program with a path separator runs as
+given, relative paths from the project root. The command's own `PATH` has the local bin directory
+prepended; pjt's environment is never changed. A tool found nowhere fails `pjt.exec.command-failed`
+with `Failed to start \`<command>\`: spawn <tool> ENOENT: \`<tool>\` not found in <searched dirs>`.
+
+On Windows, `PATHEXT` and `.cmd` shims are handled by the `which` and `cross-spawn` libraries.
+`cross-spawn` may route a non-`.exe` target through `cmd.exe`, so a program, argument or resolved
+path containing `%`, a line break or NUL is refused with `pjt.exec.command-failed` rather than
+altered. This is tested on Linux and on `windows-latest` in GitHub Actions (Node 22.12.0 and 24);
+macOS relies on the libraries.
+
 ## Missing `.pjt.ts`
 
 `remodel`, `inspect` and `explain` without an error id load `.pjt.ts` and fail with

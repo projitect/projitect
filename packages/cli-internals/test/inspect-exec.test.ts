@@ -233,3 +233,29 @@ describe("two blueprints sharing one fix with different checks", () => {
     expect(result.commands.map((c) => c.ownerId)).toEqual(["b"])
   })
 })
+
+const makeLocalTool = async (root: string, name: string, body: string): Promise<void> => {
+  const bin = path.join(root, "node_modules", ".bin")
+  await fs.mkdir(bin, { recursive: true })
+  const file = path.join(bin, name)
+  await fs.writeFile(file, `#!/usr/bin/env node\n${body}\n`)
+  await fs.chmod(file, 0o755)
+}
+
+describe.skipIf(process.platform === "win32")("pjt inspect with the real runner", () => {
+  it("runs a check whose tool exists only in the project's node_modules/.bin", async () => {
+    await makeLocalTool(cwd, "ie-local-check", "process.exit(7)")
+    declare([
+      {
+        id: "a",
+        permissions: [exec("ie-local-check --check .")],
+        operations: [execOp("a", "fmt", "ie-local-check --check .")],
+      },
+    ])
+    const result = await Effect.runPromise(inspect({ config: config() }))
+    expect(result.hasDrift).toBe(true)
+    expect(result.commands).toEqual([
+      { ownerId: "a", check: "ie-local-check --check .", exitCode: 7, stdout: "", stderr: "" },
+    ])
+  })
+})

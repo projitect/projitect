@@ -45,6 +45,8 @@ Five kinds of lines:
 | `!`     | A post-apply check failed, or a pre-version-3 lockfile claim cannot be removed safely (`pjt remodel` will stop with `pjt.remove.ambiguous-merge-claim`). The line names the command and its exit status, and the captured output follows, indented. `pjt remodel` runs the blueprint's fix. |
 | (blank) | In sync.                                                                                                                                                                                                                                                                                    |
 
+Checks resolve their program like [post-apply commands](/docs/cli/remodel/#post-apply-commands): the project root's `node_modules/.bin` first, then the system `PATH`, with no shell.
+
 ## Flags
 
 | Flag     | Description                                                                                                                                                                                                          |
