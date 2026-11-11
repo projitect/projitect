@@ -7,4 +7,5 @@ name resolves from `<projectRoot>/node_modules/.bin` first, then the system `PAT
 needs a package-manager wrapper to run `eslint` and the like (it failed with `spawn eslint ENOENT`).
 Explicit paths run as given, operators stay literal (no shell), and `process.env` is never modified.
 A tool found nowhere still fails with `pjt.exec.command-failed`, and the message now lists where it
-looked. Adds the `which` and `cross-spawn` dependencies to `@projitect/cli-internals`.
+looked. On Windows, a program, argument or resolved path containing `%`, a line break or NUL is
+refused with `pjt.exec.command-failed` instead of being altered by `cmd.exe`. Adds the `which` and `cross-spawn` dependencies to `@projitect/cli-internals`.
