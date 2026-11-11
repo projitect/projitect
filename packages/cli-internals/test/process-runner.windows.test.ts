@@ -52,8 +52,15 @@ describe.skipIf(process.platform !== "win32")("nodeSpawner with Windows .cmd shi
     const root = makeProject()
     const odd = path.join(root, "node_modules", ".bin", "odd%tool.cmd")
     writeFileSync(odd, '@node "%~dp0\\..\\..\\argv-tool.js" %*\r\n')
-    const results = await Promise.all(["odd%tool", odd].map((p) => run(p, [], root)))
+    // Not `.cmd`/`.bat`, yet cross-spawn would route these through cmd.exe too.
+    const plain = path.join(root, "odd%script.js")
+    writeFileSync(plain, 'require("node:fs").writeFileSync("started.txt", "1")\n')
+    const noExt = path.join(root, "odd%noext")
+    writeFileSync(noExt, "#!/usr/bin/env node\n")
+    const results = await Promise.all(["odd%tool", odd, plain, noExt].map((p) => run(p, [], root)))
     expect(results.map((r) => r.failed.includes("cannot be passed literally"))).toEqual([
+      true,
+      true,
       true,
       true,
     ])
