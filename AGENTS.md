@@ -31,6 +31,7 @@ This is a **pnpm monorepo**. `packages/*` and `apps/*` are the workspaces:
 | `@projitect/blueprint-tsconfig`          | First-party blueprint: managed `tsconfig.json`.                                                       |
 | `@projitect/blueprint-vitest`            | First-party blueprint: managed Vitest config.                                                         |
 | `@projitect/blueprint-changesets`        | First-party blueprint: managed Changesets config, scripts and devDependency.                          |
+| `@projitect/blueprint-prettier`          | First-party blueprint: managed Prettier config and a post-apply format-and-check command.             |
 | `@projitect/blueprint-husky-lint-staged` | First-party blueprint: managed husky pre-commit hook, lint-staged config and devDependencies.         |
 | `@projitect/blueprint-markdown`          | First-party blueprint: composable `AGENTS.md` / `README.md` snippets.                                 |
 | `@projitect/blueprint-skills`            | First-party blueprint: versioned agent skills installed into a skills directory.                      |

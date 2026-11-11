@@ -23,6 +23,7 @@
     "@projitect/blueprint-husky-lint-staged": "workspace:*",
     "@projitect/blueprint-markdown": "workspace:*",
     "@projitect/blueprint-next": "workspace:*",
+    "@projitect/blueprint-prettier": "workspace:*",
     "@projitect/blueprint-react": "workspace:*",
     "@projitect/blueprint-skills": "workspace:*",
     "@projitect/blueprint-tsconfig": "workspace:*",

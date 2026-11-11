@@ -129,6 +129,9 @@ importers:
       '@projitect/blueprint-next':
         specifier: workspace:*
         version: link:../../packages/blueprint-next
+      '@projitect/blueprint-prettier':
+        specifier: workspace:*
+        version: link:../../packages/blueprint-prettier
       '@projitect/blueprint-react':
         specifier: workspace:*
         version: link:../../packages/blueprint-react
@@ -262,6 +265,24 @@ importers:
       '@projitect/blueprint-vitest':
         specifier: workspace:*
         version: link:../blueprint-vitest
+      '@projitect/core':
+        specifier: workspace:*
+        version: link:../core
+      '@projitect/test-kit':
+        specifier: workspace:*
+        version: link:../test-kit
+      effect:
+        specifier: 4.0.0-rc.111
+        version: 4.0.0-rc.111
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+
+  packages/blueprint-prettier:
+    devDependencies:
+      '@projitect/blueprint':
+        specifier: workspace:*
+        version: link:../blueprint
       '@projitect/core':
         specifier: workspace:*
         version: link:../core

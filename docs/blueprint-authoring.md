@@ -251,6 +251,7 @@ Scripts blueprints write into user projects, from each package's `ownedKeys`:
 | `blueprint-next`              | `dev`, `build`, `start`, `lint`          |
 | `blueprint-vitest`            | `test`, `test:watch` (names are options) |
 | `blueprint-changesets`        | `changeset`, `version-packages`          |
+| `blueprint-prettier`          | `format`                                 |
 | `blueprint-husky-lint-staged` | `prepare` (`husky`)                      |
 
 `blueprint-react` and `blueprint-next` both claim `scripts.build` (and the React dependencies),

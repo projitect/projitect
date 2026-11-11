@@ -1,0 +1,55 @@
+---
+title: prettier-setup
+description: Keep a project formatted — Prettier config, script and devDep, plus formatting after every build and remodel.
+sidebar:
+  label: prettier-setup
+  order: 6
+---
+
+import code from "../../../../examples/prettier-setup/example.ts?raw"
+import { Code } from "@astrojs/starlight/components"
+
+The `prettier` namespace holds two blueprints:
+
+- `prettier.config()` owns `.prettierrc.json` (owned mode — projitect rewrites it on every
+  `pjt remodel`, so adjust it through options, not by hand), and merges the `format` script and the
+  `prettier` devDependency into `package.json` (merge mode).
+- `prettier.fix()` is a post-apply command. `pjt build` and `pjt remodel` run `prettier --write`
+  after every file is written. `pjt inspect` runs `prettier --check` instead, never writes, and
+  reports a failing check as drift with a nonzero exit.
+
+<Code code={code} lang="ts" title=".pjt.ts" />
+
+Run:
+
+```bash
+pnpm pjt remodel    # writes .prettierrc.json, merges package.json, then formats
+pnpm install        # installs prettier
+pnpm pjt inspect    # exits nonzero while any file is unformatted
+```
+
+## Options
+
+```ts
+prettier.config({
+  semi: false,
+  singleQuote: true,
+  printWidth: 100,
+  tabWidth: 2,
+  trailingComma: "all" | "es5" | "none",
+  proseWrap: "always" | "never" | "preserve",
+})
+```
+
+Only the options you give are written to `.prettierrc.json`.
+
+```ts
+prettier.fix({ packageManager: "pnpm" | "npm" | "yarn" | "bun" }) // default: "npm"
+```
+
+Commands run without a shell, so `prettier` is found through the package manager: `pnpm exec`,
+`npx --no-install`, `yarn` or `bunx --no-install`. The blueprint declares an exec permission for
+exactly the two command lines it runs. The default `npx --no-install` works in any Node project
+that has `prettier` installed locally.
+
+`.prettierignore` is left to you; the `gitignore` blueprint does not manage it either.
