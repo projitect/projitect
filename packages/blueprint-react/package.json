@@ -1,6 +1,6 @@
 {
   "name": "@projitect/blueprint-react",
-  "version": "1.0.1",
+  "version": "2.0.0",
   "description": "React + Vite + TypeScript app blueprint for projitect — composes tsconfig, gitignore and vitest, owns vite.config.ts and the package.json scaffolding, seeds the starter source.",
   "repository": {
     "type": "git",

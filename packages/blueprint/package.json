@@ -1,6 +1,6 @@
 {
   "name": "@projitect/blueprint",
-  "version": "1.0.1",
+  "version": "2.0.0",
   "description": "Authoring SDK for projitect blueprints — BlueprintFileSystem service, region/merge/owned/seed constructors, directory scope, detectors.",
   "repository": {
     "type": "git",
