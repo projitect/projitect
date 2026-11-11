@@ -5,7 +5,7 @@
       "entry": [".claude/skills/kanban/scripts/*.ts", "scripts/local-registry.mjs"]
     },
     "packages/cli-internals": {
-      "entry": ["test/fixtures/*.pjt.ts"]
+      "entry": ["src/worker/child-entry.ts", "test/fixtures/*.pjt.ts"]
     }
   }
 }

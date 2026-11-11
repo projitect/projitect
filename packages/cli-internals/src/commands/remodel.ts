@@ -1,12 +1,11 @@
 import { Effect } from "effect"
 import { StructX } from "@nunofyobiz/effect-extras"
 import type { Errors, PjtLock, ProjitectConfig } from "@projitect/core"
-import { loadBlueprintFile, isEffectTree } from "../loader.js"
-import type { BlueprintTree } from "../loader.js"
-import { buildPlan, diffLockfile } from "../plan.js"
+import { planBlueprintFile } from "../worker/host.js"
+import { buildPlanFromPlanned, diffLockfile } from "../plan.js"
 import { applyPlan } from "../applier.js"
 import { applyRemovals } from "../remover.js"
-import { makeProjectRootLayer, makeRealLayer } from "../filesystem-impl.js"
+import { makeProjectRootLayer } from "../filesystem-impl.js"
 import { readLockfile, writeLockfile } from "../lockfile.js"
 import { runPostApply } from "../post-apply.js"
 import type { ProcessSpawner } from "../platform/process-runner.js"
@@ -31,27 +30,11 @@ export const remodel = (params: {
   readonly spawner?: ProcessSpawner
 }): Effect.Effect<RemodelResult, Errors.ProjitectError> =>
   Effect.gen(function* () {
-    const file = yield* loadBlueprintFile({
+    const planned = yield* planBlueprintFile({
       blueprintFile: params.config.blueprintFile,
       projectRoot: params.config.projectRoot,
     })
-    const tree: BlueprintTree = isEffectTree(file.blueprints)
-      ? yield* file.blueprints.pipe(
-          Effect.provide(
-            makeRealLayer({
-              blueprintId: "pjt:config-loader",
-              permissions: [{ kind: "read", glob: "**" }],
-              projectRoot: params.config.projectRoot,
-            }),
-          ),
-        )
-      : file.blueprints
-
-    const { plan, byBlueprint } = yield* buildPlan({
-      tree,
-      projectRoot: params.config.projectRoot,
-      layerFor: makeRealLayer,
-    })
+    const { plan, byBlueprint } = yield* buildPlanFromPlanned({ planned })
     return yield* Effect.gen(function* () {
       const previous = yield* readLockfile
       const { removals } = diffLockfile({ previous, current: byBlueprint })
