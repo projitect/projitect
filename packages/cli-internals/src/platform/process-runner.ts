@@ -34,26 +34,37 @@ const pathKey = (env: NodeJS.ProcessEnv): string =>
   Object.keys(env).find((key) => key.toUpperCase() === "PATH") ?? "PATH"
 
 /**
- * Windows runs `.cmd`/`.bat` shims through `cmd.exe` (cross-spawn escapes the metacharacters but
- * cannot stop `%VAR%` expansion, and a line break ends the command), so those arguments are
- * refused instead of being rewritten. `undefined` means the argument is safe to pass literally.
+ * On Windows, cross-spawn decides privately whether a target goes through `cmd.exe` (`.cmd`/`.bat`
+ * shims, but also shebang scripts and anything else that is not a `.exe`/`.com`). It escapes the
+ * shell metacharacters, yet cannot stop `%VAR%` expansion and a line break ends the command. So on
+ * Windows every runner input (program, arguments and the resolved file) containing `%`, CR, LF or
+ * NUL is refused with a message instead of being rewritten, whatever the file extension. Returns the
+ * first offending value, or `undefined` when all are safe to pass literally.
  */
-const unsafeShimArgument = (file: string, args: readonly string[]): string | undefined =>
-  process.platform === "win32" && /\.(?:cmd|bat)$/iu.test(file)
-    ? args.find((arg) => /[\0\n\r%]/u.test(arg))
-    : undefined
+export const unsafeWindowsInput = (values: readonly string[]): string | undefined =>
+  values.find((value) => /[\0\n\r%]/u.test(value))
+
+const unsafeInputFailure = (value: string): string =>
+  `${JSON.stringify(value)} cannot be passed literally on Windows (cross-spawn may run it through cmd.exe, which expands % and ends a command at a line break); remove %, line breaks and NUL from the command`
 
 /**
- * Real spawner: `cross-spawn` without a shell, so `&&`, `;` and pipes are plain arguments. A bare
- * program name resolves against `<cwd>/node_modules/.bin` first, then the caller's PATH; an explicit
- * path runs as given (relative to `cwd`). The child gets a fresh env whose PATH has the local bin
- * directory prepended; `process.env` is never modified. Relative and empty PATH entries mean the
- * same directory they mean to the child (resolved against `cwd`), never the caller's working
- * directory. On Windows, cross-spawn runs `.cmd`/`.bat` shims through `cmd.exe`: an argument that
- * cannot be passed literally there fails with an explicit message instead of being altered.
+ * Real spawner: `cross-spawn` with `shell: false`, so `&&`, `;` and pipes are plain arguments and
+ * pjt never builds a shell command line. A bare program name resolves against
+ * `<cwd>/node_modules/.bin` first, then the caller's PATH; an explicit path runs as given (relative
+ * to `cwd`). The child gets a fresh env whose PATH has the local bin directory prepended;
+ * `process.env` is never modified. Relative and empty PATH entries mean the same directory they mean
+ * to the child (resolved against `cwd`), never the caller's working directory. On Windows
+ * cross-spawn itself may route a target through `cmd.exe`, so `unsafeWindowsInput` refuses what that
+ * cannot carry literally, before any lookup or spawn.
  */
 export const nodeSpawner: ProcessSpawner = (program, args, cwd) =>
   Effect.callback((resume) => {
+    const windowsUnsafe =
+      process.platform === "win32" ? unsafeWindowsInput([program, ...args]) : undefined
+    if (windowsUnsafe !== undefined) {
+      resume(Effect.fail(unsafeInputFailure(windowsUnsafe)))
+      return Effect.void
+    }
     const localBin = localBinDirectory(cwd)
     const env: NodeJS.ProcessEnv = { ...process.env }
     const key = pathKey(env)
@@ -78,13 +89,9 @@ export const nodeSpawner: ProcessSpawner = (program, args, cwd) =>
       }
       file = found
     }
-    const unsafe = unsafeShimArgument(file, args)
-    if (unsafe !== undefined) {
-      resume(
-        Effect.fail(
-          `${file} is a Windows shim run through cmd.exe, which cannot pass ${JSON.stringify(unsafe)} literally (%, line breaks and NUL); run the tool's script directly instead`,
-        ),
-      )
+    const unsafeFile = process.platform === "win32" ? unsafeWindowsInput([file]) : undefined
+    if (unsafeFile !== undefined) {
+      resume(Effect.fail(unsafeInputFailure(unsafeFile)))
       return Effect.void
     }
     env[key] = env[key] === undefined ? localBin : `${localBin}${path.delimiter}${callerPath}`

@@ -13,7 +13,12 @@ import { describe, expect, it } from "vitest"
 import { Errors } from "@projitect/core"
 import type { Permission } from "@projitect/core"
 import { isPermitted } from "../src/permissions.js"
-import { nodeSpawner, parseArgv, runCommand } from "../src/platform/process-runner.js"
+import {
+  nodeSpawner,
+  parseArgv,
+  runCommand,
+  unsafeWindowsInput,
+} from "../src/platform/process-runner.js"
 import type { ProcessSpawner } from "../src/platform/process-runner.js"
 
 const exec = (command: string): readonly Permission.Permission[] => [{ kind: "exec", command }]
@@ -319,3 +324,15 @@ describe.skipIf(process.platform === "win32")(
     })
   },
 )
+
+describe("unsafeWindowsInput", () => {
+  it("flags percent, CR, LF and NUL in any value and passes spaces, quotes and metacharacters", () => {
+    expect(unsafeWindowsInput(["tool", "a b", 'say "hi"', "x&y", "p|q", "(z)", "c^d", "<>"])).toBe(
+      undefined,
+    )
+    for (const bad of ["%PATH%", "a\nb", "a\rb", "a\0b"]) {
+      expect(unsafeWindowsInput(["tool", "ok", bad])).toBe(bad)
+    }
+    expect(unsafeWindowsInput(["pct%tool"])).toBe("pct%tool")
+  })
+})

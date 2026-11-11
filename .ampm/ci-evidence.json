@@ -14,6 +14,8 @@
     { "name": "check-examples", "app": "github-actions" },
     { "name": "smoke (node 22)", "app": "github-actions" },
     { "name": "smoke (node 24)", "app": "github-actions" },
+    { "name": "windows runner (node 22)", "app": "github-actions" },
+    { "name": "windows runner (node 24)", "app": "github-actions" },
     { "name": "publish-dry-run", "app": "github-actions" }
   ]
 }
