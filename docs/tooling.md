@@ -67,8 +67,7 @@ legitimately, blueprint packages are already banned from it by the sandbox rule,
 
 Windows behavior is proved by the `windows runner` CI job: `windows-latest` on Node 22.12.0 and 24,
 which builds the workspace and runs the process-runner (including real `.cmd` shims), post-apply and
-inspect-exec tests. It needs no secret or owner toggle. macOS is not exercised and relies on the
-libraries.
+inspect-exec tests. It needs no secret or owner toggle. macOS was verified locally with the full check-all and packed-consumer smoke; CI covers Linux and the focused Windows cases.
 
 ## Effect language service
 
@@ -113,30 +112,27 @@ When a commit is blocked: read the lint-staged output, fix the surfaced errors, 
 
 ## CI (GitHub Actions)
 
-[`.github/workflows/ci.yml`](../.github/workflows/ci.yml) defines one job per check. All twelve jobs
-run in parallel on every PR and every push to `main`. Concurrency group cancels in-progress
+[`.github/workflows/ci.yml`](../.github/workflows/ci.yml) defines thirteen jobs. Four use a Node 22 + 24 matrix, giving seventeen job runs on every PR and every push to `main`. Independent jobs run in parallel; jobs that consume built packages wait for `build-packages`. Concurrency group cancels in-progress
 runs on new pushes to the same ref. Default Node version is sourced from `.nvmrc` (22.12);
 behavioral jobs run a 22 + 24 matrix.
 
-| Job               | Matrix       | What it runs                                                                          |
-| ----------------- | ------------ | ------------------------------------------------------------------------------------- |
-| `typecheck`       | node 22 / 24 | `pnpm tc` (`src` and `test` projects)                                                 |
-| `lint`            | (.nvmrc)     | `pnpm lint` (code style + Prettier formatting via `eslint-plugin-prettier`)           |
-| `test`            | node 22 / 24 | `pnpm test` (Vitest unit suites; `needs: build-packages`)                             |
-| `knip`            | (.nvmrc)     | `pnpm knip`                                                                           |
-| `guidance`        | (.nvmrc)     | `pnpm check:guidance` (AGENTS.md size, symlink, links, docs index, skill frontmatter) |
-| `changesets`      | (.nvmrc)     | `pnpm check:changesets` (pending changesets name only packages in the workspace)      |
-| `build-packages`  | (.nvmrc)     | `pnpm build` — uploads `packages/*/dist/` as a build artifact                         |
-| `build-website`   | (.nvmrc)     | downloads the build artifact, then `pnpm --filter website build`                      |
-| `check-errors`    | (.nvmrc)     | downloads the build artifact, then `pnpm --filter website check:errors`               |
-| `check-examples`  | (.nvmrc)     | downloads the build artifact, then `pnpm --filter website check:examples`             |
-| `smoke`           | node 22 / 24 | downloads the build artifact, then `./scripts/smoke.sh`                               |
-| `publish-dry-run` | (.nvmrc)     | `pnpm -r --filter './packages/*' publish --dry-run --no-git-checks --access public`   |
+| Job               | Matrix            | What it runs                                                                          |
+| ----------------- | ----------------- | ------------------------------------------------------------------------------------- |
+| `typecheck`       | node 22 / 24      | `pnpm tc` (`src` and `test` projects)                                                 |
+| `lint`            | (.nvmrc)          | `pnpm lint` (code style + Prettier formatting via `eslint-plugin-prettier`)           |
+| `test`            | node 22 / 24      | `pnpm test` (Vitest unit suites; `needs: build-packages`)                             |
+| `knip`            | (.nvmrc)          | `pnpm knip`                                                                           |
+| `guidance`        | (.nvmrc)          | `pnpm check:guidance` (AGENTS.md size, symlink, links, docs index, skill frontmatter) |
+| `changesets`      | (.nvmrc)          | `pnpm check:changesets` (pending changesets name only packages in the workspace)      |
+| `build-packages`  | (.nvmrc)          | `pnpm build` — uploads `packages/*/dist/` as a build artifact                         |
+| `build-website`   | (.nvmrc)          | downloads the build artifact, then `pnpm --filter website build`                      |
+| `check-errors`    | (.nvmrc)          | downloads the build artifact, then `pnpm --filter website check:errors`               |
+| `check-examples`  | (.nvmrc)          | downloads the build artifact, then `pnpm --filter website check:examples`             |
+| `smoke`           | node 22 / 24      | downloads the build artifact, then `./scripts/smoke.sh`                               |
+| `windows-runner`  | node 22.12.0 / 24 | `pnpm build` and focused process-runner tests, including real Windows `.cmd` shims    |
+| `publish-dry-run` | (.nvmrc)          | `pnpm -r --filter './packages/*' publish --dry-run --no-git-checks --access public`   |
 
-Only `typecheck`, `test`, and `smoke` get the 22 + 24 matrix. Those three are the ones whose
-outcome can genuinely depend on Node version (TS strip-types behavior, Node API additions /
-removals between majors, smoke-script `node` invocations). `lint` / `knip` / `build-packages`
-have no Node-version-dependent behavior worth matrixing — they run on the .nvmrc default.
+`typecheck`, `test`, and `smoke` use the 22 + 24 matrix for Node-version-dependent behavior (TypeScript strip-types, Node APIs and consumer commands). `windows-runner` uses the same matrix on Windows to exercise real project-local `.cmd` shims and the runner’s literal-argument refusal policy. The root build script quotes its package filter with double quotes so it selects packages under both POSIX shells and Windows command processing. `lint`, `knip` and `build-packages` run on the .nvmrc default.
 
 The setup action at `.github/actions/setup/action.yml` accepts an optional `node-version`
 input; matrixed jobs pass `${{ matrix.node }}`, others omit it and fall through to .nvmrc.
@@ -152,7 +148,7 @@ changesets (pushes to `main` after a release, the generated version PR that cons
 nothing to validate and it passes. Plain `changeset status` is not used because it also fails when
 packages changed without a changeset.
 
-Total wall-clock ≈ 60-90s (bounded by `smoke`). If a check passes locally but fails in CI,
+The full packed-consumer smoke and platform jobs bound the workflow duration. If a check passes locally but fails in CI,
 prefer "fix the workflow's pnpm-store cache" or "fix the underlying determinism" — never `if:`
 the check off.
 
