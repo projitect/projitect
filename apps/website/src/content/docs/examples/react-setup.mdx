@@ -7,6 +7,7 @@ sidebar:
 ---
 
 import code from "../../../../examples/react-setup/example.ts?raw"
+import javascript from "../../../../examples/react-setup/javascript.ts?raw"
 import { Code } from "@astrojs/starlight/components"
 
 `react()` creates a usable React app. It splits the project into scaffolding that projitect
@@ -23,6 +24,37 @@ pnpm dev            # serves the app with Vite
 pnpm build          # tsc --noEmit && vite build
 pnpm test           # vitest run — renders the starter component under jsdom
 ```
+
+## Options
+
+`react()` takes an optional options object.
+
+```ts
+react({ template: "react", name: "my-app" })
+```
+
+- `template` is `"react-ts"` (the default) or `"react"`. `react()` is the same as
+  `react({ template: "react-ts" })`.
+- `name` sets the `name` key in `package.json`. When omitted, that key is left alone.
+
+The `"react"` template scaffolds a JavaScript app: `.jsx` starter files, an owned
+`vite.config.js`, no `tsconfig.json`, no `typescript` or `@types/*` devDependencies, and a `build`
+script of `vite build`. It keeps `vitest.config.ts` with `jsdom`, Testing Library and the seeded
+`App` test. Switching template later leaves the old template's owned config file to the next
+`pjt remodel`, which removes it.
+
+`name` only names the package; `react()` still returns a plain blueprint and moves no paths. To
+put the app in a folder, wrap it in `directory`, which rebases every generated path under that
+folder:
+
+<Code code={javascript} lang="ts" title=".pjt.ts — JavaScript app in my-app/" />
+
+Run `pjt remodel` from the project root, then run `pnpm install`, `pnpm build` and `pnpm test`
+inside `my-app/`.
+
+A scoped name such as `@acme/app` is a valid package name but not a valid folder name, so pick a
+separate directory name then. An unknown template or an invalid package name fails with
+[`pjt.react.invalid-options`](/errors/pjt.react.invalid-options/).
 
 ## What you get
 
@@ -61,6 +93,7 @@ Remove `react()` from `.pjt.ts` and run `pjt remodel`: the owned config files, t
 
 ## Composing with other blueprints
 
-`react()` already includes `tsconfig()`, `vitest()` and `gitignores.node()`. Listing any of them
-again gives the plan two owners for the same file or region, which fails with a conflict error. Other gitignore
-sections, such as `gitignores.macOs()`, stack alongside it.
+Both templates already include `vitest()` and `gitignores.node()`; the default TypeScript template
+also includes `tsconfig()`. Listing an included blueprint again gives the plan two owners for the
+same file or region, which fails with a conflict error. Other gitignore sections, such as
+`gitignores.macOs()`, stack alongside either template.
