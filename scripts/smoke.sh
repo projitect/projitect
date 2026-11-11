@@ -43,6 +43,7 @@ npm install --no-package-lock --silent \
   "file:${PKG}/blueprint-gitignore" \
   "file:${PKG}/blueprint-vitest" \
   "file:${PKG}/blueprint-changesets" \
+  "file:${PKG}/blueprint-prettier" \
   "file:${PKG}/blueprint-markdown" \
   "file:${PKG}/blueprint-skills" \
   "file:${PKG}/blueprint-husky-lint-staged" \
@@ -916,6 +917,60 @@ grep -q '"id": "pjt.exec.command-not-permitted"' /tmp/exec-denied.out && pass "-
 [ ! -f marker.txt ] && pass "denied command was never started" || fail "denied command ran"
 cd "$SMOKE"
 rm -rf "$EXECDIR"
+
+echo "=== 9c. prettier blueprint: build and remodel format, inspect checks without writing ==="
+# One project per package manager runner: npm-style (the default `npx --no-install`) and pnpm
+# (`packageManager: "pnpm"`, skipped with a note when pnpm is not on PATH). The project-local prettier
+# is linked from the repo's own dependency into the project's node_modules, so no network is needed.
+for PM in npm pnpm; do
+  if [ "$PM" = "pnpm" ] && ! command -v pnpm > /dev/null 2>&1; then
+    echo "  (pnpm is not on PATH; skipping the pnpm prettier project)"
+    continue
+  fi
+  PRETDIR="$(mktemp -d -t pjt-prettier.XXXXXX)"
+  cp -RP "${SMOKE}/node_modules" "${PRETDIR}/"
+  cd "$PRETDIR"
+  git init -q
+  git config user.email t@t
+  git config user.name t
+  echo '{"name":"smoke-prettier","version":"0.0.0","private":true,"type":"module"}' > package.json
+  ln -s "$ROOT/node_modules/prettier" node_modules/prettier
+  ln -s ../prettier/bin/prettier.cjs node_modules/.bin/prettier
+  if [ "$PM" = "pnpm" ]; then FIXARG='{ packageManager: "pnpm" }'; else FIXARG=''; fi
+  cat > .pjt.ts <<EOT
+import { seedFile } from "@projitect/blueprint"
+import { prettier } from "@projitect/blueprint-prettier"
+import { pjt } from "@projitect/cli"
+
+export default pjt({
+  blueprints: [
+    seedFile({ id: "smoke:messy", version: "1.0.0", path: "messy.js", content: "const   a  =  1;\\n" }),
+    prettier.config({ semi: false }),
+    prettier.fix($FIXARG),
+  ],
+})
+EOT
+  printf 'const   a  =  1;\n' > messy.js
+  PJT="node node_modules/@projitect/cli/bin/pjt.mjs"
+  $PJT inspect > /tmp/prettier-inspect.out 2>&1
+  [ $? -ne 0 ] && grep -q "prettier --check" /tmp/prettier-inspect.out && pass "$PM: inspect exits nonzero and names the failing prettier check" || fail "$PM: inspect did not report the unformatted files"
+  grep -q 'const   a' messy.js && pass "$PM: inspect never wrote" || fail "$PM: inspect modified messy.js"
+  # `build` wipes unmanaged files, so messy.js is a seed file: written unformatted, then formatted by the fix.
+  $PJT build --force --force-dirty --yes > /tmp/prettier-build.out 2>&1
+  [ $? -eq 0 ] && pass "$PM: build exits 0" || fail "$PM: build failed"
+  grep -q 'const a = 1$' messy.js && pass "$PM: build formatted messy.js" || fail "$PM: messy.js not formatted by build"
+  grep -q '"semi": false' .prettierrc.json && pass "$PM: .prettierrc.json carries the options" || fail "$PM: .prettierrc.json missing options"
+  grep -q '"format": "prettier --write ."' package.json && pass "$PM: format script merged" || fail "$PM: format script missing"
+  $PJT inspect > /dev/null 2>&1 && pass "$PM: inspect exits 0 once formatted" || fail "$PM: inspect still failing after build"
+  printf 'const   b  =  2;\n' > messy.js
+  $PJT inspect > /dev/null 2>&1
+  [ $? -ne 0 ] && pass "$PM: inspect flags a newly unformatted file" || fail "$PM: inspect missed an unformatted file"
+  $PJT remodel > /dev/null 2>&1
+  grep -q 'const b = 2$' messy.js && pass "$PM: remodel formatted messy.js" || fail "$PM: messy.js not formatted by remodel"
+  $PJT inspect > /dev/null 2>&1 && pass "$PM: inspect exits 0 after remodel" || fail "$PM: inspect still failing after remodel"
+  cd "$SMOKE"
+  rm -rf "$PRETDIR"
+done
 
 echo "=== 10. react blueprint from packed tarballs: add, build, install, vite build, test, dev server, drift, upgrade, remove ==="
 # A published-package journey for a real app. Every package is packed with `pnpm pack` (which
