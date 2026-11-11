@@ -1,4 +1,6 @@
-import { spawn } from "node:child_process"
+import path from "node:path"
+import spawn from "cross-spawn"
+import which from "which"
 import { Effect, Option } from "effect"
 import { Errors } from "@projitect/core"
 import type { Permission } from "@projitect/core"
@@ -20,16 +22,86 @@ export type ProcessSpawner = (
   cwd: string,
 ) => Effect.Effect<CommandOutput & { readonly exitCode: number }, string>
 
-/** Real spawner: `node:child_process` without a shell, so `&&`, `;` and pipes are plain arguments. */
+/** Where a project's own tools live: only the project root's bin directory, never an ancestor's. */
+const localBinDirectory = (cwd: string): string => path.join(cwd, "node_modules", ".bin")
+
+/** True when the program names a location (relative or absolute) instead of a bare tool name. */
+const isExplicitPath = (program: string): boolean =>
+  program.includes("/") || (path.sep === "\\" && program.includes("\\"))
+
+/** The env key holding PATH: Windows keys are case-insensitive, so reuse the existing spelling. */
+const pathKey = (env: NodeJS.ProcessEnv): string =>
+  Object.keys(env).find((key) => key.toUpperCase() === "PATH") ?? "PATH"
+
+/**
+ * On Windows, cross-spawn decides privately whether a target goes through `cmd.exe` (`.cmd`/`.bat`
+ * shims, but also shebang scripts and anything else that is not a `.exe`/`.com`). It escapes the
+ * shell metacharacters, yet cannot stop `%VAR%` expansion and a line break ends the command. So on
+ * Windows every runner input (program, arguments and the resolved file) containing `%`, CR, LF or
+ * NUL is refused with a message instead of being rewritten, whatever the file extension. Returns the
+ * first offending value, or `undefined` when all are safe to pass literally.
+ */
+export const unsafeWindowsInput = (values: readonly string[]): string | undefined =>
+  values.find((value) => /[\0\n\r%]/u.test(value))
+
+const unsafeInputFailure = (value: string): string =>
+  `${JSON.stringify(value)} cannot be passed literally on Windows (cross-spawn may run it through cmd.exe, which expands % and ends a command at a line break); remove %, line breaks and NUL from the command`
+
+/**
+ * Real spawner: `cross-spawn` with `shell: false`, so `&&`, `;` and pipes are plain arguments and
+ * pjt never builds a shell command line. A bare program name resolves against
+ * `<cwd>/node_modules/.bin` first, then the caller's PATH; an explicit path runs as given (relative
+ * to `cwd`). The child gets a fresh env whose PATH has the local bin directory prepended;
+ * `process.env` is never modified. Relative and empty PATH entries mean the same directory they mean
+ * to the child (resolved against `cwd`), never the caller's working directory. On Windows
+ * cross-spawn itself may route a target through `cmd.exe`, so `unsafeWindowsInput` refuses what that
+ * cannot carry literally, before any lookup or spawn.
+ */
 export const nodeSpawner: ProcessSpawner = (program, args, cwd) =>
   Effect.callback((resume) => {
-    const child = spawn(program, args, { cwd, shell: false })
+    const windowsUnsafe =
+      process.platform === "win32" ? unsafeWindowsInput([program, ...args]) : undefined
+    if (windowsUnsafe !== undefined) {
+      resume(Effect.fail(unsafeInputFailure(windowsUnsafe)))
+      return Effect.void
+    }
+    const localBin = localBinDirectory(cwd)
+    const env: NodeJS.ProcessEnv = { ...process.env }
+    const key = pathKey(env)
+    const callerPath = env[key] ?? ""
+    const callerEntries =
+      env[key] === undefined
+        ? []
+        : callerPath.split(path.delimiter).map((e) => path.resolve(cwd, e))
+    const searched = [localBin, ...callerEntries]
+    let file: string
+    if (isExplicitPath(program)) {
+      file = path.isAbsolute(program) ? program : path.resolve(cwd, program)
+    } else {
+      const found = which.sync(program, { path: searched.join(path.delimiter), nothrow: true })
+      if (found === null) {
+        resume(
+          Effect.fail(
+            `spawn ${program} ENOENT: \`${program}\` not found in ${searched.join(", ")}`,
+          ),
+        )
+        return Effect.void
+      }
+      file = found
+    }
+    const unsafeFile = process.platform === "win32" ? unsafeWindowsInput([file]) : undefined
+    if (unsafeFile !== undefined) {
+      resume(Effect.fail(unsafeInputFailure(unsafeFile)))
+      return Effect.void
+    }
+    env[key] = env[key] === undefined ? localBin : `${localBin}${path.delimiter}${callerPath}`
+    const child = spawn(file, [...args], { cwd, env, shell: false })
     let stdout = ""
     let stderr = ""
-    child.stdout.on("data", (chunk: Buffer) => {
+    child.stdout?.on("data", (chunk: Buffer) => {
       stdout = stdout + chunk.toString("utf8")
     })
-    child.stderr.on("data", (chunk: Buffer) => {
+    child.stderr?.on("data", (chunk: Buffer) => {
       stderr = stderr + chunk.toString("utf8")
     })
     child.on("error", (error) => {

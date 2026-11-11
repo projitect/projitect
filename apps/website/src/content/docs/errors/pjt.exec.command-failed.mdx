@@ -10,4 +10,4 @@ sidebar:
 
 **Why**: The command itself failed. projitect does not interpret the failure; it reports exactly what the process printed so you can see why.
 
-**How to fix**: Read the captured stderr and stdout. Run the same command by hand in the project root to reproduce it. If the program was not found, install it or fix the command declared by the blueprint.
+**How to fix**: Read the captured stderr and stdout. When the program was not found, the message names it and lists the directories searched: the project root's `node_modules/.bin`, then each `PATH` entry. Run the same command by hand in the project root to reproduce it. If the program was not found, install it or fix the command declared by the blueprint.

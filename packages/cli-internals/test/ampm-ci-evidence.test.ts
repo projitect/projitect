@@ -39,7 +39,7 @@ const fromWorkflow = (): string[] => {
 
 describe(".ampm/ci-evidence.json", () => {
   it("names exactly the check runs ci.yml produces", () => {
-    expect(fromWorkflow()).toHaveLength(15)
+    expect(fromWorkflow()).toHaveLength(17)
     expect(configured()).toEqual(fromWorkflow())
   })
 })

@@ -1200,6 +1200,80 @@ grep -q '"next"' package.json && fail "managed dependency survived removal" || p
 cd "$SMOKE"
 rm -rf "$NEXTDIR"
 
+# 12. Project-local post-apply tools: the tool exists only in the consumer's node_modules/.bin and
+# the CLI is run directly (no package-manager wrapper), so it must resolve the tool itself.
+# A minimal local tool stands in for ESLint: it exits 3 and prints diagnostics while dirty.flag exists.
+echo "=== 12. Project-local post-apply tools ==="
+LOCALDIR="$(mktemp -d -t pjt-local.XXXXXX)"
+cd "$LOCALDIR"
+git init -q
+git config user.email t@t
+git config user.name t
+echo "{\"name\":\"smoke-local\",\"version\":\"0.0.0\",\"private\":true,\"type\":\"module\",\"packageManager\":\"${PNPM_SPEC}\",\"devDependencies\":{\"@projitect/cli\":\"^${BASE_VERSION}\"},\"pnpm\":{\"overrides\":{\"@projitect/cli\":\"file:${REACTREG}/projitect-cli-${BASE_VERSION}.tgz\"}}}" > package.json
+printf 'node_modules/\n' > .gitignore
+write_npmrc
+pnpm add -D "effect@${EFFECT_VERSION}" tsx "file:${REACTREG}/projitect-blueprint-${BASE_VERSION}.tgz" > /tmp/local-cli-install.out 2>&1 || fail "installing the packed CLI failed: $(tail -5 /tmp/local-cli-install.out)"
+LOCAL_BIN=node_modules/@projitect/cli/bin/pjt.mjs
+cat > node_modules/.bin/smoke-tool <<'TOOL'
+#!/usr/bin/env node
+import { existsSync, writeFileSync } from "node:fs"
+const args = process.argv.slice(2)
+if (args[0] === "--fix") {
+  writeFileSync("argv.txt", JSON.stringify(args))
+  console.log("smoke-tool: fixed")
+} else if (existsSync("dirty.flag")) {
+  console.error("smoke-tool: dirty.flag present")
+  process.exit(3)
+} else {
+  console.log("smoke-tool: clean")
+}
+TOOL
+chmod +x node_modules/.bin/smoke-tool
+cat > .pjt.ts <<'PJT'
+import { exec } from "@projitect/blueprint"
+import { pjt } from "@projitect/cli"
+
+export default pjt({
+  blueprints: [
+    exec({
+      id: "smoke:local-tool",
+      version: "1.0.0",
+      check: "smoke-tool --check .",
+      fix: "smoke-tool --fix . && echo $HOME *.nothing",
+    }),
+  ],
+})
+PJT
+git add -A > /dev/null 2>&1
+git commit -qm init > /dev/null 2>&1
+
+# Runs a pjt step; on an unexpected exit code prints the captured stdout, stderr and exit code.
+local_step() { # <label> <expected exit> <args...>
+  label="$1"; want="$2"; shift 2
+  node "$LOCAL_BIN" "$@" > /tmp/local-step.out 2> /tmp/local-step.err
+  got=$?
+  if [ "$got" -eq "$want" ]; then
+    pass "$label"
+  else
+    fail "$label (exit $got, wanted $want)"
+    echo "    stdout: $(cat /tmp/local-step.out)"
+    echo "    stderr: $(cat /tmp/local-step.err)"
+  fi
+}
+local_step "remodel runs the project-only tool with no extra PATH entries" 0 remodel
+grep -q '"&&","echo","\$HOME","\*.nothing"' argv.txt && pass "operators and \$VAR reached the tool as literal arguments" || fail "argv was not literal: $(cat argv.txt 2>&1)"
+local_step "clean inspect passes" 0 inspect
+touch dirty.flag
+git status --porcelain > /tmp/local-before.txt
+local_step "dirty inspect exits nonzero" 1 inspect
+cat /tmp/local-step.out /tmp/local-step.err | grep -q "check failed" && pass "dirty inspect names the failing check" || fail "dirty inspect did not name the failing check: $(cat /tmp/local-step.out)"
+git status --porcelain > /tmp/local-after.txt
+cmp -s /tmp/local-before.txt /tmp/local-after.txt && pass "dirty inspect wrote nothing" || fail "dirty inspect changed the tree"
+rm dirty.flag
+local_step "repair: remodel succeeds again" 0 remodel
+cd "$SMOKE"
+rm -rf "$LOCALDIR"
+
 kill "$REACT_REG_PID" 2>/dev/null
 cd "$SMOKE"
 rm -rf "$REACTDIR" "$REACTREG"
