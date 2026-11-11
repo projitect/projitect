@@ -62,7 +62,11 @@ runtime check, not a lint rule.
 Removal is provenance-based. Lockfile v3 stores the fields each merge op wrote (`writtenPaths`),
 and a departing blueprint's removal deletes only those, minus anything a live blueprint claims.
 A v1 or v2 lock records only the claimed key, so a parent claim over a non-empty object is
-refused before any write (`pjt.remove.ambiguous-merge-claim`) rather than guessed at.
+refused before any write (`pjt.remove.ambiguous-merge-claim`) rather than guessed at. A recorded
+field that now holds an object with children is left alone, and a field a still-present blueprint
+writes at, above or below an old recorded field is not removed. `applyPlan` also refuses, before its
+first write, a merge that would replace an array, scalar or `null` the file holds above an unowned
+field (`pjt.apply.merge-ancestor-not-object`).
 
 Details: [File ownership modes](./blueprint-authoring.md#file-ownership-modes) and [Region marker convention](./blueprint-authoring.md#region-marker-convention).
 

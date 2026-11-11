@@ -71,6 +71,7 @@ Running `pjt remodel` twice with no changes in between writes nothing the second
 - `pjt.plan.conflict-region` — two blueprints share the same `ownerId` in one file.
 - `pjt.plan.conflict-merge` — two blueprints claim the same JSON key, or one claims a key that contains the other's.
 - `pjt.plan.unowned-merge-write` — a merge blueprint writes a JSON field its `ownedKeys` do not cover. Nothing is written.
+- `pjt.apply.merge-ancestor-not-object` — a merge blueprint writes a field under a key your file holds as an array, string, number or `null` that the blueprint does not own. Nothing is written. Move that value out of the way, or have the blueprint own the key.
 - `pjt.remove.ambiguous-merge-claim` — a blueprint left `.pjt.ts` and its lockfile entry (written before lockfile version 3) only records a parent key whose object holds children. Nothing is written. Keep the blueprint in `.pjt.ts` and run `pjt remodel` once, or delete the key by hand.
 - `pjt.region.missing-end` — a managed region's end marker was deleted.
 - `pjt.exec.command-failed` — a post-apply command exited non-zero.

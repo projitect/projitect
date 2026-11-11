@@ -161,6 +161,14 @@ under the same parent coexist (`scripts.changeset` and `scripts.prepare`, or `sc
 `pjt.plan.conflict-owned`. One owner declaring a key and its descendant is normalised to the
 ancestor, in either order, and the lockfile records the normalised keys.
 
+**No unowned ancestor is replaced.** `RecordX.deepMerge` replaces an array, scalar or `null`
+with the object a deeper write needs. Before its first write `applyPlan` runs
+`findReplacedAncestor` (`merge-ownership.ts`) over every merge file: when the current file holds
+a proper ancestor of a written field as a non-object and no owned key covers that ancestor, it fails
+with `pjt.apply.merge-ancestor-not-object` and nothing, lockfile included, is written. An ancestor
+the op owns (`a` while writing `a.b`), an absent one and an object one pass. This is not the
+first-adoption rule for a user value at an owned key, which is tracked separately.
+
 **Runtime validation.** `ownedKeys` and `value` can be computed (the Vitest blueprint builds
 `scripts.${scriptName}` from options), so these checks run in the planner on the real values
 every time, not at authoring time. No ESLint rule enforces them: lint sees source text, never the
@@ -184,7 +192,11 @@ those fields and prunes an object only when that deletion emptied it; the owned 
 other children stay. `diffLockfile` first drops every departing field that equals, contains or
 sits inside a key a remaining blueprint still claims on the same file, so moving a parent claim
 to descendant claims never deletes the live owner's keys. A still-present blueprint that stops
-writing a field has that field removed too, unless another live blueprint claims it.
+writing a field has that field removed too (`droppedMergeOps`), unless another live blueprint
+claims it or the blueprint itself still writes a field at, above or below it: a scalar leaf
+upgraded to an object, or the reverse, keeps what the new value wrote. `removeMergeFields` also
+skips any recorded field that now holds an object with children, because the lock cannot say
+whose they are.
 
 **Legacy lockfile claims.** A v1 or v2 merge entry has no `writtenPaths`. If its blueprint is
 still in `.pjt.ts`, the next remodel re-plans it and records them. If it left first, the claimed

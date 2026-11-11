@@ -62,7 +62,7 @@ Each blueprint declares **which dotted-path keys it owns**. Keys are compared se
 every other blueprint from claiming anything under it.
 
 Blueprints never compose a shared script value. Planning checks two things before any file or the
-lockfile is written:
+lockfile is written, and applying checks a third against the file on disk before its first write:
 
 - **One owner per key.** Two blueprints claiming the same key, or one claiming a key that contains
   the other's (`scripts` and `scripts.test`), is a `pjt.plan.conflict-merge` error naming both owners
@@ -74,14 +74,25 @@ lockfile is written:
   replace what is there, so each counts as a single field. A field no owned key covers is a
   `pjt.plan.unowned-merge-write` error naming the file and field.
 
-`ownedKeys` and `value` can be computed from options, so these checks run at runtime against the real
+- **No unowned ancestor is replaced.** A blueprint that owns only `a.b` and writes `{ a: { b: … } }`
+  turns `a` into an object. When your file holds `a` as an array, a string, a number or `null`, and
+  no owned key covers `a`, `pjt build` and `pjt remodel` stop with
+  [`pjt.apply.merge-ancestor-not-object`](/errors/pjt.apply.merge-ancestor-not-object/) before any
+  file or the lockfile is written. An absent or object `a` is fine, and so is one the blueprint owns.
+  `pjt inspect` reports the file as drift.
+
+`ownedKeys` and `value` can be computed from options, so the first two checks run at runtime against the real
 values, not at authoring time. No ESLint rule enforces them, because lint cannot see computed values.
 
 Keys you add yourself are kept: `pjt build` and `pjt remodel` merge the blueprint value into your
 file and leave every other key alone. `.pjt.lock` records the fields each merge blueprint wrote, and
 removing a blueprint deletes exactly those fields, not the whole owned key. A blueprint that owned
 `scripts` and wrote `scripts.build` takes only `scripts.build` with it: the `scripts.custom` you added,
-and any key another blueprint claims, stay. An object left empty by the deletion goes too.
+and any key another blueprint claims, stay. An object left empty by the deletion goes too. A field
+the blueprint wrote as a string, number or array, and that you have since turned into an object with
+children of your own, is left alone with its children. When a blueprint that stays turns a field it
+wrote into an object (or an object into a value), the field it still writes is kept and only the
+fields it stopped writing are removed.
 `pjt inspect` reports `~ modify package.json (JSON merge)` when an owned key no longer matches,
 and `pjt remodel` rewrites it to the blueprint value. A key you set that a blueprint also owns
 takes the blueprint's value, so leave such keys to the blueprint. When a blueprint leaves and another
