@@ -1,5 +1,13 @@
 # @projitect/blueprint-husky-lint-staged
 
+## 2.0.0
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @projitect/blueprint@2.0.0
+  - @projitect/core@2.0.0
+
 ## 1.0.1
 
 ### Patch Changes

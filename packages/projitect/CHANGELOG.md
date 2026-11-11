@@ -1,5 +1,70 @@
 # @projitect/cli
 
+## 2.0.0
+
+### Major Changes
+
+- [#81](https://github.com/projitect/projitect/pull/81) [`2668995`](https://github.com/projitect/projitect/commit/26689959eaf04b0edc1413a9dea0424e46883649) Thanks [@bigpopakap](https://github.com/bigpopakap)! - `@projitect/cli-internals` ships a browser-safe engine entry, `@projitect/cli-internals/browser`:
+  `buildPlan`, `diffLockfile`, `diffPlan`, `applyPlan`, `applyRemovals`, the lockfile functions, a
+  permission `makeGatedLayer` over any `BlueprintFileSystem`, and `evaluatePjt`, which turns `.pjt.ts`
+  text into its blueprint list in the browser (types stripped with `sucrase`, imports resolved from a
+  caller-supplied registry). `@projitect/cli-internals/browser-blueprints` exports `firstPartyRegistry`,
+  the registry of the first-party blueprint packages (optional peer dependencies). No `node:*` module
+  is reachable from either entry, and a bundling test enforces it. `evaluatePjt` runs the text as JavaScript and is not a security sandbox: hosts must isolate untrusted
+  snippets. CLI behavior is unchanged.
+
+  Migration for direct callers of `buildPlan`: pass the new required `layerFor` argument. The CLI passes
+  `makeRealLayer`; a browser passes a `makeGatedLayer` over an in-memory layer. The planner no longer
+  imports the Node-backed filesystem.
+
+  Core's portable default `projectRoot` is now `/` rather than reading `process.cwd()` during import.
+  Direct callers of `ProjitectConfig.resolve` supply their host root explicitly when needed. The Node
+  CLI dispatch still supplies its current working directory and retains all override layers.
+
+  Major per the AGENTS.md "Versioning (lockstep)" table: an exported function signature changed.
+
+- [#99](https://github.com/projitect/projitect/pull/99) [`1c2b418`](https://github.com/projitect/projitect/commit/1c2b4189a55ec83e6296d76332171a283c8c3660) Thanks [@bigpopakap](https://github.com/bigpopakap)! - `BlueprintFileSystem` gains required `readFileBytes` and `writeFileBytes` (`Uint8Array`), gated by
+  the same read and write permissions as the text methods and carried exactly over the IPC
+  transport, so every implementation of the interface must add them. The `.pjt.lock` schema moves
+  to version 2, which adds an optional per-entry `contentHash`; projitect still reads version 1
+  lockfiles and writes version 2.
+
+  Public file system shape and lockfile schema change → **major** per the AGENTS.md "Versioning
+  (lockstep)" table.
+
+- [#96](https://github.com/projitect/projitect/pull/96) [`7147b78`](https://github.com/projitect/projitect/commit/7147b78acd9b5c5f3cf89195728733bd62ac1b4e) Thanks [@bigpopakap](https://github.com/bigpopakap)! - `pjt inspect` runs the check command of every post-apply `Exec` operation through the
+  permission-gated runner and reports a failing check as drift (exit 1). `inspect --json` gains a
+  `commands` array with one entry per failing check. `pjt explain` with no error id lists the
+  project's post-apply commands, in text or with `--json`.
+
+  **Breaking:** the `pjt.inspect.operation-unsupported` error id, the `OperationUnsupportedOnInspect`
+  class and the `InspectError` type are removed from `@projitect/core`. Migration: `pjt inspect` now
+  runs each command's `check`, reports a failing check as drift, and no longer returns that error;
+  remove any handling of the old id and gate CI on the exit code or the `commands` array.
+
+- [#117](https://github.com/projitect/projitect/pull/117) [`8f080e0`](https://github.com/projitect/projitect/commit/8f080e030fda1f3a8ede1d00fa0e4f11cbafe00c) Thanks [@bigpopakap](https://github.com/bigpopakap)! - Validate JSON merge ownership before anything is written, and remove only the fields a blueprint wrote. Two blueprints claiming a key and one of its descendants (`scripts` and `scripts.test`) now fail with `pjt.plan.conflict-merge` in either declaration order, judged on dotted-path segments. A merge blueprint that writes a field its `ownedKeys` do not cover fails with the new `pjt.plan.unowned-merge-write`. One blueprint declaring a key and its own descendant owns the ancestor. `.pjt.lock` moves to version 3: each merge entry records the fields the blueprint wrote (`writtenPaths`), and removing a blueprint deletes only those fields, so children you added under an owned key and keys another blueprint claims stay. A version 1 or 2 lock stays readable and is rewritten as version 3 by the next `pjt remodel`; a lock written by version 3 is rejected by older projitect with `pjt.lock.version-mismatch`. When a blueprint leaves `.pjt.ts` while its pre-v3 lock entry only records a parent key over an object, `pjt remodel` refuses with the new `pjt.remove.ambiguous-merge-claim` before writing anything, and `pjt inspect` reports it. A merge write that would replace an array, string, number or `null` your file holds above an unowned field fails with the new `pjt.apply.merge-ancestor-not-object` before anything is written; removal leaves a recorded field that now holds an object with your children alone, and a blueprint that upgrades a field from a value to an object keeps the new fields. Major because the lockfile schema version bumps, which the versioning table rates as a breaking change.
+
+### Minor Changes
+
+- [#107](https://github.com/projitect/projitect/pull/107) [`d7cd5ff`](https://github.com/projitect/projitect/commit/d7cd5ff6023f6912ffe7814a18b5466ae0cf955a) Thanks [@bigpopakap](https://github.com/bigpopakap)! - `pjt add` now accepts versioned specs such as `@scope/name@1.2.3`, `name@^1` and `@scope/name@latest`: the package manager receives the full spec and metadata is read from the resolved package name. Aliases, URL, tarball, file, git and workspace specs, and names that could escape `node_modules`, are rejected before install with the new `pjt.add.spec-unsupported` error. `pjt.add.metadata-missing` now names the package instead of the raw spec.
+
+### Patch Changes
+
+- [#116](https://github.com/projitect/projitect/pull/116) [`3889ace`](https://github.com/projitect/projitect/commit/3889ace4142baf35dd8334c415c75ead5324f021) Thanks [@bigpopakap](https://github.com/bigpopakap)! - Post-apply fix commands and inspect checks now find tools installed in the project: a bare program
+  name resolves from `<projectRoot>/node_modules/.bin` first, then the system `PATH`, so `pjt` no longer
+  needs a package-manager wrapper to run `eslint` and the like (it failed with `spawn eslint ENOENT`).
+  Explicit paths run as given, operators stay literal (no shell), and `process.env` is never modified.
+  A tool found nowhere still fails with `pjt.exec.command-failed`, and the message now lists where it
+  looked. On Windows, a program, argument or resolved path containing `%`, a line break or NUL is
+  refused with `pjt.exec.command-failed` instead of being altered by `cmd.exe`. Adds the `which` and `cross-spawn` dependencies to `@projitect/cli-internals`.
+
+- [#108](https://github.com/projitect/projitect/pull/108) [`262fd6a`](https://github.com/projitect/projitect/commit/262fd6a5d9fbd3b2fd214b1a078ec195c767221d) Thanks [@bigpopakap](https://github.com/bigpopakap)! - `pjt add @projitect/blueprint-skills` now splices a valid default call with a namespaced `id` and a `version`, so the next `pjt remodel` succeeds. A missing or invalid `id` or `version` fails with `pjt.skills.invalid-path` instead of a TypeError.
+
+- Updated dependencies []:
+  - @projitect/blueprint@2.0.0
+  - @projitect/cli-internals@2.0.0
+  - @projitect/core@2.0.0
+
 ## 1.0.1
 
 ### Patch Changes
