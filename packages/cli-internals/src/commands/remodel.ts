@@ -59,7 +59,7 @@ export const remodel = (params: {
       yield* assertNoAmbiguousMergeClaims(legacyMergeClaims)
 
       const written = yield* applyPlan({ plan })
-      const removed = yield* applyRemovals({ removals })
+      const removed = yield* applyRemovals({ removals, live: plan.files })
 
       const nextLock: PjtLock.PjtLock = { version: 3, blueprints: byBlueprint }
       yield* writeLockfile({ lock: nextLock })

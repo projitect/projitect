@@ -621,6 +621,21 @@ describe("diffLockfile — merge fields recorded by lockfile v3", () => {
     expect(removals).toEqual([merge(["scripts"], ["scripts.old"])])
   })
 
+  it("removes a recorded field beneath a field the live entry now writes, and keeps one above it", () => {
+    const below = diffLockfile({
+      previous: lockOf("pjt:a", merge(["settings"], ["settings.old"])),
+      current: { "pjt:a": { version: "2.0.0", operations: [merge(["settings"], ["settings"])] } },
+    })
+    expect(below.removals).toEqual([merge(["settings"], ["settings.old"])])
+    const above = diffLockfile({
+      previous: lockOf("pjt:a", merge(["scripts"], ["scripts.test"])),
+      current: {
+        "pjt:a": { version: "2.0.0", operations: [merge(["scripts"], ["scripts.test.unit"])] },
+      },
+    })
+    expect(above.removals).toEqual([])
+  })
+
   it("never removes a stopped field another live blueprint claims", () => {
     const { removals } = diffLockfile({
       previous: lockOf("pjt:a", merge(["scripts"], ["scripts.old"])),

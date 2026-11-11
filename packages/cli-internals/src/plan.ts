@@ -7,6 +7,7 @@ import { isDirectoryBlueprint } from "@projitect/blueprint"
 import type { DirectoryBlueprint } from "@projitect/blueprint"
 import {
   checkWriteCoverage,
+  covers,
   minimalKeys,
   overlaps,
   reconcileOwnership,
@@ -369,9 +370,11 @@ const droppedOwnedOps = (
 
 /**
  * Merge fields the prior lock entry recorded as written that the live entry no longer writes. A
- * field the live entry writes at, above or below it is not dropped: the deep merge already replaced
- * it (a scalar becoming an object, an object becoming a scalar), so deleting it would delete what
- * the live entry just wrote.
+ * recorded field the live entry writes at it or beneath it is kept: a leaf becoming an object puts
+ * the new children under it, and deleting it would delete what the live entry just wrote. A live
+ * write above a recorded field never replaces the object there when it is an empty `{}` (deep merge
+ * leaves an existing object alone) and has already replaced it when it is a scalar or array, so
+ * that recorded field is dropped either way.
  */
 const droppedMergeOps = (
   prior: PjtLock.BlueprintLockEntry,
@@ -390,7 +393,7 @@ const droppedMergeOps = (
             ...op,
             writtenPaths: Array.filter(
               op.writtenPaths,
-              (field) => !Array.some(liveWritten, (written) => overlaps(field, written)),
+              (field) => !Array.some(liveWritten, (written) => covers(field, written)),
             ),
           }),
         )

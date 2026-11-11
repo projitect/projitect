@@ -265,6 +265,31 @@ describe("remodel with merge ownership", () => {
     expect(await readPackage()).toEqual({ scripts: { test: { unit: "vitest run" } } })
   })
 
+  describe("a still-present owner upgrades its value to an empty object", () => {
+    const upgradeToEmpty = async (existing: string) => {
+      await fs.writeFile(path.join(cwd, "package.json"), existing, "utf8")
+      declare([
+        {
+          id: "pjt:a",
+          operations: [merge("pjt:a", ["settings"], { settings: { old: "managed" } })],
+        },
+      ])
+      expect(Exit.isSuccess(await run())).toBe(true)
+      declare([{ id: "pjt:a", operations: [merge("pjt:a", ["settings"], { settings: {} })] }])
+      expect(Exit.isSuccess(await run())).toBe(true)
+    }
+
+    it("removes the old managed child and keeps the user's siblings", async () => {
+      await upgradeToEmpty('{ "settings": { "mine": "1" } }\n')
+      expect(await readPackage()).toEqual({ settings: { mine: "1" } })
+    })
+
+    it("keeps the desired empty container once the old child is gone", async () => {
+      await upgradeToEmpty("{}\n")
+      expect(await readPackage()).toEqual({ settings: {} })
+    })
+  })
+
   it("keeps the user's children when a departing owner's recorded leaf has become an object", async () => {
     await fs.writeFile(path.join(cwd, "package.json"), "{}\n", "utf8")
     declare([{ id: "pjt:a", operations: [merge("pjt:a", ["scripts"], { scripts: { x: ["a"] } })] }])

@@ -3,7 +3,7 @@ import { PredicateX, RecordX, StringX } from "@nunofyobiz/effect-extras"
 import { BlueprintFileSystem, Errors } from "@projitect/core"
 import type { PjtLock } from "@projitect/core"
 import { keySegments, valueAt } from "./merge-ownership.js"
-import type { LegacyMergeClaim } from "./plan.js"
+import type { FilePlan, LegacyMergeClaim } from "./plan.js"
 import { readIfExists } from "./project-file.js"
 import { findRegion } from "./region.js"
 
@@ -12,13 +12,19 @@ import { findRegion } from "./region.js"
  * leaves `.pjt.ts` — the operations come from the diff between the previous lockfile and the
  * current blueprint set.
  *
+ * `live` is the plan just applied: a JSON object it still writes, even an empty one, survives the
+ * pruning of the fields a removal deleted from it.
+ *
  * Returns the list of paths actually mutated.
  */
 export const applyRemovals = (params: {
   readonly removals: readonly PjtLock.LockOperation[]
+  readonly live?: readonly FilePlan[]
 }): Effect.Effect<readonly string[], RemoveError, BlueprintFileSystem> =>
   Effect.forEach(params.removals, (op) =>
-    Effect.map(applyOne(op), (mutated) => (mutated ? Option.some(op.path) : Option.none<string>())),
+    Effect.map(applyOne(op, params.live ?? []), (mutated) =>
+      mutated ? Option.some(op.path) : Option.none<string>(),
+    ),
   ).pipe(Effect.map(Array.getSomes))
 
 type RemoveError =
@@ -29,10 +35,11 @@ type RemoveError =
 
 const applyOne = (
   op: PjtLock.LockOperation,
+  live: readonly FilePlan[],
 ): Effect.Effect<boolean, RemoveError, BlueprintFileSystem> =>
   Match.valueTags(op, {
     Region: (region) => removeRegion(region),
-    Merge: (merge) => removeMergeFields(merge),
+    Merge: (merge) => removeMergeFields(merge, live),
     Owned: (owned) => removeFile(owned.path, owned.ownedDir),
     // Seed is write-once; we never delete the file when a seed blueprint leaves.
     Seed: () => Effect.succeed(false),
@@ -122,6 +129,7 @@ export const assertNoAmbiguousMergeClaims = (
  */
 const removeMergeFields = (
   op: PjtLock.LockMergeOp,
+  live: readonly FilePlan[],
 ): Effect.Effect<boolean, RemoveError, BlueprintFileSystem> =>
   Effect.gen(function* () {
     const fs = yield* BlueprintFileSystem
@@ -148,7 +156,19 @@ const removeMergeFields = (
     if (!result.mutated) {
       return false
     }
-    yield* fs.writeFile(op.path, `${JSON.stringify(result.tree, null, 2)}\n`)
+    // Re-assert what the plan writes here: deleting a field prunes the object it emptied, and the
+    // plan may still want that object (an empty `{}` is one the deep merge leaves in place).
+    const kept = RecordX.deepMergeReducer.combineAll(
+      Array.filterMap(live, (file) =>
+        file._tag === "Merge" && file.path === op.path
+          ? Result.succeed(file.value)
+          : Result.failVoid,
+      ),
+    )
+    yield* fs.writeFile(
+      op.path,
+      `${JSON.stringify(RecordX.deepMerge(result.tree, kept), null, 2)}\n`,
+    )
     return true
   })
 
