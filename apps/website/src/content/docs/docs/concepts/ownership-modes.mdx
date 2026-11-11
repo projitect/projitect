@@ -91,8 +91,9 @@ removing a blueprint deletes exactly those fields, not the whole owned key. A bl
 and any key another blueprint claims, stay. An object left empty by the deletion goes too. A field
 the blueprint wrote as a string, number or array, and that you have since turned into an object with
 children of your own, is left alone with its children. When a blueprint that stays turns a field it
-wrote into an object (or an object into a value), the field it still writes is kept and only the
-fields it stopped writing are removed.
+wrote into an object, the new children are kept. A field it wrote that now sits under a value it
+writes, such as the old children of an object it now writes as `{}`, is removed, and the empty
+object stays.
 `pjt inspect` reports `~ modify package.json (JSON merge)` when an owned key no longer matches,
 and `pjt remodel` rewrites it to the blueprint value. A key you set that a blueprint also owns
 takes the blueprint's value, so leave such keys to the blueprint. When a blueprint leaves and another

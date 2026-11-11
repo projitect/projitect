@@ -193,10 +193,12 @@ other children stay. `diffLockfile` first drops every departing field that equal
 sits inside a key a remaining blueprint still claims on the same file, so moving a parent claim
 to descendant claims never deletes the live owner's keys. A still-present blueprint that stops
 writing a field has that field removed too (`droppedMergeOps`), unless another live blueprint
-claims it or the blueprint itself still writes a field at, above or below it: a scalar leaf
-upgraded to an object, or the reverse, keeps what the new value wrote. `removeMergeFields` also
-skips any recorded field that now holds an object with children, because the lock cannot say
-whose they are.
+claims it or the blueprint itself still writes a field at or beneath it: a scalar leaf
+upgraded to an object keeps the new children. A recorded field beneath a field the blueprint now
+writes is removed, because an empty `{}` leaves an existing object alone and a scalar or array has
+already replaced it. `removeMergeFields` also skips any recorded field that now holds an object
+with children, because the lock cannot say whose they are, and `remodel` hands it the applied plan
+so an object the plan still writes (an empty `{}` included) survives the pruning.
 
 **Legacy lockfile claims.** A v1 or v2 merge entry has no `writtenPaths`. If its blueprint is
 still in `.pjt.ts`, the next remodel re-plans it and records them. If it left first, the claimed
