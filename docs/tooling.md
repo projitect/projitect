@@ -65,6 +65,11 @@ browser graph. No lint rule bans raw `node:child_process`: `git.ts`, `pm.ts` and
 legitimately, blueprint packages are already banned from it by the sandbox rule, and
 `process-runner.ts` is the only place that spawns user-declared exec commands.
 
+Windows behavior is proved by the `windows runner` CI job: `windows-latest` on Node 22.12.0 and 24,
+which builds the workspace and runs the process-runner (including real `.cmd` shims), post-apply and
+inspect-exec tests. It needs no secret or owner toggle. macOS is not exercised and relies on the
+libraries.
+
 ## Effect language service
 
 The package's `prepare` script runs `effect-language-service patch` on every `pnpm install`. This patches the local `node_modules/typescript` so that **`tsc --build` produces Effect-specific diagnostics in addition to the standard TS checks** — things like `yield* Effect.fail(new X())` being flagged as redundant (since `new X()` is itself yieldable for `Schema.TaggedError` errors), `Effect.sync` thunks accidentally returning a Promise, missing Effect requirements, etc.
