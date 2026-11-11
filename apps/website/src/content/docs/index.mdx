@@ -44,6 +44,7 @@ Your project's blueprint file is one file at the root, called `.pjt.ts`:
 import { pjt } from "@projitect/cli"
 import { gitignores } from "@projitect/blueprint-gitignore"
 import { vitest } from "@projitect/blueprint-vitest"
+import { eslint } from "@projitect/blueprint-eslint"
 import { changesets } from "@projitect/blueprint-changesets"
 import { markdownSnippets } from "@projitect/blueprint-markdown"
 import { acmeSkills } from "@acme/agent-skills"
@@ -57,6 +58,8 @@ export default pjt({
     gitignores.vscode(),
     tsconfig(), // strict tsconfig.json, owned by the blueprint (no drift)
     vitest(), // vitest.config.ts + scripts + devDeps + coverage/ in .gitignore
+    eslint.config(), // eslint.config.js + lint scripts + devDeps
+    eslint.fix(), // runs `eslint --fix .` after every file is written
     changesets(), // .changeset/config.json + release scripts + @changesets/cli
     markdownSnippets.agentsVerification(), // a versioned snippet in AGENTS.md
     huskyLintStaged(), // .husky/pre-commit + lint-staged config + husky devDeps
@@ -169,10 +172,9 @@ Exit code: `1`. PR fails. Run `pjt remodel` to fix.
 ## Status
 
 **v0** ships all four ownership modes (region, merge, owned, seed), the `gitignore`, `tsconfig`,
-`vitest`, `changesets`, `react` and `next` blueprints, plus `pjt init`, `pjt remodel`, `pjt inspect`, and
+`vitest`, `eslint`, `changesets`, `react` and `next` blueprints, post-apply `exec` operations, plus `pjt init`, `pjt remodel`, `pjt inspect`, and
 `pjt explain`. Effect v4 RC under the hood.
 
-The `eslint` blueprint, exec and post-apply operations, the
-worker-process sandbox, and the interactive in-browser demo are on the [roadmap](/docs/roadmap/).
+The worker-process sandbox and the interactive in-browser demo are on the [roadmap](/docs/roadmap/).
 
 Ready? **[Get started →](/docs/getting-started/)**

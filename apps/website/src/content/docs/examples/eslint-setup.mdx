@@ -1,0 +1,71 @@
+---
+title: eslint-setup
+description: Lint a project and auto-fix it — a flat ESLint config, lint scripts, devDeps, and an eslint --fix step.
+sidebar:
+  label: eslint-setup
+  order: 6
+---
+
+import code from "../../../../examples/eslint-setup/example.ts?raw"
+import configOnly from "../../../../examples/eslint-config-only/example.ts?raw"
+import { Code } from "@astrojs/starlight/components"
+
+`@projitect/blueprint-eslint` exports two blueprints on the `eslint` namespace:
+
+- `eslint.config()` owns a flat `eslint.config.js` (including its `ignores` list), merges the
+  `lint` and `lint:fix` scripts into `package.json`, and adds `eslint`, `@eslint/js` and
+  `typescript-eslint` to `devDependencies`. Your other scripts and dependencies are untouched.
+- `eslint.fix()` is a post-apply command. `pjt build` and `pjt remodel` run `eslint --fix .` after
+  every file operation has succeeded, so every file a blueprint wrote satisfies your lint rules.
+  `pjt inspect` runs only `eslint .` and reports a failing check as drift (exit 1); it never
+  changes a file.
+
+<Code code={code} lang="ts" title=".pjt.ts" />
+
+Run:
+
+```bash
+pnpm pjt remodel    # writes eslint.config.js, merges package.json, then runs eslint --fix .
+pnpm install        # installs eslint, @eslint/js and typescript-eslint
+pnpm pjt inspect    # exit 0 while the config matches and `eslint .` is clean
+```
+
+`fix()` declares the `exec` permission for `eslint --fix .` and `eslint .`. Without that
+permission granted, the command does not run and `pjt.exec.command-not-permitted` is reported.
+
+## Config only
+
+`eslint.config()` on its own is valid. It produces no exec operation, so nothing runs `eslint --fix`
+for you:
+
+<Code code={configOnly} lang="ts" title=".pjt.ts" />
+
+## Options
+
+```ts
+eslint.config({
+  ignores: ["build"], // appended to the defaults: dist, coverage, node_modules
+  typescript: true, // default: true; adds typescript-eslint and its recommended rules
+  prettier: "config", // default: null; adds eslint-config-prettier
+})
+eslint.fix()
+```
+
+The config file is owned, so projitect rewrites it on every `pjt remodel`. Put extra rules in a
+separate config file rather than editing `eslint.config.js`. `blueprint-next` also owns
+`scripts.lint`, so it cannot be combined with `eslint.config()`.
+
+## Order relative to `prettier.fix()`
+
+Exec operations run last, after all file operations, and in the order the blueprints appear in the
+array. Place `eslint.fix()` before a Prettier fix command and Prettier has the final word on
+formatting; place it after and ESLint does. For most projects, run ESLint first and Prettier last.
+
+## eslint-config-prettier or eslint-plugin-prettier
+
+- **`eslint-config-prettier`** turns off ESLint rules that conflict with Prettier. Run Prettier as
+  its own step. This is what `prettier: "config"` sets up, and it is the recommended choice: lint
+  stays fast, and formatting differences are never reported as lint errors.
+- **`eslint-plugin-prettier`** runs Prettier as an ESLint rule, so `eslint --fix` also formats.
+  Formatting differences show up as lint errors and the run is slower. If you want it, add the
+  plugin in a separate config file; `eslint.config()` does not generate it.

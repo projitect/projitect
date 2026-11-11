@@ -42,6 +42,7 @@ npm install --no-package-lock --silent \
   "file:${PKG}/projitect" \
   "file:${PKG}/blueprint-gitignore" \
   "file:${PKG}/blueprint-vitest" \
+  "file:${PKG}/blueprint-eslint" \
   "file:${PKG}/blueprint-changesets" \
   "file:${PKG}/blueprint-markdown" \
   "file:${PKG}/blueprint-skills" \
@@ -916,6 +917,44 @@ grep -q '"id": "pjt.exec.command-not-permitted"' /tmp/exec-denied.out && pass "-
 [ ! -f marker.txt ] && pass "denied command was never started" || fail "denied command ran"
 cd "$SMOKE"
 rm -rf "$EXECDIR"
+
+echo "=== 9c. eslint blueprint: config + package.json merge, then a stub eslint drives fix and check ==="
+# The real eslint is not installed in the throwaway project, so a stub `eslint` on PATH stands in:
+# `eslint --fix .` removes dirty.flag, and `eslint .` exits 1 while dirty.flag exists.
+ESLINTDIR="$(mktemp -d -t pjt-eslint.XXXXXX)"
+ESLINTBIN="$(mktemp -d -t pjt-eslint-bin.XXXXXX)"
+cat > "$ESLINTBIN/eslint" <<'EOF2'
+#!/bin/sh
+if [ "$1" = "--fix" ]; then rm -f dirty.flag; exit 0; fi
+[ -f dirty.flag ] && exit 1
+exit 0
+EOF2
+chmod +x "$ESLINTBIN/eslint"
+cp -RP "${SMOKE}/node_modules" "${ESLINTDIR}/"
+cd "$ESLINTDIR"
+git init -q
+git config user.email t@t
+git config user.name t
+echo '{"name":"smoke-eslint","version":"0.0.0","private":true,"type":"module","scripts":{"custom":"echo hi"},"dependencies":{"left-pad":"1.0.0"}}' > package.json
+cat > .pjt.ts <<'EOT'
+import { pjt } from "@projitect/cli"
+import { eslint } from "@projitect/blueprint-eslint"
+
+export default pjt({ blueprints: [eslint.config({ ignores: ["build"] }), eslint.fix()] })
+EOT
+PJT_ESLINT="node node_modules/@projitect/cli/bin/pjt.mjs"
+PATH="$ESLINTBIN:$PATH" $PJT_ESLINT remodel > /dev/null 2>&1 && pass "remodel with eslint.config() + eslint.fix() exits 0" || fail "eslint remodel failed"
+[ -f eslint.config.js ] && grep -q '"build"' eslint.config.js && pass "eslint.config.js written with the extra ignore" || fail "eslint.config.js missing or without ignores"
+grep -q '"lint": "eslint ."' package.json && grep -q '"lint:fix": "eslint --fix ."' package.json && pass "lint scripts merged" || fail "lint scripts missing"
+grep -q '"custom": "echo hi"' package.json && grep -q '"left-pad"' package.json && pass "other package.json keys survive" || fail "other package.json keys lost"
+PATH="$ESLINTBIN:$PATH" $PJT_ESLINT inspect > /dev/null 2>&1 && pass "inspect clean after eslint remodel" || fail "eslint blueprint left drift"
+touch dirty.flag
+PATH="$ESLINTBIN:$PATH" $PJT_ESLINT inspect > /dev/null 2>&1
+[ $? -ne 0 ] && [ -f dirty.flag ] && pass "inspect exits nonzero on dirty lint output and changes no file" || fail "inspect did not report dirty lint output"
+PATH="$ESLINTBIN:$PATH" $PJT_ESLINT remodel > /dev/null 2>&1
+[ ! -f dirty.flag ] && pass "remodel ran eslint --fix" || fail "remodel did not run eslint --fix"
+cd "$SMOKE"
+rm -rf "$ESLINTDIR" "$ESLINTBIN"
 
 echo "=== 10. react blueprint from packed tarballs: add, build, install, vite build, test, dev server, drift, upgrade, remove ==="
 # A published-package journey for a real app. Every package is packed with `pnpm pack` (which
