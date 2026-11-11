@@ -71,6 +71,8 @@ const ERROR_BLURBS: Readonly<Record<Errors.ErrorId, string>> = {
     "Two blueprints claim the same JSON key in the same file. Coordinate ownership.",
   "pjt.plan.conflict-owned":
     "Two blueprints both claim full ownership of one file. Only one `ownFile` per path is allowed.",
+  "pjt.react.invalid-options":
+    'A `react()` option is invalid: `template` must be "react-ts" or "react", and `name` must be a valid npm package name.',
   "pjt.skills.invalid-path":
     "A skill name, target root or file path is empty, absolute, or tries to leave the skills directory — or a skill has no `SKILL.md`.",
   "pjt.region.missing-end":

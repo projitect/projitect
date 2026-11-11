@@ -139,6 +139,17 @@ export class SkillInvalid extends Schema.TaggedError<SkillInvalid>()("SkillInval
 }) {}
 
 // ---------------------------------------------------------------------------
+// React errors — a `react()` option failed validation
+// ---------------------------------------------------------------------------
+
+export class ReactInvalid extends Schema.TaggedError<ReactInvalid>()("ReactInvalid", {
+  id: Schema.Literal("pjt.react.invalid-options"),
+  field: Schema.Literals(["template", "name"]),
+  value: Schema.String,
+  message: Schema.String,
+}) {}
+
+// ---------------------------------------------------------------------------
 // Region marker errors — encountered when reading existing file content
 // ---------------------------------------------------------------------------
 
@@ -341,6 +352,7 @@ export type BlueprintError =
   | RegionMissingEnd
   | RegionDuplicate
   | SkillInvalid
+  | ReactInvalid
 
 export type LoaderError = LoaderImportFailed | LoaderInvalidDefaultExport
 
@@ -397,6 +409,7 @@ export const ERROR_IDS = [
   "pjt.plan.conflict-merge",
   "pjt.plan.conflict-owned",
   "pjt.skills.invalid-path",
+  "pjt.react.invalid-options",
   "pjt.region.missing-end",
   "pjt.region.duplicate",
   "pjt.apply.dirty-git",
