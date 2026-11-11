@@ -34,6 +34,12 @@ Next leads with outcomes for project owners. These are built and awaiting their 
   [husky-lint-staged-setup example](/examples/husky-lint-staged-setup/)
 - The `next` blueprint, which creates a Next.js App Router + TypeScript app — see the
   [next-setup example](/examples/next-setup/)
+- The `prettier` blueprint, which manages the Prettier config and formats the project after
+  `pjt build` and `pjt remodel` through a post-apply command — see the
+  [prettier-setup example](/examples/prettier-setup/)
+- `exec` post-apply operations in a blueprint's ChangeSet: `pjt build` and `pjt remodel` run the fix
+  command, and `pjt inspect` runs the check and reports a failure as drift. See
+  [the sandbox](/docs/concepts/sandbox/).
 
 This outcome is planned and in progress, and is not built yet:
 
@@ -43,8 +49,6 @@ This outcome is planned and in progress, and is not built yet:
 After those:
 
 - The wider framework blueprint catalog
-- `exec` as post-apply operations in a blueprint's ChangeSet. See
-  [the sandbox](/docs/concepts/sandbox/).
 
 ## Later
 

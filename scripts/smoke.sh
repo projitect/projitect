@@ -43,6 +43,7 @@ npm install --no-package-lock --silent \
   "file:${PKG}/blueprint-gitignore" \
   "file:${PKG}/blueprint-vitest" \
   "file:${PKG}/blueprint-changesets" \
+  "file:${PKG}/blueprint-prettier" \
   "file:${PKG}/blueprint-markdown" \
   "file:${PKG}/blueprint-skills" \
   "file:${PKG}/blueprint-husky-lint-staged" \
@@ -916,6 +917,65 @@ grep -q '"id": "pjt.exec.command-not-permitted"' /tmp/exec-denied.out && pass "-
 [ ! -f marker.txt ] && pass "denied command was never started" || fail "denied command ran"
 cd "$SMOKE"
 rm -rf "$EXECDIR"
+
+echo "=== 9c. prettier blueprint: bootstrap, then build and remodel format, inspect checks without writing ==="
+# The documented bootstrap: materialize `prettier.config()` alone (no formatter is installed yet, so
+# nothing may run), install the formatter, then add `prettier.fix()`. The install is simulated by
+# linking the repo's own prettier into the project's node_modules (no network in the smoke run);
+# until that step node_modules/.bin has no prettier. The bare `prettier` command is resolved by the
+# process runner from the project's node_modules/.bin, with no package-manager wrapper.
+PRETDIR="$(mktemp -d -t pjt-prettier.XXXXXX)"
+cp -RP "${SMOKE}/node_modules" "${PRETDIR}/"
+cd "$PRETDIR"
+git init -q
+git config user.email t@t
+git config user.name t
+echo '{"name":"smoke-prettier","version":"0.0.0","private":true,"type":"module"}' > package.json
+PJT="node node_modules/@projitect/cli/bin/pjt.mjs"
+[ ! -e node_modules/.bin/prettier ] && pass "no formatter installed before bootstrap" || fail "formatter preseeded"
+cat > .pjt.ts <<'EOT'
+import { seedFile } from "@projitect/blueprint"
+import { prettier } from "@projitect/blueprint-prettier"
+import { pjt } from "@projitect/cli"
+
+export default pjt({
+  blueprints: [
+    seedFile({ id: "smoke:messy", version: "1.0.0", path: "messy.js", content: "const   a  =  1;\n" }),
+    prettier.config({ semi: false }),
+  ],
+})
+EOT
+printf 'const   a  =  1;\n' > messy.js
+$PJT remodel > /tmp/prettier-boot.out 2>&1
+BOOT=$?
+[ $BOOT -eq 0 ] && pass "config-only remodel exits 0 without a formatter" || { cat /tmp/prettier-boot.out; fail "config-only remodel exited $BOOT"; }
+grep -q '"semi": false' .prettierrc.json && pass ".prettierrc.json carries the options" || fail ".prettierrc.json missing options"
+grep -q '"format": "prettier --write ."' package.json && pass "format script merged" || fail "format script missing"
+grep -q 'const   a' messy.js && pass "config-only remodel ran no command" || fail "config-only remodel formatted messy.js"
+# "pnpm install": the formatter arrives in node_modules/.bin.
+ln -s "$ROOT/node_modules/prettier" node_modules/prettier
+ln -s ../prettier/bin/prettier.cjs node_modules/.bin/prettier
+sed -i 's/prettier.config({ semi: false }),/prettier.config({ semi: false }),\n    prettier.fix(),/' .pjt.ts
+$PJT inspect > /tmp/prettier-inspect.out 2>&1
+INSPECT=$?
+[ $INSPECT -ne 0 ] && grep -q "prettier --check" /tmp/prettier-inspect.out && pass "inspect exits nonzero and names the failing prettier check" || { cat /tmp/prettier-inspect.out; fail "inspect exited $INSPECT without reporting the unformatted files"; }
+grep -q 'const   a' messy.js && pass "inspect never wrote" || fail "inspect modified messy.js"
+$PJT remodel > /tmp/prettier-remodel.out 2>&1
+REMODEL=$?
+[ $REMODEL -eq 0 ] && pass "remodel exits 0" || { cat /tmp/prettier-remodel.out; fail "remodel exited $REMODEL"; }
+grep -q 'const a = 1$' messy.js && pass "remodel formatted messy.js" || fail "messy.js not formatted by remodel"
+$PJT inspect > /dev/null 2>&1 && pass "inspect exits 0 once formatted" || fail "inspect still failing after remodel"
+printf 'const   b  =  2;\n' > messy.js
+$PJT inspect > /dev/null 2>&1
+[ $? -ne 0 ] && pass "inspect flags a newly unformatted file" || fail "inspect missed an unformatted file"
+# `build` wipes unmanaged files, so messy.js is a seed file: written unformatted, then formatted by the fix.
+$PJT build --force --force-dirty --yes > /tmp/prettier-build.out 2>&1
+BUILD=$?
+[ $BUILD -eq 0 ] && pass "build exits 0" || { cat /tmp/prettier-build.out; fail "build exited $BUILD"; }
+grep -q 'const a = 1$' messy.js && pass "build formatted messy.js" || fail "messy.js not formatted by build"
+$PJT inspect > /dev/null 2>&1 && pass "inspect exits 0 after build" || fail "inspect still failing after build"
+cd "$SMOKE"
+rm -rf "$PRETDIR"
 
 echo "=== 10. react blueprint from packed tarballs: add, build, install, vite build, test, dev server, drift, upgrade, remove ==="
 # A published-package journey for a real app. Every package is packed with `pnpm pack` (which
