@@ -67,7 +67,9 @@ legitimately, blueprint packages are already banned from it by the sandbox rule,
 
 Windows behavior is proved by the `windows runner` CI job: `windows-latest` on Node 22.12.0 and 24,
 which builds the workspace and runs the process-runner (including real `.cmd` shims), post-apply and
-inspect-exec tests. It needs no secret or owner toggle. macOS is not exercised and relies on the
+inspect-exec tests. Root scripts that filter packages quote the glob with escaped double quotes
+(`--filter \"./packages/*\"`), because Windows passes single quotes through literally and the filter
+then matches no packages. It needs no secret or owner toggle. macOS is not exercised and relies on the
 libraries.
 
 ## Effect language service
