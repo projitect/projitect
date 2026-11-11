@@ -1,5 +1,5 @@
 ---
-"projitect": major
+"@projitect/cli": major
 ---
 
 `pjt build`, `pjt remodel` and `pjt inspect` now run `.pjt.ts` and every blueprint's plan in a
