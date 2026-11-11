@@ -167,6 +167,14 @@ export class ApplyDirtyGit extends Schema.TaggedError<ApplyDirtyGit>()("ApplyDir
   message: Schema.String,
 }) {}
 
+export class ApplyConfirmationRequired extends Schema.TaggedError<ApplyConfirmationRequired>()(
+  "ApplyConfirmationRequired",
+  {
+    id: Schema.Literal("pjt.apply.confirmation-required"),
+    message: Schema.String,
+  },
+) {}
+
 export class InitGitMissing extends Schema.TaggedError<InitGitMissing>()("InitGitMissing", {
   id: Schema.Literal("pjt.init.git-missing"),
   message: Schema.String,
@@ -348,7 +356,7 @@ export type ConfigError = ConfigInvalid | ConfigBlueprintFileNotFound
 
 export type PlanError = PlanConflictRegion | PlanConflictMerge | PlanConflictOwned
 
-export type ApplyError = ApplyDirtyGit
+export type ApplyError = ApplyDirtyGit | ApplyConfirmationRequired
 
 export type InitError = InitGitMissing | InitPackageJsonMissing
 
@@ -400,6 +408,7 @@ export const ERROR_IDS = [
   "pjt.region.missing-end",
   "pjt.region.duplicate",
   "pjt.apply.dirty-git",
+  "pjt.apply.confirmation-required",
   "pjt.init.git-missing",
   "pjt.init.package-json-missing",
   "pjt.drift.detected",

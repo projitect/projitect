@@ -3,7 +3,7 @@ import { promises as fs } from "node:fs"
 import { pathToFileURL } from "node:url"
 import { Effect } from "effect"
 import { Errors } from "@projitect/core"
-import { describe, isProjitectFile } from "./config-file.js"
+import { describe, isWellFormedProjitectFile } from "./config-file.js"
 import type { ProjitectFile } from "./config-file.js"
 
 export { pjt, isEffectTree } from "./config-file.js"
@@ -51,7 +51,7 @@ export const loadBlueprintFile = (params: {
         }),
     })
     const value = module_.default
-    if (!isProjitectFile(value)) {
+    if (!isWellFormedProjitectFile(value)) {
       return yield* new Errors.LoaderInvalidDefaultExport({
         id: "pjt.loader.invalid-default-export",
         blueprintFile,

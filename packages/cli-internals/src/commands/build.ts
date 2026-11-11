@@ -7,8 +7,9 @@ import { StructX } from "@nunofyobiz/effect-extras"
 import { Errors } from "@projitect/core"
 import type { ProjitectConfig } from "@projitect/core"
 import { ensureGitRepo, gitStatus } from "../git.js"
+import { loadBlueprintFile } from "../loader.js"
 import type { ProcessSpawner } from "../platform/process-runner.js"
-import { remodel } from "./remodel.js"
+import { applyLoadedFile } from "./remodel.js"
 import type { RemodelResult } from "./remodel.js"
 
 export interface BuildResult {
@@ -44,7 +45,9 @@ const PRESERVED = new Set<string>([
  *   1. `--force` is required (the dispatcher's flag config enforces this at the CLI layer).
  *   2. The project must be a git repository (`pjt.git.not-a-repo` otherwise).
  *   3. The working tree must be clean (`pjt.apply.dirty-git`), unless `--force-dirty` is set.
- *   4. An interactive confirmation prompt fires unless `--yes` is passed.
+ *   4. Non-interactive builds require `--yes`.
+ *   5. Import and structurally validate the config before deleting anything.
+ *   6. Confirm interactively unless `--yes` is passed, then wipe and evaluate the plan.
  */
 type BuildError = Errors.ProjitectError | Terminal.QuitError
 type BuildRequirements = Prompt.Environment
@@ -54,6 +57,7 @@ export const build = (params: {
   readonly force: boolean
   readonly forceDirty: boolean
   readonly yes: boolean
+  readonly interactive?: boolean
   readonly spawner?: ProcessSpawner
 }): Effect.Effect<BuildResult, BuildError, BuildRequirements> =>
   Effect.gen(function* () {
@@ -81,6 +85,19 @@ export const build = (params: {
       }
     }
 
+    if (!params.yes && !(params.interactive ?? true)) {
+      return yield* new Errors.ApplyConfirmationRequired({
+        id: "pjt.apply.confirmation-required",
+        message:
+          "`pjt build --force` requires confirmation. Non-interactive input cannot answer a prompt; pass `--yes` to explicitly authorize deletion.",
+      })
+    }
+
+    const file = yield* loadBlueprintFile({
+      blueprintFile: params.config.blueprintFile,
+      projectRoot: params.config.projectRoot,
+    })
+
     if (!params.yes) {
       const confirmed = yield* Prompt.confirm({
         message: `This will delete everything under ${params.config.projectRoot} except .git, node_modules, .pjt.ts, .pjt.lock, package.json, and the PM lockfile. Continue?`,
@@ -96,8 +113,9 @@ export const build = (params: {
     }
 
     const wiped = yield* wipeTree(params.config.projectRoot)
-    const remodelResult = yield* remodel({
+    const remodelResult = yield* applyLoadedFile({
       config: params.config,
+      file,
       ...StructX.defined("spawner", params.spawner),
     })
     return { cancelled: false, wiped, remodel: remodelResult }
