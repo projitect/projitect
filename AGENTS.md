@@ -243,11 +243,11 @@ touch. The triggers, per-phase gates and CI checks are in [Marketing site](docs/
 
 ## Browser demo boundary
 
-A planned in-browser `pjt` demo on the website runs on an in-memory filesystem and bundled
+The in-browser `pjt` demo on the website runs on an in-memory filesystem and bundled
 first-party blueprints only: no Node capabilities, no `node:*` in the browser bundle, and no
 isolation for untrusted `.pjt.ts` snippets without extra work. `apps/website` stays Astro Starlight.
-The bundle-size budget is set from the measured demo bundle in the demo PR. Rules, guard and
-locations: [Browser demo boundary](docs/architecture.md#browser-demo-boundary-planned).
+The measured bundle size is recorded in the architecture doc. Rules, guard and
+locations: [Browser demo boundary](docs/architecture.md#browser-demo-boundary).
 
 ## Kanban workflow
 
