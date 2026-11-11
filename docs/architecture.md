@@ -53,6 +53,12 @@ Core configuration uses `/` as its portable default project root. The Node CLI d
 | `owned`  | Generated file owned wholly by one blueprint                    |
 | `seed`   | Write-once, never enforced afterwards                           |
 
+Merge ownership is validated while the planner reduces the ops, before any file or the lockfile is
+written: keys are compared by dotted-path segment, one owner may hold a key and its descendants,
+and every field a merge op writes must sit under that op's own `ownedKeys`
+(`packages/cli-internals/src/merge-ownership.ts`). The values can be computed, so this is a
+runtime check, not a lint rule.
+
 Details: [File ownership modes](./blueprint-authoring.md#file-ownership-modes) and [Region marker convention](./blueprint-authoring.md#region-marker-convention).
 
 ## Soft sandbox

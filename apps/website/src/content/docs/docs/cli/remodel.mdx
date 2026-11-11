@@ -69,7 +69,8 @@ Running `pjt remodel` twice with no changes in between writes nothing the second
 
 - `pjt.config.blueprint-file-not-found` — `.pjt.ts` is missing. The message tells you to run `pjt init`; `pjt remodel` does not create the file.
 - `pjt.plan.conflict-region` — two blueprints share the same `ownerId` in one file.
-- `pjt.plan.conflict-merge` — two blueprints claim the same JSON key.
+- `pjt.plan.conflict-merge` — two blueprints claim the same JSON key, or one claims a key that contains the other's.
+- `pjt.plan.unowned-merge-write` — a merge blueprint writes a JSON field its `ownedKeys` do not cover. Nothing is written.
 - `pjt.region.missing-end` — a managed region's end marker was deleted.
 - `pjt.exec.command-failed` — a post-apply command exited non-zero.
 - `pjt.exec.command-not-permitted` — a post-apply command is not named by the blueprint's `exec` permissions.

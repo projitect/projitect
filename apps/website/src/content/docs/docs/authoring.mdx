@@ -173,18 +173,28 @@ outside the declared globs.
 ## Owning `package.json` keys
 
 A merge-mode blueprint (`jsonMerge`) owns the dotted keys it lists in `ownedKeys`, such as
-`scripts.prepare` or `devDependencies.husky`. List leaves, not a whole parent like `scripts`: removing a parent would also delete the user's own
-children, and the planner compares exact key strings, so it does not flag a `scripts` and
-`scripts.test` overlap. Keep `ownedKeys` identical to the keys in `value`.
+`scripts.prepare` or `devDependencies.husky`. Keys are compared segment by segment, so `scripts`
+covers `scripts.test` but not `scripts.testing`. List leaves unless the blueprint owns the whole
+subtree: an owned parent is deleted with everything under it when the blueprint leaves.
 
-| Situation                                      | Result                                                                      |
-| ---------------------------------------------- | --------------------------------------------------------------------------- |
-| Two blueprints list the same key               | `pjt.plan.conflict-merge` at plan time; one owner per key, no composition   |
-| Different keys under the same parent           | Both apply (`scripts.changeset` and `scripts.prepare`)                      |
-| Merge mixed with `owned` or `seed` on the file | `pjt.plan.conflict-owned`                                                   |
-| Keys you added yourself                        | Preserved by `pjt build` and `pjt remodel`; removal deletes only owned keys |
-| An owned key edited by hand                    | `pjt inspect` reports `~ modify package.json (JSON merge)`; remodel resets  |
-| A key you set that a blueprint also owns       | The blueprint's value wins                                                  |
+Every field the `value` writes must be covered by the blueprint's own `ownedKeys`, either exactly or
+through an owned ancestor. Objects are merged key by key, so each leaf is checked; arrays, scalars
+and `{}` replace what is there, so each counts as one field. A field outside `ownedKeys` fails
+`pjt build` and `pjt remodel` with `pjt.plan.unowned-merge-write`, before any file or `.pjt.lock`
+is written. Both checks run while planning, on the values the blueprint actually returns, so they
+also cover keys computed from options. No ESLint rule checks them: lint cannot see computed values.
+
+| Situation                                      | Result                                                                          |
+| ---------------------------------------------- | ------------------------------------------------------------------------------- |
+| Two blueprints list the same key               | `pjt.plan.conflict-merge` at plan time; one owner per key, no composition       |
+| One blueprint lists a parent of another's key  | `pjt.plan.conflict-merge`, in either order; the error names both owners and key |
+| Different keys under the same parent           | Both apply (`scripts.changeset` and `scripts.prepare`)                          |
+| One blueprint lists a key and its own child    | The parent alone is owned, in either order                                      |
+| `value` writes a field no owned key covers     | `pjt.plan.unowned-merge-write` at plan time; nothing is written                 |
+| Merge mixed with `owned` or `seed` on the file | `pjt.plan.conflict-owned`                                                       |
+| Keys you added yourself                        | Preserved by `pjt build` and `pjt remodel`; removal deletes only owned keys     |
+| An owned key edited by hand                    | `pjt inspect` reports `~ modify package.json (JSON merge)`; remodel resets      |
+| A key you set that a blueprint also owns       | The blueprint's value wins                                                      |
 
 The husky blueprint is the only first-party owner of `scripts.prepare` (`husky`). The framework
 blueprints own `dev`/`build`/`preview` (React) and `dev`/`build`/`start`/`lint` (Next.js), so

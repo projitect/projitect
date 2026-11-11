@@ -131,23 +131,41 @@ See `docs/concepts/ownership-modes` on the marketing site for examples.
 
 ## Merge-mode `package.json` keys
 
-What `jsonMerge` does today, read from `plan.ts` (`reconcileOwnership`, `reduceMerge`),
+What `jsonMerge` does today, read from `merge-ownership.ts` (`reconcileOwnership`, `checkWriteCoverage`), `plan.ts` (`reduceMerge`, `diffLockfile`),
 `applier.ts` (`nextMerge`), `differ.ts` (`diffMerge`) and `remover.ts` (`removeMergeKeys`). The
 website summarises this in `docs/authoring` and `docs/concepts/ownership-modes`.
 
 **Which keys a blueprint may own.** Any dotted path listed in `ownedKeys`, such as
-`scripts.prepare`, `devDependencies.husky` or the top-level `lint-staged`. Own the leaf (`scripts.<name>`,
-`devDependencies.<name>`), never a whole parent such as `scripts`: removing that parent would
-also delete user-owned children. The planner compares exact `ownedKeys` strings; it does not
-reject a parent/child overlap such as `scripts` and `scripts.test`. `value` is deep-merged
-whole, so a key in `value` that is not in `ownedKeys` is written but neither conflict-checked
-nor removed later; keep the two lists identical.
+`scripts.prepare`, `devDependencies.husky` or the top-level `lint-staged`. Paths are compared
+segment by segment (`keySegments` in `merge-ownership.ts`): `scripts` covers `scripts.test` but
+not `scripts.testing`. Own the leaf (`scripts.<name>`, `devDependencies.<name>`) unless the blueprint
+really owns the whole subtree: an owned parent is deleted with everything under it when the
+blueprint leaves.
 
-**Blueprint against blueprint.** Blueprints do not compose a shared key. One owner per key: two
-distinct blueprints listing the same dotted key fail at plan time with `pjt.plan.conflict-merge`
-(naming the path, key and both owners). Keys that differ under the same parent coexist
-(`scripts.changeset` and `scripts.prepare`). Mixing merge with `owned` or `seed` on
-`package.json` fails with `pjt.plan.conflict-owned`.
+**Every written field is owned.** The planner enumerates the fields the op's `value` writes as
+`RecordX.deepMerge` writes them: plain objects recurse, while arrays, primitives, `null` and an
+empty nested `{}` replace what is there and count as one field each. An empty root `{}` writes
+nothing. Each field must equal, or sit under, one of that op's own `ownedKeys`. Otherwise
+planning fails with `pjt.plan.unowned-merge-write` (naming the file, the field and the owner),
+before any file or the lockfile is touched. A scalar written above an owned key
+(`scripts: "none"` while owning `scripts.test`) is unowned, and so is an array under an owned
+child (`files` written while owning `files.0`): the array is the field.
+
+**Blueprint against blueprint.** Blueprints do not compose a shared key. Two distinct blueprints
+whose keys are equal, or where one contains the other (`scripts` and `scripts.test`), fail at
+plan time with `pjt.plan.conflict-merge`, naming the path, the covering key and both owners. The
+owners are reported in id order, so declaration order never changes the outcome. Keys that differ
+under the same parent coexist (`scripts.changeset` and `scripts.prepare`, or `scripts.test` and
+`scripts.testing`). Mixing merge with `owned` or `seed` on `package.json` fails with
+`pjt.plan.conflict-owned`. One owner declaring a key and its descendant is normalised to the
+ancestor, in either order, and the lockfile records the normalised keys.
+
+**Runtime validation.** `ownedKeys` and `value` can be computed (the Vitest blueprint builds
+`scripts.${scriptName}` from options), so these checks run in the planner on the real values
+every time, not at authoring time. No ESLint rule enforces them: lint sees source text, never the
+computed values, and none of the repo's rules reads `ownedKeys`. A literal-only lint check would
+cover just the blueprints that spell both lists out, which is why the runtime check is the
+enforcement.
 
 **Blueprint against the user's value.** The existing file is deep-merged with the blueprint
 value and the blueprint wins a leaf conflict (arrays are replaced, not concatenated). There is
@@ -159,7 +177,11 @@ never claim a key the user is likely to have set.
 **Keys the user added.** Every key not in the blueprint's `value` is preserved untouched by
 `pjt build` and `pjt remodel`, including sibling scripts under `scripts`. Output is re-serialised
 with two-space indentation and a trailing newline. On blueprint removal `removeMergeKeys` deletes
-only the lockfile's `ownedKeys`; everything else stays.
+only the lockfile's `ownedKeys`; everything else stays. `diffLockfile` first drops every
+departing key that equals, contains or sits inside a key a remaining blueprint still claims on
+the same file, so moving a parent claim to descendant claims never deletes the live owner's keys.
+The departing owner's other leaves under such a parent stay behind, because the lockfile records
+claims, not the leaves they wrote.
 
 **Drift.** `pjt inspect` deep-merges the blueprint value into the current file and compares
 canonical JSON (key order ignored). Differences print `~ modify package.json (JSON merge)` and
@@ -180,7 +202,8 @@ jsonMerge({
 })
 ```
 
-Alone, this sets `scripts.prepare` and leaves `scripts.test` and the rest alone. Add a second
+Alone, this sets `scripts.prepare` and `devDependencies.husky` and leaves `scripts.test` and the rest alone. Writing any
+other field from this `value` would fail with `pjt.plan.unowned-merge-write`. Add a second
 blueprint that also lists `scripts.prepare` (this repo's own `prepare` is
 `husky && effect-language-service patch`) and `pjt build` fails with `pjt.plan.conflict-merge`;
 the fix is to drop the key from one of them. `@projitect/blueprint-husky-lint-staged` is the only
