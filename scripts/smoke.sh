@@ -511,7 +511,9 @@ const fs = require('fs');
 const p = process.argv[1] + '/package.json';
 const j = JSON.parse(fs.readFileSync(p, 'utf8'));
 j.version = '1.0.0';
-for (const k of ['peerDependencies', 'devDependencies', 'scripts']) delete j[k];
+for (const k of ['devDependencies', 'scripts']) delete j[k];
+// The peers stay so the worker's read allowlist can follow them; loose ranges keep npm from resolving against the registry.
+for (const name of Object.keys(j.peerDependencies ?? {})) j.peerDependencies[name] = '*';
 fs.writeFileSync(p, JSON.stringify(j, null, 2) + '\n');
 " "$REG/pkg-skills/package"
 npm pack "$REG/pkg-skills/package" --pack-destination "$REG" --silent > /dev/null 2>&1
