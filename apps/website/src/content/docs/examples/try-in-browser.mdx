@@ -1,0 +1,49 @@
+---
+title: try-in-browser
+description: Edit a .pjt.ts in your browser and watch the plan and drift output update, with no install and no server.
+sidebar:
+  label: try-in-browser
+  order: 0
+---
+
+import code from "../../../../examples/browser-demo/example.ts?raw"
+import { Code } from "@astrojs/starlight/components"
+import PjtDemo from "../../../components/PjtDemo.astro"
+
+pjt runs in your browser. Edit the `.pjt.ts` below and the plan and drift panels update after each
+edit. Add `changesets()`, swap in `react()`, or delete a line and see what changes.
+
+<PjtDemo />
+
+## What happens on each edit
+
+1. The editor text is evaluated as a real `.pjt.ts`. Types are stripped, not checked, and `import`
+   resolves only the first-party packages: `@projitect/cli`, `@projitect/blueprint`, the
+   `@projitect/blueprint-*` blueprints and `effect`.
+2. The blueprints plan against an in-memory project, the same `buildPlan` the CLI runs. Each
+   blueprint is held to the permissions it declares.
+3. The plan is diffed against that project, the same `diffPlan` and report `pjt inspect` prints. The
+   project starts with a `.gitignore` and a `package.json`, so the first report shows files to create
+   and files to modify.
+
+Nothing is written. Every edit starts from the same project, so the output depends only on the text.
+
+A syntax error, an unknown import or a conflict between blueprints shows its message in place of the
+plan. The last valid output stays on screen, dimmed and marked stale, until the text is valid again.
+
+## The starter
+
+<Code code={code} lang="ts" title=".pjt.ts" />
+
+## What runs where
+
+The page loads the projitect engine, the first-party blueprints and an in-memory filesystem as one
+browser bundle. The demo makes no request to a pjt server, and no filesystem outside the page is
+read or written.
+
+The editor text runs as JavaScript in this tab. The import list limits what a `.pjt.ts` can pull in,
+but it does not isolate the code from the page, so run only code you wrote or trust. The demo does
+not evaluate shared snippets.
+
+To run the same file against a real project, put it in `.pjt.ts` and run `pjt inspect`. See
+[Getting started](/docs/getting-started/).
