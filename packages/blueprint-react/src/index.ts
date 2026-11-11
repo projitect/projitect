@@ -137,8 +137,8 @@ export const react = (options: ReactOptions = {}): Blueprint.Blueprint => {
   const starterFiles = {
     "index.html": templates.indexHtml(`src/main.${ext}`),
     [`src/main.${ext}`]: templates.mainTsx,
-    [`src/App.${ext}`]: templates.appTsx,
-    [`src/App.test.${ext}`]: templates.appTestTsx,
+    [`src/App.${ext}`]: typescript ? templates.appTsx : templates.appJsx,
+    [`src/App.test.${ext}`]: typescript ? templates.appTestTsx : templates.appTestJsx,
     "src/index.css": templates.indexCss,
   }
   const typeKeys = [

@@ -182,6 +182,8 @@ describe("react() options", () => {
       }
       return op.content
     }
+    expect(seed("src/App.jsx")).toContain(`import React, { useState } from "react"`)
+    expect(seed("src/App.test.jsx")).toContain(`import React from "react"`)
     expect(seed("src/App.test.jsx")).toContain('import App from "./App"')
     expect(seed("src/App.jsx")).toContain("Hello from projitect")
     expect(seed("src/App.test.jsx")).toContain("Hello from projitect")
