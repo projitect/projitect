@@ -97,7 +97,7 @@ When a commit is blocked: read the lint-staged output, fix the surfaced errors, 
 
 ## CI (GitHub Actions)
 
-[`.github/workflows/ci.yml`](../.github/workflows/ci.yml) defines one job per check. All eleven jobs
+[`.github/workflows/ci.yml`](../.github/workflows/ci.yml) defines one job per check. All twelve jobs
 run in parallel on every PR and every push to `main`. Concurrency group cancels in-progress
 runs on new pushes to the same ref. Default Node version is sourced from `.nvmrc` (22.12);
 behavioral jobs run a 22 + 24 matrix.
@@ -109,6 +109,7 @@ behavioral jobs run a 22 + 24 matrix.
 | `test`            | node 22 / 24 | `pnpm test` (Vitest unit suites; `needs: build-packages`)                             |
 | `knip`            | (.nvmrc)     | `pnpm knip`                                                                           |
 | `guidance`        | (.nvmrc)     | `pnpm check:guidance` (AGENTS.md size, symlink, links, docs index, skill frontmatter) |
+| `changesets`      | (.nvmrc)     | `pnpm check:changesets` (pending changesets name only packages in the workspace)      |
 | `build-packages`  | (.nvmrc)     | `pnpm build` — uploads `packages/*/dist/` as a build artifact                         |
 | `build-website`   | (.nvmrc)     | downloads the build artifact, then `pnpm --filter website build`                      |
 | `check-errors`    | (.nvmrc)     | downloads the build artifact, then `pnpm --filter website check:errors`               |
@@ -123,6 +124,17 @@ have no Node-version-dependent behavior worth matrixing — they run on the .nvm
 
 The setup action at `.github/actions/setup/action.yml` accepts an optional `node-version`
 input; matrixed jobs pass `${{ matrix.node }}`, others omit it and fall through to .nvmrc.
+
+The `changesets` job runs `scripts/check-changesets.mjs`, which assembles the release plan from
+the pending `.changeset/*.md` files and fails, naming the package, when one names a package that
+is not in the pnpm workspace (for example, an obsolete `projitect` instead of `@projitect/cli`).
+Existing ignored workspace packages such as `website` remain ignored by the release plan; this
+gate does not add a policy rejecting their names. It reads no git history, so the default shallow
+checkout suffices. It checks package names only: it does not require a changeset, so docs-only PRs and PRs that change a
+published package without one pass, and it does not judge the bump type. With no pending
+changesets (pushes to `main` after a release, the generated version PR that consumes them) there is
+nothing to validate and it passes. Plain `changeset status` is not used because it also fails when
+packages changed without a changeset.
 
 Total wall-clock ≈ 60-90s (bounded by `smoke`). If a check passes locally but fails in CI,
 prefer "fix the workflow's pnpm-store cache" or "fix the underlying determinism" — never `if:`
