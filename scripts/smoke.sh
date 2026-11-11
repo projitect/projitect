@@ -1114,6 +1114,40 @@ $REACT_BIN remodel > /dev/null 2>&1
 [ -f src/App.tsx ] && [ -f src/main.tsx ] && [ -f index.html ] && pass "removal keeps the seeded source" || fail "seeded source lost on removal"
 grep -q '"lint": "echo lint"' package.json && pass "removal keeps the user's own package.json keys" || fail "user key lost on removal"
 grep -q '"vite"' package.json && fail "managed devDependency survived removal" || pass "removal drops the managed package.json keys"
+echo "=== 10b. JavaScript React template: packed install, production build and seeded tests ==="
+REACT_JS_DIR="$(mktemp -d -t pjt-react-js.XXXXXX)"
+cd "$REACT_JS_DIR"
+git init -q
+git config user.email t@t
+git config user.name t
+echo "{\"name\":\"smoke-react-js\",\"version\":\"0.0.0\",\"private\":true,\"type\":\"module\",\"packageManager\":\"${PNPM_SPEC}\",\"devDependencies\":{\"@projitect/cli\":\"^${BASE_VERSION}\"},\"pnpm\":{\"overrides\":{\"@projitect/cli\":\"file:${REACTREG}/projitect-cli-${BASE_VERSION}.tgz\"}}}" > package.json
+printf 'node_modules/\n' > .gitignore
+write_npmrc
+pnpm add -D "@projitect/blueprint-react@1.0.0" "effect@${EFFECT_VERSION}" tsx > /tmp/react-js-cli-install.out 2>&1
+[ $? -eq 0 ] && pass "packed JavaScript React dependencies install" || fail "JavaScript React install failed: $(tail -8 /tmp/react-js-cli-install.out)"
+cat > .pjt.ts <<'PJT'
+import { pjt } from "@projitect/cli"
+import { react } from "@projitect/blueprint-react"
+
+export default pjt({ blueprints: [react({ template: "react", name: "smoke-react-js" })] })
+PJT
+git add -A
+git commit -qm "baseline"
+pnpm exec pjt build --force --yes > /tmp/react-js-scaffold.out 2>&1
+[ $? -eq 0 ] && pass "JavaScript React scaffolding succeeds" || fail "JavaScript React scaffolding failed: $(tail -8 /tmp/react-js-scaffold.out)"
+write_npmrc
+[ -f src/App.jsx ] && [ -f src/App.test.jsx ] && [ -f vite.config.js ] && [ ! -f tsconfig.json ] && pass "JavaScript template uses JSX and has no TypeScript config" || fail "JavaScript React scaffold has incorrect file types"
+pnpm install --no-frozen-lockfile > /tmp/react-js-install.out 2>&1
+[ $? -eq 0 ] && pass "generated JavaScript app dependencies install" || fail "JavaScript app install failed: $(tail -8 /tmp/react-js-install.out)"
+pnpm run build > /tmp/react-js-build.out 2>&1
+[ $? -eq 0 ] && [ -f dist/index.html ] && pass "generated JavaScript app builds for production" || fail "JavaScript production build failed: $(tail -8 /tmp/react-js-build.out)"
+pnpm test > /tmp/react-js-test.out 2>&1
+[ $? -eq 0 ] && grep -q "2 passed" /tmp/react-js-test.out && pass "both generated JavaScript starter tests pass" || fail "JavaScript starter tests failed: $(tail -12 /tmp/react-js-test.out)"
+pnpm exec pjt inspect > /tmp/react-js-inspect.out 2>&1
+[ $? -eq 0 ] && pass "JavaScript build and tests leave managed files clean" || fail "JavaScript app drifted: $(tail -8 /tmp/react-js-inspect.out)"
+cd "$SMOKE"
+rm -rf "$REACT_JS_DIR"
+
 echo "=== 11. next blueprint from packed tarballs: add, build, install, next build, lint, test, drift, remove ==="
 # Same registry as section 10, which already serves the packed `@projitect/blueprint-next`; the app's
 # Next.js, React, ESLint and Vitest dependencies come from the public registry (network needed).
