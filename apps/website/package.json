@@ -19,6 +19,7 @@
   "devDependencies": {
     "@projitect/blueprint": "workspace:*",
     "@projitect/blueprint-changesets": "workspace:*",
+    "@projitect/blueprint-eslint": "workspace:*",
     "@projitect/blueprint-gitignore": "workspace:*",
     "@projitect/blueprint-husky-lint-staged": "workspace:*",
     "@projitect/blueprint-markdown": "workspace:*",

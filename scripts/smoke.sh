@@ -25,7 +25,7 @@ FAILED=0
 pass() { echo "  ✓ $1"; }
 fail() { echo "  ✗ $1"; FAILED=1; }
 
-cleanup() { [ -n "${REG_PID:-}" ] && kill "$REG_PID" 2>/dev/null; [ -n "${REACT_REG_PID:-}" ] && kill "$REACT_REG_PID" 2>/dev/null; rm -rf "$SMOKE" "${SMOKE}-tools" "${REG:-}" "${E2E:-}" "${REACTDIR:-}" "${NEXTDIR:-}" "${REACTREG:-}" "${DLX_EMPTY:-}" "${DLX_EXISTING:-}"; }
+cleanup() { [ -n "${REG_PID:-}" ] && kill "$REG_PID" 2>/dev/null; [ -n "${REACT_REG_PID:-}" ] && kill "$REACT_REG_PID" 2>/dev/null; rm -rf "$SMOKE" "${SMOKE}-tools" "${REG:-}" "${E2E:-}" "${REACTDIR:-}" "${NEXTDIR:-}" "${REACTREG:-}" "${DLX_EMPTY:-}" "${DLX_EXISTING:-}" "${ESLINTDIR:-}" "${ESLINT_PROOF:-}"; }
 trap cleanup EXIT
 
 cd "$SMOKE"
@@ -42,6 +42,7 @@ npm install --no-package-lock --silent \
   "file:${PKG}/projitect" \
   "file:${PKG}/blueprint-gitignore" \
   "file:${PKG}/blueprint-vitest" \
+  "file:${PKG}/blueprint-eslint" \
   "file:${PKG}/blueprint-changesets" \
   "file:${PKG}/blueprint-markdown" \
   "file:${PKG}/blueprint-skills" \
@@ -1273,6 +1274,91 @@ rm dirty.flag
 local_step "repair: remodel succeeds again" 0 remodel
 cd "$SMOKE"
 rm -rf "$LOCALDIR"
+
+echo "=== 13. ESLint: packed config-only bootstrap, real local lint and repair ==="
+ESLINTDIR="$(mktemp -d -t pjt-eslint.XXXXXX)"
+ESLINT_PROOF="$(mktemp -d -t pjt-eslint-proof.XXXXXX)"
+cd "$ESLINTDIR"
+git init -q
+git config user.email t@t
+git config user.name t
+echo "{\"name\":\"smoke-eslint\",\"version\":\"0.0.0\",\"private\":true,\"type\":\"module\",\"packageManager\":\"${PNPM_SPEC}\",\"scripts\":{\"custom\":\"echo hi\"},\"notes\":{\"owner\":\"user\"},\"devDependencies\":{\"@projitect/cli\":\"^${BASE_VERSION}\"},\"pnpm\":{\"overrides\":{\"@projitect/cli\":\"file:${REACTREG}/projitect-cli-${BASE_VERSION}.tgz\"}}}" > package.json
+printf 'node_modules/\n' > .gitignore
+write_npmrc
+pnpm install --no-frozen-lockfile > /tmp/eslint-bootstrap-install.out 2>&1
+[ $? -eq 0 ] && pass "packed CLI installs in a clean ESLint consumer" || fail "ESLint bootstrap install failed: $(tail -12 /tmp/eslint-bootstrap-install.out)"
+PJT="${ESLINTDIR}/node_modules/@projitect/cli/bin/pjt.mjs"
+node "$PJT" init --yes > /tmp/eslint-init.out 2>&1
+[ $? -eq 0 ] && pass "ESLint consumer initializes from the packed CLI" || fail "ESLint init failed: $(tail -12 /tmp/eslint-init.out)"
+node "$PJT" add @projitect/blueprint-eslint > /tmp/eslint-add-config.out 2>&1
+[ $? -eq 0 ] && grep -q 'eslint.config()' .pjt.ts && pass "documented add inserts the config-only blueprint" || fail "ESLint add failed: $(tail -12 /tmp/eslint-add-config.out)"
+pnpm add -D typescript@^5.9.0 > /tmp/eslint-typescript-install.out 2>&1
+[ $? -eq 0 ] && pass "consumer installs its declared TypeScript requirement" || fail "TypeScript install failed: $(tail -12 /tmp/eslint-typescript-install.out)"
+[ ! -e node_modules/.bin/eslint ] && pass "bootstrap starts without project-local ESLint" || fail "bootstrap unexpectedly supplied ESLint"
+node "$PJT" remodel > /tmp/eslint-config-only.out 2>&1
+[ $? -eq 0 ] && [ -f eslint.config.mjs ] && pass "config-only remodel works before ESLint is installed" || fail "config-only ESLint bootstrap failed: $(tail -12 /tmp/eslint-config-only.out)"
+pnpm install --no-frozen-lockfile > /tmp/eslint-tool-install.out 2>&1
+[ $? -eq 0 ] && [ -e node_modules/.bin/eslint ] && pass "install supplies the blueprint's declared real local linter" || fail "ESLint tool install failed: $(tail -12 /tmp/eslint-tool-install.out)"
+cat > .pjt.ts <<'PJT'
+import { pjt } from "@projitect/cli"
+import { eslint } from "@projitect/blueprint-eslint"
+export default pjt({ blueprints: [
+  eslint.config({ ignores: ["build"], prettier: "config", extends: "eslint.rules.mjs" }),
+] })
+PJT
+node "$PJT" remodel > /tmp/eslint-options.out 2>&1
+[ $? -eq 0 ] && [ -f eslint.rules.mjs ] && pass "config-only options seed the project-owned extension" || fail "ESLint options failed: $(tail -12 /tmp/eslint-options.out)"
+pnpm install --no-frozen-lockfile > /tmp/eslint-prettier-config-install.out 2>&1
+[ $? -eq 0 ] && pass "optional Prettier config dependency installs normally" || fail "ESLint integration install failed: $(tail -12 /tmp/eslint-prettier-config-install.out)"
+cat > eslint.rules.mjs <<'RULES'
+export default [{ rules: { "prefer-const": "error", "no-var": "error" } }]
+RULES
+sed -i.bak '/eslint.config(/a\
+  eslint.fix(),
+' .pjt.ts
+rm .pjt.ts.bak
+mkdir -p src build dist coverage
+printf 'let a = 1\nexport { a }\n' > src/bad.ts
+printf 'not valid javascript ???\n' > build/ignored.js
+cp build/ignored.js dist/ignored.js
+cp build/ignored.js coverage/ignored.js
+cp eslint.rules.mjs "$ESLINT_PROOF/rules.expected"
+node "$PJT" inspect > /tmp/eslint-dirty-inspect.out 2>&1
+[ $? -ne 0 ] && grep -q 'eslint .' /tmp/eslint-dirty-inspect.out && pass "direct CLI inspect reports the failing real lint check" || fail "ESLint dirty inspect failed unexpectedly: $(tail -12 /tmp/eslint-dirty-inspect.out)"
+grep -q 'let a' src/bad.ts && pass "inspect leaves the fixable source untouched" || fail "ESLint inspect changed the source"
+node "$PJT" remodel > /tmp/eslint-fix.out 2>&1
+[ $? -eq 0 ] && grep -q 'const a' src/bad.ts && pass "real project-local ESLint repairs the TypeScript source" || fail "ESLint repair failed: $(tail -12 /tmp/eslint-fix.out)"
+cmp -s eslint.rules.mjs "$ESLINT_PROOF/rules.expected" && pass "remodel preserves edited project-owned extension rules" || fail "ESLint extension was overwritten"
+grep -q 'not valid' build/ignored.js && grep -q 'not valid' dist/ignored.js && grep -q 'not valid' coverage/ignored.js && pass "default and custom ignored directories remain untouched" || fail "ESLint modified ignored files"
+grep -q '"custom": "echo hi"' package.json && grep -q '"owner": "user"' package.json && pass "lint script merge preserves user package keys" || fail "ESLint package merge lost user keys"
+node "$PJT" inspect > /tmp/eslint-clean.out 2>&1
+[ $? -eq 0 ] && pass "real lint and managed files inspect clean after repair" || fail "ESLint clean inspect failed: $(tail -12 /tmp/eslint-clean.out)"
+printf 'var b = 2\nexport { b }\n' > src/bad.ts
+for file in src/bad.ts eslint.config.mjs eslint.rules.mjs package.json pnpm-lock.yaml .pjt.lock .pjt.ts; do
+  cp "$file" "$ESLINT_PROOF/$(basename "$file")"
+done
+node "$PJT" inspect > /tmp/eslint-readonly.out 2>&1
+[ $? -eq 1 ] && pass "inspect detects a project-owned extension rule violation" || fail "ESLint inspect did not report source drift: $(tail -12 /tmp/eslint-readonly.out)"
+for file in src/bad.ts eslint.config.mjs eslint.rules.mjs package.json pnpm-lock.yaml .pjt.lock .pjt.ts; do
+  cmp -s "$file" "$ESLINT_PROOF/$(basename "$file")" || fail "ESLint inspect changed $file"
+done
+node "$PJT" remodel > /tmp/eslint-repeat.out 2>&1
+[ $? -eq 0 ] && grep -q 'const b' src/bad.ts && pass "remodel consumes the edited extension and repairs its rule violation" || fail "ESLint extension repair failed: $(tail -12 /tmp/eslint-repeat.out)"
+node "$PJT" inspect > /tmp/eslint-final.out 2>&1
+[ $? -eq 0 ] && pass "the complete packed ESLint bootstrap and repair journey ends clean" || fail "ESLint final inspect failed: $(tail -12 /tmp/eslint-final.out)"
+# The CLI's .pjt.ts module-mode support is a separate contract. Test the generated .mjs config
+# directly in CommonJS and absent-type projects without claiming those CLI loader modes work.
+for package_type in commonjs absent; do
+  printf '{"private":true%s}\n' "$([ "$package_type" = commonjs ] && printf ',"type":"commonjs"')" > package.json
+  printf 'var c = 3\nexport { c }\n' > src/bad.ts
+  ./node_modules/.bin/eslint . > /tmp/eslint-module-check.out 2>&1
+  [ $? -eq 1 ] && pass "[$package_type] generated .mjs config loads and detects lint errors" || fail "[$package_type] ESLint config did not load: $(tail -12 /tmp/eslint-module-check.out)"
+  ./node_modules/.bin/eslint --fix . > /tmp/eslint-module-fix.out 2>&1
+  [ $? -eq 0 ] && grep -q 'const c' src/bad.ts && pass "[$package_type] real ESLint applies the extension rule" || fail "[$package_type] ESLint fix failed: $(tail -12 /tmp/eslint-module-fix.out)"
+done
+cd "$SMOKE"
+rm -rf "$ESLINTDIR" "$ESLINT_PROOF"
+
 
 kill "$REACT_REG_PID" 2>/dev/null
 cd "$SMOKE"
