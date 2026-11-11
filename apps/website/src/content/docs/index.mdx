@@ -58,7 +58,7 @@ export default pjt({
     gitignores.vscode(),
     tsconfig(), // strict tsconfig.json, owned by the blueprint (no drift)
     vitest(), // vitest.config.ts + scripts + devDeps + coverage/ in .gitignore
-    eslint.config(), // eslint.config.js + lint scripts + devDeps
+    eslint.config(), // eslint.config.mjs + lint scripts + devDeps
     eslint.fix(), // runs `eslint --fix .` after every file is written
     changesets(), // .changeset/config.json + release scripts + @changesets/cli
     markdownSnippets.agentsVerification(), // a versioned snippet in AGENTS.md

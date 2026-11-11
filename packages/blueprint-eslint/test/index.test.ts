@@ -6,7 +6,7 @@ import manifest from "../package.json" with { type: "json" }
 
 /**
  * Unit tests for `@projitect/blueprint-eslint` — `eslint.config()` (merge package.json + owned
- * eslint.config.js) and `eslint.fix()` (post-apply exec). Plans run against the in-memory
+ * eslint.config.mjs) and `eslint.fix()` (post-apply exec). Plans run against the in-memory
  * `BlueprintFileSystem`; the exec runner's permission gate is the engine's contract and is
  * covered in `cli-internals`.
  */
@@ -36,17 +36,17 @@ describe("eslint.config() — default options", () => {
     ])
     expect(merge.value).toMatchObject({
       scripts: { lint: "eslint .", "lint:fix": "eslint --fix ." },
-      devDependencies: { eslint: "^10.0.0", "typescript-eslint": "^8.0.0" },
+      devDependencies: { eslint: "^9.0.0", "typescript-eslint": "^8.0.0" },
     })
   })
 
-  it("renders a flat eslint.config.js with the default ignores", async () => {
+  it("renders a flat eslint.config.mjs with the default ignores", async () => {
     const { operations } = await runPlan(eslint.config())
     const owned = operations.find((o) => o._tag === "Owned")
     if (owned?._tag !== "Owned") {
       throw new Error("expected owned op")
     }
-    expect(owned.path).toBe("eslint.config.js")
+    expect(owned.path).toBe("eslint.config.mjs")
     expect(owned.content).toContain('{ ignores: ["dist", "coverage", "node_modules"] }')
     expect(owned.content).toContain("js.configs.recommended")
     expect(owned.content).toContain("...tseslint.configs.recommended")
@@ -59,11 +59,11 @@ describe("eslint.config() — default options", () => {
     expect(second).toEqual(first)
   })
 
-  it("declares read/write on package.json and write on eslint.config.js", () => {
+  it("declares read/write on package.json and write on eslint.config.mjs", () => {
     expect(eslint.config().permissions).toEqual([
       { kind: "read", glob: "package.json" },
       { kind: "write", glob: "package.json" },
-      { kind: "write", glob: "eslint.config.js" },
+      { kind: "write", glob: "eslint.config.mjs" },
     ])
   })
 
@@ -108,6 +108,29 @@ describe("eslint.config() — options", () => {
     expect(merge.ownedKeys).toContain("devDependencies.eslint-config-prettier")
     expect(owned.content).toContain('import prettier from "eslint-config-prettier"')
     expect(owned.content).toContain("  prettier,")
+  })
+})
+
+describe("eslint.config() — extends", () => {
+  it("imports the project module, spreads it last and seeds it once", async () => {
+    const { operations } = await runPlan(eslint.config({ extends: "eslint.rules.mjs" }))
+    expect(operations.map((o) => o._tag).toSorted()).toEqual(["Merge", "Owned", "Seed"])
+    const owned = operations.find((o) => o._tag === "Owned")
+    const seed = operations.find((o) => o._tag === "Seed")
+    if (owned?._tag !== "Owned" || seed?._tag !== "Seed") {
+      throw new Error("expected owned and seed ops")
+    }
+    expect(owned.content).toContain('import extra from "./eslint.rules.mjs"')
+    expect(owned.content.indexOf("...extra")).toBeGreaterThan(owned.content.indexOf("recommended"))
+    expect(seed.path).toBe("eslint.rules.mjs")
+    expect(seed.content).toContain("export default []")
+  })
+
+  it("declares write permission for the extends module", () => {
+    expect(eslint.config({ extends: "eslint.rules.mjs" }).permissions).toContainEqual({
+      kind: "write",
+      glob: "eslint.rules.mjs",
+    })
   })
 })
 

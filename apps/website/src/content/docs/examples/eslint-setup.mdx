@@ -12,7 +12,7 @@ import { Code } from "@astrojs/starlight/components"
 
 `@projitect/blueprint-eslint` exports two blueprints on the `eslint` namespace:
 
-- `eslint.config()` owns a flat `eslint.config.js` (including its `ignores` list), merges the
+- `eslint.config()` owns a flat `eslint.config.mjs` (including its `ignores` list), merges the
   `lint` and `lint:fix` scripts into `package.json`, and adds `eslint`, `@eslint/js` and
   `typescript-eslint` to `devDependencies`. Your other scripts and dependencies are untouched.
 - `eslint.fix()` is a post-apply command. `pjt build` and `pjt remodel` run `eslint --fix .` after
@@ -25,7 +25,7 @@ import { Code } from "@astrojs/starlight/components"
 Run:
 
 ```bash
-pnpm pjt remodel    # writes eslint.config.js, merges package.json, then runs eslint --fix .
+pnpm pjt remodel    # writes eslint.config.mjs, merges package.json, then runs eslint --fix .
 pnpm install        # installs eslint, @eslint/js and typescript-eslint
 pnpm pjt inspect    # exit 0 while the config matches and `eslint .` is clean
 ```
@@ -47,13 +47,20 @@ eslint.config({
   ignores: ["build"], // appended to the defaults: dist, coverage, node_modules
   typescript: true, // default: true; adds typescript-eslint and its recommended rules
   prettier: "config", // default: null; adds eslint-config-prettier
+  extends: "eslint.rules.mjs", // default: none; your own rules, imported last
 })
 eslint.fix()
 ```
 
-The config file is owned, so projitect rewrites it on every `pjt remodel`. Put extra rules in a
-separate config file rather than editing `eslint.config.js`. `blueprint-next` also owns
-`scripts.lint`, so it cannot be combined with `eslint.config()`.
+The config file is `eslint.config.mjs`, so it loads the same way in ESM and `"type": "commonjs"`
+projects. It is owned, so projitect rewrites it on every `pjt remodel`. To add your own rules, pass
+`extends: "eslint.rules.mjs"`: the generated config imports that module and appends its default
+export (an array of flat-config entries) last. projitect seeds the file once as `export default []`
+and never overwrites it afterwards, so it is yours to edit.
+`blueprint-next` also owns `scripts.lint`, so it cannot be combined with `eslint.config()`.
+The blueprint targets ESLint 9, which supports every Node version projitect does.
+The TypeScript rules need `typescript` installed in the project (typescript-eslint supports
+versions below 6.1); the blueprint does not manage that dependency.
 
 ## Order relative to `prettier.fix()`
 
@@ -68,4 +75,4 @@ formatting; place it after and ESLint does. For most projects, run ESLint first 
   stays fast, and formatting differences are never reported as lint errors.
 - **`eslint-plugin-prettier`** runs Prettier as an ESLint rule, so `eslint --fix` also formats.
   Formatting differences show up as lint errors and the run is slower. If you want it, add the
-  plugin in a separate config file; `eslint.config()` does not generate it.
+  plugin to your `extends` module; `eslint.config()` does not generate it.

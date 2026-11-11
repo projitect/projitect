@@ -1,5 +1,5 @@
 /**
- * Lint a project and auto-fix it. `eslint.config()` owns `eslint.config.js` and the lint scripts;
+ * Lint a project and auto-fix it. `eslint.config()` owns `eslint.config.mjs` and the lint scripts;
  * `eslint.fix()` runs `eslint --fix .` after every file is written. Exec operations run last and
  * in array order, so the position of `eslint.fix()` sets its sequence relative to other fixers.
  */

@@ -1,7 +1,7 @@
 {
   "name": "@projitect/blueprint-eslint",
   "version": "1.0.1",
-  "description": "ESLint blueprints for projitect — eslint.config() owns eslint.config.js plus lint scripts and devDeps; eslint.fix() runs eslint --fix as a post-apply command.",
+  "description": "ESLint blueprints for projitect — eslint.config() owns eslint.config.mjs plus lint scripts and devDeps; eslint.fix() runs eslint --fix as a post-apply command.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/projitect/projitect.git",
