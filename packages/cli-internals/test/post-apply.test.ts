@@ -147,6 +147,34 @@ describe("runPostApply", () => {
   })
 })
 
+const makeLocalTool = async (root: string, name: string, body: string): Promise<void> => {
+  const bin = path.join(root, "node_modules", ".bin")
+  await fs.mkdir(bin, { recursive: true })
+  const file = path.join(bin, name)
+  await fs.writeFile(file, `#!/usr/bin/env node\n${body}\n`)
+  await fs.chmod(file, 0o755)
+}
+
+describe.skipIf(process.platform === "win32")("runPostApply with the real runner", () => {
+  it("runs a tool that exists only in the project's node_modules/.bin", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "projitect-test-post-apply-real-"))
+    try {
+      await makeLocalTool(
+        root,
+        "pa-local-tool",
+        'require("node:fs").writeFileSync("ran.txt", "ok")',
+      )
+      const ran = await Effect.runPromise(
+        runPostApply({ commands: [planned("a", "pa-local-tool --fix .")], projectRoot: root }),
+      )
+      expect(ran).toEqual(["pa-local-tool --fix ."])
+      expect(await fs.readFile(path.join(root, "ran.txt"), "utf8")).toBe("ok")
+    } finally {
+      await fs.rm(root, { recursive: true, force: true })
+    }
+  })
+})
+
 describe("buildPlan with Exec ops", () => {
   const blueprint = (
     id: string,

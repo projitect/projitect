@@ -1212,32 +1212,35 @@ git config user.name t
 echo "{\"name\":\"smoke-local\",\"version\":\"0.0.0\",\"private\":true,\"type\":\"module\",\"packageManager\":\"${PNPM_SPEC}\",\"devDependencies\":{\"@projitect/cli\":\"^${BASE_VERSION}\"},\"pnpm\":{\"overrides\":{\"@projitect/cli\":\"file:${REACTREG}/projitect-cli-${BASE_VERSION}.tgz\"}}}" > package.json
 printf 'node_modules/\n' > .gitignore
 write_npmrc
-pnpm add -D "effect@${EFFECT_VERSION}" tsx > /tmp/local-cli-install.out 2>&1 || fail "installing the packed CLI failed: $(tail -5 /tmp/local-cli-install.out)"
+pnpm add -D "effect@${EFFECT_VERSION}" tsx "file:${REACTREG}/projitect-blueprint-${BASE_VERSION}.tgz" > /tmp/local-cli-install.out 2>&1 || fail "installing the packed CLI failed: $(tail -5 /tmp/local-cli-install.out)"
 LOCAL_BIN=node_modules/@projitect/cli/bin/pjt.mjs
 cat > node_modules/.bin/smoke-tool <<'TOOL'
 #!/usr/bin/env node
-import { existsSync } from "node:fs"
-if (existsSync("dirty.flag")) {
+import { existsSync, writeFileSync } from "node:fs"
+const args = process.argv.slice(2)
+if (args[0] === "--fix") {
+  writeFileSync("argv.txt", JSON.stringify(args))
+  console.log("smoke-tool: fixed")
+} else if (existsSync("dirty.flag")) {
   console.error("smoke-tool: dirty.flag present")
   process.exit(3)
+} else {
+  console.log("smoke-tool: clean")
 }
-console.log("smoke-tool: clean")
 TOOL
 chmod +x node_modules/.bin/smoke-tool
 cat > .pjt.ts <<'PJT'
-import { Effect } from "effect"
+import { exec } from "@projitect/blueprint"
 import { pjt } from "@projitect/cli"
 
 export default pjt({
   blueprints: [
-    {
+    exec({
       id: "smoke:local-tool",
       version: "1.0.0",
-      permissions: [{ kind: "exec", command: "smoke-tool --fix . && echo $HOME" }],
-      plan: Effect.succeed({
-        operations: [{ _tag: "Exec", ownerId: "smoke:local-tool", command: "smoke-tool --fix . && echo $HOME" }],
-      }),
-    },
+      check: "smoke-tool --check .",
+      fix: "smoke-tool --fix . && echo $HOME *.nothing",
+    }),
   ],
 })
 PJT
@@ -1258,10 +1261,12 @@ local_step() { # <label> <expected exit> <args...>
   fi
 }
 local_step "remodel runs the project-only tool with no extra PATH entries" 0 remodel
+grep -q '"&&","echo","\$HOME","\*.nothing"' argv.txt && pass "operators and \$VAR reached the tool as literal arguments" || fail "argv was not literal: $(cat argv.txt 2>&1)"
 local_step "clean inspect passes" 0 inspect
 touch dirty.flag
 git status --porcelain > /tmp/local-before.txt
 local_step "dirty inspect exits nonzero" 1 inspect
+cat /tmp/local-step.out /tmp/local-step.err | grep -q "check failed" && pass "dirty inspect names the failing check" || fail "dirty inspect did not name the failing check: $(cat /tmp/local-step.out)"
 git status --porcelain > /tmp/local-after.txt
 cmp -s /tmp/local-before.txt /tmp/local-after.txt && pass "dirty inspect wrote nothing" || fail "dirty inspect changed the tree"
 rm dirty.flag
