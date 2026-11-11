@@ -1,0 +1,203 @@
+---
+import starter from "../../examples/browser-demo/example.ts?raw"
+import { seedFiles } from "../demo/seed"
+---
+
+<div class="pjt-demo" data-pjt-demo>
+  <p class="pjt-demo-note">
+    This code runs in your own browser tab. Nothing is sent to a server. It is not isolated from the
+    page, so only run code you wrote or trust.
+  </p>
+  <details class="pjt-demo-seed">
+    <summary>Edit the project files</summary>
+    <p>These files exist only in this tab. Edit a managed value to see drift change.</p>
+    {
+      Object.entries(seedFiles).map(([path, content], index) => (
+        <>
+          <p><label for={`pjt-project-file-${index}`}><code>{path}</code></label></p>
+          <textarea
+            id={`pjt-project-file-${index}`}
+            name={path}
+            data-project-file
+            spellcheck="false"
+            autocapitalize="off"
+            autocomplete="off"
+            rows="5"
+          >{content}</textarea>
+        </>
+      ))
+    }
+    <button type="button" data-reset-project>Reset project files</button>
+  </details>
+  <div class="pjt-demo-grid">
+    <section>
+      <h3 id="pjt-demo-editor-label">.pjt.ts</h3>
+      <textarea
+        data-editor
+        aria-labelledby="pjt-demo-editor-label"
+        spellcheck="false"
+        autocapitalize="off"
+        autocomplete="off"
+        rows="14">{starter}</textarea
+      >
+    </section>
+    <section aria-live="polite">
+      <h3>Plan <span class="pjt-demo-stale" data-stale hidden>stale — last valid output</span></h3>
+      <div data-error class="pjt-demo-error" role="alert" hidden></div>
+      <ul data-plan class="pjt-demo-plan"></ul>
+      <h3>Drift <span class="pjt-demo-stale" data-stale hidden>stale — last valid output</span></h3>
+      <pre data-drift class="pjt-demo-drift"></pre>
+    </section>
+  </div>
+</div>
+
+<script>
+  import { runDemo } from "../demo/run-demo"
+  import type { DemoResult } from "../demo/run-demo"
+
+  const DEBOUNCE_MS = 300
+
+  const root = document.querySelector<HTMLElement>("[data-pjt-demo]")
+  const editor = root?.querySelector<HTMLTextAreaElement>("[data-editor]")
+  const errorBox = root?.querySelector<HTMLElement>("[data-error]")
+  const planList = root?.querySelector<HTMLElement>("[data-plan]")
+  const driftBox = root?.querySelector<HTMLElement>("[data-drift]")
+  const staleMarks = root?.querySelectorAll<HTMLElement>("[data-stale]") ?? []
+  const projectEditors = Array.from(
+    root?.querySelectorAll<HTMLTextAreaElement>("[data-project-file]") ?? [],
+  )
+  const initialProjectContents = projectEditors.map((field) => field.value)
+  const resetProject = root?.querySelector<HTMLButtonElement>("[data-reset-project]")
+
+  const li = (text: string): HTMLLIElement => {
+    const item = document.createElement("li")
+    item.textContent = text
+    return item
+  }
+
+  const show = (result: DemoResult): void => {
+    if (!errorBox || !planList || !driftBox) return
+    for (const mark of staleMarks) mark.hidden = result.ok
+    errorBox.hidden = result.ok
+    if (!result.ok) {
+      errorBox.textContent = result.message
+      planList.classList.add("is-stale")
+      driftBox.classList.add("is-stale")
+      return
+    }
+    planList.classList.remove("is-stale")
+    driftBox.classList.remove("is-stale")
+    planList.replaceChildren(
+      ...result.plan.map((entry) =>
+        li(`${entry.path} — ${entry.mode.toLowerCase()} (${entry.owners.join(", ")})`),
+      ),
+      ...result.commands.map((command) => li(`run: ${command}`)),
+    )
+    if (result.plan.length === 0) planList.replaceChildren(li("The plan is empty."))
+    driftBox.textContent = result.drift
+  }
+
+  // Edits can land while an earlier run is in flight; only the newest run may update the panels.
+  let latest = 0
+  let timer: ReturnType<typeof setTimeout> | undefined
+
+  const run = async (): Promise<void> => {
+    if (!editor) return
+    const ticket = ++latest
+    const projectFiles = Object.fromEntries(
+      projectEditors.map((field) => [field.name, field.value] as const),
+    )
+    const result = await runDemo(editor.value, projectFiles)
+    if (ticket === latest) show(result)
+  }
+
+  const scheduleRun = (): void => {
+    // Invalidate in-flight output immediately, including during the debounce interval.
+    latest += 1
+    clearTimeout(timer)
+    timer = setTimeout(() => void run(), DEBOUNCE_MS)
+  }
+
+  if (editor) {
+    editor.addEventListener("input", scheduleRun)
+    for (const field of projectEditors) field.addEventListener("input", scheduleRun)
+    resetProject?.addEventListener("click", () => {
+      for (const [index, field] of projectEditors.entries()) {
+        field.value = initialProjectContents[index] ?? ""
+      }
+      scheduleRun()
+    })
+    void run()
+  }
+</script>
+
+<style>
+  .pjt-demo-note {
+    font-size: var(--sl-text-sm);
+    color: var(--sl-color-gray-3);
+  }
+  .pjt-demo-seed {
+    margin-bottom: 1rem;
+  }
+  .pjt-demo-grid {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+  }
+  .pjt-demo-seed textarea {
+    min-height: 6rem;
+  }
+  textarea {
+    width: 100%;
+    box-sizing: border-box;
+    font-family: var(--sl-font-system-mono);
+    font-size: var(--sl-text-sm);
+    line-height: 1.5;
+    padding: 0.75rem;
+    min-height: 20rem;
+    color: var(--sl-color-white);
+    background: var(--sl-color-black);
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 0.25rem;
+    resize: vertical;
+    tab-size: 2;
+    white-space: pre;
+  }
+  .pjt-demo-plan,
+  .pjt-demo-drift {
+    font-family: var(--sl-font-system-mono);
+    font-size: var(--sl-text-sm);
+  }
+  .pjt-demo-plan {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 1rem;
+  }
+  .pjt-demo-drift {
+    white-space: pre-wrap;
+    margin: 0;
+    padding: 0.75rem;
+    background: var(--sl-color-black);
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 0.25rem;
+  }
+  .is-stale {
+    opacity: 0.45;
+  }
+  .pjt-demo-error {
+    padding: 0.75rem;
+    margin-bottom: 1rem;
+    white-space: pre-wrap;
+    font-family: var(--sl-font-system-mono);
+    font-size: var(--sl-text-sm);
+    color: var(--sl-color-white);
+    background: var(--sl-color-red-low);
+    border: 1px solid var(--sl-color-red);
+    border-radius: 0.25rem;
+  }
+  .pjt-demo-stale {
+    font-size: var(--sl-text-xs);
+    font-weight: normal;
+    color: var(--sl-color-orange);
+  }
+</style>
