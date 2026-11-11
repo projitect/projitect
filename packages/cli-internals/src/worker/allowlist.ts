@@ -84,14 +84,18 @@ export const dependencyNames = (packageDir: string): readonly string[] => {
     PredicateX.unsafeIsRecord(manifest) && PredicateX.unsafeIsRecord(manifest[key])
       ? Object.keys(manifest[key])
       : []
-  return [...section("dependencies"), ...section("peerDependencies")]
+  return Array.dedupe([
+    ...section("dependencies"),
+    ...section("optionalDependencies"),
+    ...section("peerDependencies"),
+  ])
 }
 
 /**
- * Locations of `roots` and of everything they pull in through `dependencies` and
- * `peerDependencies`, resolved the way Node resolves them (from each package's real location, so
- * pnpm's symlinked layout works). Dev dependencies are never followed. Both the `node_modules` link
- * and the real directory are listed: Node's resolver reads `package.json` through the link path.
+ * Locations of `roots` and their installed dependencies, optional dependencies and peers, resolved
+ * the way Node resolves them (from each package's real location, so pnpm's symlinked layout works).
+ * Dev dependencies are never followed. Both the `node_modules` link and the real directory are
+ * listed: Node's resolver reads `package.json` through the link path.
  */
 const packageClosure = (roots: readonly PackageLocation[]): ReadonlySet<string> => {
   const reals = new Set<string>()
