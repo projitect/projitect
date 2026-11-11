@@ -2,10 +2,11 @@ import { Array, Effect, Schema } from "effect"
 import type { Errors, PjtLock, ProjitectConfig } from "@projitect/core"
 import { StructX } from "@nunofyobiz/effect-extras"
 import { diffLockfile } from "../plan.js"
-import type { UpgradeRecord } from "../plan.js"
+import type { LegacyMergeClaim, UpgradeRecord } from "../plan.js"
 import { diffPlan, renderInspectReport } from "../differ.js"
 import type { FileDiff } from "../differ.js"
 import { makeProjectRootLayer } from "../filesystem-impl.js"
+import { findAmbiguousMergeClaims } from "../remover.js"
 import { readLockfile } from "../lockfile.js"
 import { runChecks } from "../post-apply.js"
 import type { CheckFailure } from "../post-apply.js"
@@ -24,6 +25,8 @@ export interface InspectResult {
   readonly files: readonly FileDiff[]
   readonly removals: readonly PjtLock.LockOperation[]
   readonly upgrades: readonly UpgradeRecord[]
+  /** Removals `pjt remodel` refuses: a pre-v3 parent claim whose children the lockfile cannot attribute. */
+  readonly ambiguousMergeClaims: readonly LegacyMergeClaim[]
   /** Post-apply commands whose check failed; each one is drift. */
   readonly commands: readonly CheckFailure[]
 }
@@ -45,7 +48,11 @@ export const inspect = (params: {
     const { plan, byBlueprint } = yield* loadProjectPlan(params.config)
     return yield* Effect.gen(function* () {
       const previous = yield* readLockfile
-      const { removals, upgrades } = diffLockfile({ previous, current: byBlueprint })
+      const { removals, legacyMergeClaims, upgrades } = diffLockfile({
+        previous,
+        current: byBlueprint,
+      })
+      const ambiguousMergeClaims = yield* findAmbiguousMergeClaims(legacyMergeClaims)
       const diff = yield* diffPlan({ plan })
       const commands = yield* runChecks({
         commands: plan.commands,
@@ -56,10 +63,14 @@ export const inspect = (params: {
         diff.hasDrift || removals.length > 0 || Array.isReadonlyArrayNonEmpty(commands)
       return {
         hasDrift,
-        output: withNextStep(renderInspectReport({ diff, removals, upgrades, commands }), hasDrift),
+        output: withNextStep(
+          renderInspectReport({ diff, removals, upgrades, commands, ambiguousMergeClaims }),
+          hasDrift,
+        ),
         files: diff.files,
         removals,
         upgrades,
+        ambiguousMergeClaims,
         commands,
       }
     }).pipe(Effect.provide(makeProjectRootLayer(params.config.projectRoot)))

@@ -103,7 +103,7 @@ describe("browser engine against the in-memory filesystem", () => {
     const { plan, byBlueprint } = await Effect.runPromise(
       buildPlan({ tree, projectRoot: "/", layerFor }),
     )
-    const lock = { version: 2 as const, blueprints: byBlueprint }
+    const lock = { version: 3 as const, blueprints: byBlueprint }
     await runIn(
       base,
       Effect.gen(function* () {
@@ -112,7 +112,7 @@ describe("browser engine against the in-memory filesystem", () => {
         yield* writeLockfile({ lock })
         expect((yield* diffPlan({ plan })).hasDrift).toBe(false)
         const previous = yield* readLockfile
-        expect(previous).toEqual({ ...lock, version: 2 })
+        expect(previous).toEqual({ ...lock, version: 3 })
         expect(diffLockfile({ previous, current: byBlueprint }).removals).toEqual([])
       }),
     )

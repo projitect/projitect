@@ -1,0 +1,13 @@
+---
+title: pjt.apply.merge-ancestor-not-object
+slug: errors/pjt.apply.merge-ancestor-not-object
+description: A merge blueprint would replace an array, string, number or null in your JSON file with an object.
+sidebar:
+  label: pjt.apply.merge-ancestor-not-object
+---
+
+**What**: A merge-mode blueprint writes a field under a key (say `a.b` under `a`), and your file currently holds that key as an array, string, number or `null`. Merging would replace it with an object, and the blueprint does not own it. The error names the file, the field the blueprint writes and the key it would replace. Nothing is written, and `.pjt.lock` is left as it was. `pjt inspect` reports the file as drift.
+
+**Why**: Objects merge key by key, but any other value is replaced wholesale. A blueprint that owns only `a.b` has no claim on what else lives at `a`, so projitect refuses instead of discarding it. A key that is absent, holds an object, or is owned by the blueprint (`a` itself in `ownedKeys`) is merged without this error.
+
+**How to fix**: Move the value out of the way (delete it or rename the key) and run `pjt remodel` again. Or, if the blueprint should own the whole key, add that key to its `ownedKeys` so it may replace the value.

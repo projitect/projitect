@@ -68,7 +68,9 @@ const ERROR_BLURBS: Readonly<Record<Errors.ErrorId, string>> = {
   "pjt.plan.conflict-region":
     "Two blueprints share the same `ownerId` for a region in the same file. Pick distinct ids.",
   "pjt.plan.conflict-merge":
-    "Two blueprints claim the same JSON key in the same file. Coordinate ownership.",
+    "Two blueprints claim the same JSON key, or one claims a key that contains the other's, in the same file. Coordinate ownership.",
+  "pjt.plan.unowned-merge-write":
+    "A merge blueprint writes a JSON field that none of its `ownedKeys` covers. Add the field or an ancestor key to `ownedKeys`.",
   "pjt.plan.conflict-owned":
     "Two blueprints both claim full ownership of one file. Only one `ownFile` per path is allowed.",
   "pjt.skills.invalid-path":
@@ -76,8 +78,12 @@ const ERROR_BLURBS: Readonly<Record<Errors.ErrorId, string>> = {
   "pjt.region.missing-end":
     "A region start marker was found without a matching end marker. The file has been hand-edited and the closing marker removed.",
   "pjt.region.duplicate": "Multiple start markers for the same region in one file. Hand-edited?",
+  "pjt.remove.ambiguous-merge-claim":
+    "A blueprint left .pjt.ts but its lockfile entry (written before lockfile v3) only records an owned parent key, so the keys it wrote under it are unknown. Keep the blueprint in .pjt.ts and run `pjt remodel` once, or delete the key by hand.",
   "pjt.apply.dirty-git":
     "`build` requires a clean git working tree. Commit or stash first, then retry.",
+  "pjt.apply.merge-ancestor-not-object":
+    "A merge blueprint writes a field under a key whose current value in the file is an array, scalar or null that the blueprint does not own, so the merge would replace it with an object. Move that value out of the way or make the blueprint own the key, then rerun.",
   "pjt.init.git-missing":
     "`pjt init` requires a git repository. Run `git init` first, or rerun with --yes.",
   "pjt.init.package-json-missing":

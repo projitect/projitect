@@ -1,12 +1,12 @@
 import { promises as fs } from "node:fs"
 import * as os from "node:os"
 import path from "node:path"
-import { Effect, Layer } from "effect"
+import { Effect, Exit, Layer } from "effect"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import { BlueprintFileSystem } from "@projitect/core"
 import { makeInMemoryLayer } from "@projitect/test-kit"
 import { makeProjectRootLayer } from "../src/filesystem-impl.js"
-import { applyRemovals } from "../src/remover.js"
+import { applyRemovals, assertNoAmbiguousMergeClaims } from "../src/remover.js"
 
 /**
  * Tests for `remover.ts` — the path that fires when a blueprint *leaves* `.pjt.ts` and its
@@ -166,6 +166,81 @@ describe("applyRemovals — merge", () => {
     )
     expect(touched).toEqual([])
     expect(await readFile("package.json")).toBe("{not json")
+  })
+})
+
+describe("applyRemovals — merge written fields", () => {
+  const removal = (writtenPaths: readonly string[]) =>
+    applyRemovals({
+      removals: [{ _tag: "Merge", path: "package.json", ownedKeys: ["scripts"], writtenPaths }],
+    })
+
+  it("deletes only the recorded fields and keeps other children of the owned parent", async () => {
+    await writeFile(
+      "package.json",
+      `${JSON.stringify({ scripts: { build: "tsc", custom: "mine" } })}\n`,
+    )
+    expect(await run(removal(["scripts.build"]))).toEqual(["package.json"])
+    expect(JSON.parse(await readFile("package.json"))).toEqual({ scripts: { custom: "mine" } })
+  })
+
+  it("prunes a parent the deletion emptied, but not one that still holds keys", async () => {
+    await writeFile(
+      "package.json",
+      `${JSON.stringify({ a: { b: { c: 1 } }, x: { y: 1, z: 2 } })}\n`,
+    )
+    await run(removal(["a.b.c", "x.y"]))
+    expect(JSON.parse(await readFile("package.json"))).toEqual({ x: { z: 2 } })
+  })
+
+  it("deletes an array or scalar leaf as a whole field", async () => {
+    await writeFile("package.json", `${JSON.stringify({ files: ["a", "b"], name: "x" })}\n`)
+    await run(removal(["files"]))
+    expect(JSON.parse(await readFile("package.json"))).toEqual({ name: "x" })
+  })
+
+  it("leaves a legacy claim over an object with children alone", async () => {
+    await writeFile("package.json", `${JSON.stringify({ scripts: { custom: "mine" } })}\n`)
+    const touched = await run(
+      applyRemovals({
+        removals: [{ _tag: "Merge", path: "package.json", ownedKeys: ["scripts"] }],
+      }),
+    )
+    expect(touched).toEqual([])
+    expect(JSON.parse(await readFile("package.json"))).toEqual({ scripts: { custom: "mine" } })
+  })
+})
+
+describe("assertNoAmbiguousMergeClaims", () => {
+  const claim = { blueprintId: "pjt:old", path: "package.json", key: "scripts" }
+
+  it("fails naming the file, key and owner when the key holds an object with children", async () => {
+    await writeFile("package.json", `${JSON.stringify({ scripts: { custom: "mine" } })}\n`)
+    const error = await Effect.runPromise(
+      Effect.provide(Effect.flip(assertNoAmbiguousMergeClaims([claim])), layer),
+    )
+    expect(error).toMatchObject({
+      id: "pjt.remove.ambiguous-merge-claim",
+      path: "package.json",
+      key: "scripts",
+      ownerId: "pjt:old",
+    })
+  })
+
+  it("passes when the key is absent, a scalar, an array or an empty object", async () => {
+    await writeFile("package.json", `${JSON.stringify({ scripts: "x", list: [1], empty: {} })}\n`)
+    const exit = await Effect.runPromiseExit(
+      Effect.provide(
+        assertNoAmbiguousMergeClaims([
+          claim,
+          { ...claim, key: "list" },
+          { ...claim, key: "empty" },
+          { ...claim, key: "missing" },
+        ]),
+        layer,
+      ),
+    )
+    expect(Exit.isSuccess(exit)).toBe(true)
   })
 })
 

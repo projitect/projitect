@@ -3,11 +3,11 @@ import { BlueprintFileSystem, Errors, PjtLock } from "@projitect/core"
 import { readIfExists } from "./project-file.js"
 
 const LOCKFILE_NAME = ".pjt.lock"
-const CURRENT_VERSION = 2 as const
+const CURRENT_VERSION = 3 as const
 
 /**
  * Read `.pjt.lock` from the project root of the provided `BlueprintFileSystem`. Returns `null` if the file doesn't exist (fresh project).
- * Reads v1 and v2 lockfiles. Fails with `pjt.lock.parse-failed` on JSON or schema errors,
+ * Reads v1, v2 and v3 lockfiles. Fails with `pjt.lock.parse-failed` on JSON or schema errors,
  * `pjt.lock.version-mismatch` if the lockfile was written by a newer projitect.
  */
 export const readLockfile: Effect.Effect<
@@ -62,8 +62,8 @@ export const readLockfile: Effect.Effect<
 
 /**
  * Write `.pjt.lock` through the provided `BlueprintFileSystem`. Always writes the current schema
- * version (v2): a v1 lock is migrated by stamping the version, and every operation — with its
- * optional `commentSuffix`, `ownedDir` and `contentHash` — is written unchanged.
+ * version (v3): a v1 or v2 lock is migrated by stamping the version, and every operation — with its
+ * optional `commentSuffix`, `ownedDir`, `contentHash` and `writtenPaths` — is written unchanged.
  */
 export const writeLockfile = (params: {
   readonly lock: PjtLock.PjtLock
