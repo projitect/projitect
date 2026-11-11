@@ -247,7 +247,7 @@ const makeLocalTool = async (root: string, name: string, body: string): Promise<
 describe.skipIf(process.platform === "win32")("pjt inspect with the real runner", () => {
   it("runs a check whose tool exists only in the project's node_modules/.bin", async () => {
     await makeLocalTool(cwd, "ie-local-check", "process.exit(7)")
-    declare([
+    await declare([
       {
         id: "a",
         permissions: [exec("ie-local-check --check .")],

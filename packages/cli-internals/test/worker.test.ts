@@ -10,6 +10,7 @@ import { computeReadAllowlist, packageNameOf, permissionFlag } from "../src/work
 import { planBlueprintFile } from "../src/worker/host.js"
 import { stageBlueprintModule } from "../src/worker/stage.js"
 import { transpileBlueprintFile } from "../src/worker/transpile.js"
+import { buildPlanFromPlanned } from "../src/plan.js"
 
 /**
  * The confined worker: which flag and allowlist it is started with, what Node's permission model
@@ -214,6 +215,40 @@ describe("Node permission model inside the worker flags", () => {
 })
 
 describe("planBlueprintFile", () => {
+  it("normalizes worker merge ownership and records v3 written fields in the parent", async () => {
+    const planned = await plan("worker-merge-owned.pjt.ts")
+    const { plan: reduced, byBlueprint } = await Effect.runPromise(
+      buildPlanFromPlanned({ planned }),
+    )
+    const file = reduced.files[0]
+    expect(file?._tag === "Merge" ? Object.fromEntries(file.ownership) : undefined).toEqual({
+      scripts: "pjt:test:worker-merge",
+    })
+    expect(byBlueprint["pjt:test:worker-merge"]?.operations).toEqual([
+      {
+        _tag: "Merge",
+        path: "package.json",
+        ownedKeys: ["scripts"],
+        writtenPaths: ["scripts.test"],
+      },
+    ])
+  })
+
+  it("rejects unowned worker merge writes before touching the project", async () => {
+    const packagePath = path.join(cwd, "package.json")
+    const original = '{"name":"user","scripts":{"custom":"keep"}}\n'
+    await fs.writeFile(packagePath, original)
+    const planned = await plan("worker-merge-unowned.pjt.ts")
+    const error = await Effect.runPromise(Effect.flip(buildPlanFromPlanned({ planned })))
+    expect(error).toMatchObject({
+      id: "pjt.plan.unowned-merge-write",
+      path: "package.json",
+      field: "name",
+      ownerId: "pjt:test:worker-merge",
+    })
+    expect(await fs.readFile(packagePath, "utf8")).toBe(original)
+  })
+
   it("loads a config through a symlinked project root without granting the outer directory", async () => {
     const project = path.join(cwd, "project")
     const alias = path.join(cwd, "alias")

@@ -17,7 +17,7 @@ import { covers, minimalKeys, overlaps, writtenFields } from "../src/merge-owner
 
 const FIXTURE = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
-  "fixtures/post-apply.pjt.ts",
+  "fixtures/merge-ownership.pjt.ts",
 )
 
 describe("segment rules", () => {
@@ -66,7 +66,6 @@ describe("remodel with merge ownership", () => {
   })
 
   afterEach(async () => {
-    delete process.env["PJT_TEST_POST_APPLY"]
     await fs.rm(cwd, { recursive: true, force: true })
   })
 
@@ -84,12 +83,11 @@ describe("remodel with merge ownership", () => {
     value,
   })
 
-  const declare = (
+  const declare = async (
     blueprints: readonly { id: string; operations: readonly ChangeSet.Operation[] }[],
   ) => {
-    process.env["PJT_TEST_POST_APPLY"] = JSON.stringify(
-      blueprints.map((b) => ({ permissions: [], ...b })),
-    )
+    // The worker deliberately has no parent environment; pass test input through its gated FS.
+    await fs.writeFile(path.join(cwd, ".pjt-test-merge.json"), JSON.stringify(blueprints))
   }
 
   const gitignore: ChangeSet.Operation = {
@@ -125,7 +123,7 @@ describe("remodel with merge ownership", () => {
   it("leaves every file and the lockfile untouched when owners overlap", async () => {
     await fs.writeFile(path.join(cwd, "package.json"), '{ "name": "demo" }\n', "utf8")
     await fs.writeFile(path.join(cwd, ".gitignore"), "node_modules/\n", "utf8")
-    declare([
+    await declare([
       { id: "pjt:ignore", operations: [gitignore] },
       { id: "pjt:parent", operations: [merge("pjt:parent", ["scripts"], { scripts: { a: "1" } })] },
       {
@@ -142,7 +140,7 @@ describe("remodel with merge ownership", () => {
 
   it("leaves every file and the lockfile untouched when a merge writes an unowned field", async () => {
     await fs.writeFile(path.join(cwd, "package.json"), '{ "name": "demo" }\n', "utf8")
-    declare([
+    await declare([
       { id: "pjt:ignore", operations: [gitignore] },
       {
         id: "pjt:a",
@@ -165,7 +163,7 @@ describe("remodel with merge ownership", () => {
       id: "pjt:lint",
       operations: [merge("pjt:lint", ["scripts.lint"], { scripts: { lint: "eslint ." } })],
     }
-    declare([
+    await declare([
       {
         id: "pjt:old",
         operations: [merge("pjt:old", ["scripts.build"], { scripts: { build: "tsc" } })],
@@ -174,7 +172,7 @@ describe("remodel with merge ownership", () => {
     ])
     expect(Exit.isSuccess(await run())).toBe(true)
 
-    declare([
+    await declare([
       lint,
       {
         id: "pjt:new",
@@ -190,7 +188,7 @@ describe("remodel with merge ownership", () => {
 
   it("does not delete a live owner's children when the departing owner held the parent", async () => {
     await fs.writeFile(path.join(cwd, "package.json"), "{}\n", "utf8")
-    declare([
+    await declare([
       {
         id: "pjt:old",
         operations: [merge("pjt:old", ["scripts"], { scripts: { build: "tsc" } })],
@@ -198,7 +196,7 @@ describe("remodel with merge ownership", () => {
     ])
     expect(Exit.isSuccess(await run())).toBe(true)
 
-    declare([
+    await declare([
       {
         id: "pjt:new",
         operations: [merge("pjt:new", ["scripts.test"], { scripts: { test: "vitest" } })],
@@ -219,7 +217,7 @@ describe("remodel with merge ownership", () => {
       id: "pjt:keep",
       operations: [merge("pjt:keep", ["scripts.keep"], { scripts: { keep: "k" } })],
     }
-    declare([
+    await declare([
       keep,
       {
         id: "pjt:gone",
@@ -227,7 +225,7 @@ describe("remodel with merge ownership", () => {
       },
     ])
     expect(Exit.isSuccess(await run())).toBe(true)
-    declare([keep])
+    await declare([keep])
     expect(Exit.isSuccess(await run())).toBe(true)
     expect(await readPackage()).toEqual({ scripts: { custom: "mine", keep: "k" } })
   })
@@ -238,24 +236,24 @@ describe("remodel with merge ownership", () => {
       '{ "name": "demo", "scripts": { "custom": "mine" } }\n',
       "utf8",
     )
-    declare([
+    await declare([
       { id: "pjt:old", operations: [merge("pjt:old", ["scripts"], { scripts: { build: "tsc" } })] },
     ])
     expect(Exit.isSuccess(await run())).toBe(true)
     expect(await readPackage()).toEqual({ name: "demo", scripts: { custom: "mine", build: "tsc" } })
 
-    declare([{ id: "pjt:ignore", operations: [gitignore] }])
+    await declare([{ id: "pjt:ignore", operations: [gitignore] }])
     expect(Exit.isSuccess(await run())).toBe(true)
     expect(await readPackage()).toEqual({ name: "demo", scripts: { custom: "mine" } })
   })
 
   it("keeps the new descendant when the same owner upgrades a recorded leaf into an object", async () => {
     await fs.writeFile(path.join(cwd, "package.json"), "{}\n", "utf8")
-    declare([
+    await declare([
       { id: "pjt:a", operations: [merge("pjt:a", ["scripts"], { scripts: { test: "vitest" } })] },
     ])
     expect(Exit.isSuccess(await run())).toBe(true)
-    declare([
+    await declare([
       {
         id: "pjt:a",
         operations: [merge("pjt:a", ["scripts"], { scripts: { test: { unit: "vitest run" } } })],
@@ -268,14 +266,14 @@ describe("remodel with merge ownership", () => {
   describe("a still-present owner upgrades its value to an empty object", () => {
     const upgradeToEmpty = async (existing: string) => {
       await fs.writeFile(path.join(cwd, "package.json"), existing, "utf8")
-      declare([
+      await declare([
         {
           id: "pjt:a",
           operations: [merge("pjt:a", ["settings"], { settings: { old: "managed" } })],
         },
       ])
       expect(Exit.isSuccess(await run())).toBe(true)
-      declare([{ id: "pjt:a", operations: [merge("pjt:a", ["settings"], { settings: {} })] }])
+      await declare([{ id: "pjt:a", operations: [merge("pjt:a", ["settings"], { settings: {} })] }])
       expect(Exit.isSuccess(await run())).toBe(true)
     }
 
@@ -292,21 +290,23 @@ describe("remodel with merge ownership", () => {
 
   it("keeps the user's children when a departing owner's recorded leaf has become an object", async () => {
     await fs.writeFile(path.join(cwd, "package.json"), "{}\n", "utf8")
-    declare([{ id: "pjt:a", operations: [merge("pjt:a", ["scripts"], { scripts: { x: ["a"] } })] }])
+    await declare([
+      { id: "pjt:a", operations: [merge("pjt:a", ["scripts"], { scripts: { x: ["a"] } })] },
+    ])
     expect(Exit.isSuccess(await run())).toBe(true)
     await fs.writeFile(
       path.join(cwd, "package.json"),
       '{ "scripts": { "x": { "mine": "1" } } }\n',
       "utf8",
     )
-    declare([{ id: "pjt:ignore", operations: [gitignore] }])
+    await declare([{ id: "pjt:ignore", operations: [gitignore] }])
     expect(Exit.isSuccess(await run())).toBe(true)
     expect(await readPackage()).toEqual({ scripts: { x: { mine: "1" } } })
   })
 
   it("refuses a descendant-only claim under an unowned array, changing no file or the lockfile", async () => {
     await fs.writeFile(path.join(cwd, "package.json"), '{ "a": [1, 2] }\n', "utf8")
-    declare([
+    await declare([
       { id: "pjt:ignore", operations: [gitignore] },
       { id: "pjt:a", operations: [merge("pjt:a", ["a.b"], { a: { b: "x" } })] },
     ])
@@ -335,7 +335,7 @@ describe("remodel with merge ownership", () => {
         "utf8",
       )
       await fs.writeFile(path.join(cwd, ".pjt.lock"), legacyLock(["scripts"]), "utf8")
-      declare([{ id: "pjt:ignore", operations: [gitignore] }])
+      await declare([{ id: "pjt:ignore", operations: [gitignore] }])
       const before = await snapshot()
       const exit = await run()
       expect(JSON.stringify(exit)).toContain("pjt.remove.ambiguous-merge-claim")
@@ -353,7 +353,7 @@ describe("remodel with merge ownership", () => {
         legacyLock(["scripts.build", "files"]),
         "utf8",
       )
-      declare([{ id: "pjt:ignore", operations: [gitignore] }])
+      await declare([{ id: "pjt:ignore", operations: [gitignore] }])
       expect(Exit.isSuccess(await run())).toBe(true)
       expect(await readPackage()).toEqual({ name: "demo", scripts: { custom: "mine" } })
     })
@@ -361,7 +361,7 @@ describe("remodel with merge ownership", () => {
     it("upgrades the lockfile to v3 with the written fields when the blueprint stays", async () => {
       await fs.writeFile(path.join(cwd, "package.json"), "{}\n", "utf8")
       await fs.writeFile(path.join(cwd, ".pjt.lock"), legacyLock(["scripts"]), "utf8")
-      declare([
+      await declare([
         {
           id: "pjt:old",
           operations: [merge("pjt:old", ["scripts"], { scripts: { build: "tsc", files: ["a"] } })],
