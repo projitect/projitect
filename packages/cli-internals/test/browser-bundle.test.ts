@@ -81,6 +81,10 @@ describe("browser bundles contain no node:* module", () => {
     ["the browser engine entry", path.join(srcDir, "browser.ts")],
     ["the first-party blueprint registry entry", path.join(srcDir, "browser-blueprints.ts")],
     ["@projitect/test-kit", testKitEntry],
+    [
+      "the standalone Prettier blueprint",
+      fileURLToPath(import.meta.resolve("@projitect/blueprint-prettier")),
+    ],
   ])("%s", async (_name, entry) => {
     const metafile = await bundle(entry)
     expect(Object.keys(metafile.inputs).length).toBeGreaterThan(1)

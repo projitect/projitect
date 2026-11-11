@@ -1,0 +1,22 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "emitDeclarationOnly": true,
+    "outDir": "./dist",
+    "tsBuildInfoFile": "./.tsbuildinfo",
+    "composite": true,
+    "declaration": true,
+    "declarationMap": false,
+    "sourceMap": false,
+    "incremental": true,
+    "types": ["node"]
+  },
+  "include": ["./**/*"],
+  "exclude": ["dist", "node_modules"],
+  "references": [
+    { "path": ".." },
+    { "path": "../../core" },
+    { "path": "../../blueprint" },
+    { "path": "../../test-kit" }
+  ]
+}

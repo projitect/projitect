@@ -150,6 +150,18 @@ export class SkillInvalid extends Schema.TaggedError<SkillInvalid>()("SkillInval
 }) {}
 
 // ---------------------------------------------------------------------------
+// Formatter errors — options could not produce a valid managed configuration
+// ---------------------------------------------------------------------------
+
+export class PrettierInvalidOptions extends Schema.TaggedError<PrettierInvalidOptions>()(
+  "PrettierInvalidOptions",
+  {
+    id: Schema.Literal("pjt.prettier.invalid-options"),
+    message: Schema.String,
+  },
+) {}
+
+// ---------------------------------------------------------------------------
 // Region marker errors — encountered when reading existing file content
 // ---------------------------------------------------------------------------
 
@@ -378,6 +390,7 @@ export type BlueprintError =
   | RegionMissingEnd
   | RegionDuplicate
   | SkillInvalid
+  | PrettierInvalidOptions
 
 export type LoaderError = LoaderImportFailed | LoaderInvalidDefaultExport
 
@@ -442,6 +455,7 @@ export const ERROR_IDS = [
   "pjt.plan.unowned-merge-write",
   "pjt.plan.conflict-owned",
   "pjt.skills.invalid-path",
+  "pjt.prettier.invalid-options",
   "pjt.region.missing-end",
   "pjt.region.duplicate",
   "pjt.remove.ambiguous-merge-claim",

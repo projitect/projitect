@@ -1,0 +1,16 @@
+---
+title: pjt.prettier.invalid-options
+slug: errors/pjt.prettier.invalid-options
+description: Prettier rejected the options used to render the managed configuration.
+sidebar:
+  label: pjt.prettier.invalid-options
+---
+
+**What**: `prettier.config()` could not render `.prettierrc.json` with the supplied options.
+The message includes Prettier's validation error, and planning stops before files are written.
+
+**Why**: An option has a value Prettier does not support, such as a negative `tabWidth`.
+The managed configuration is rendered by the same Prettier version installed for the project,
+so formatting it later does not create drift.
+
+**How to fix**: Correct the option passed to `prettier.config()` and run `pjt remodel` again.

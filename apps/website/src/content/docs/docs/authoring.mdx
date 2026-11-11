@@ -199,7 +199,7 @@ also cover keys computed from options. No ESLint rule checks them: lint cannot s
 The husky blueprint is the only first-party owner of `scripts.prepare` (`husky`). The framework
 blueprints own `dev`/`build`/`preview` (React) and `dev`/`build`/`start`/`lint` (Next.js), so
 the two conflict on `scripts.build`; Vitest owns `test` and `test:watch`; Changesets owns
-`changeset` and `version-packages`.
+`changeset` and `version-packages`; Prettier owns `format`.
 
 ## Permissions
 

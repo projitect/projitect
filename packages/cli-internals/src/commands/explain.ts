@@ -75,6 +75,8 @@ const ERROR_BLURBS: Readonly<Record<Errors.ErrorId, string>> = {
     "Two blueprints both claim full ownership of one file. Only one `ownFile` per path is allowed.",
   "pjt.skills.invalid-path":
     "A skill name, target root or file path is empty, absolute, or tries to leave the skills directory — or a skill has no `SKILL.md`.",
+  "pjt.prettier.invalid-options":
+    "Prettier rejected the options used to render its managed config. Correct the named option in prettier.config() and plan again.",
   "pjt.region.missing-end":
     "A region start marker was found without a matching end marker. The file has been hand-edited and the closing marker removed.",
   "pjt.region.duplicate": "Multiple start markers for the same region in one file. Hand-edited?",

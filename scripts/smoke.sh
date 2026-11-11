@@ -25,7 +25,7 @@ FAILED=0
 pass() { echo "  ✓ $1"; }
 fail() { echo "  ✗ $1"; FAILED=1; }
 
-cleanup() { [ -n "${REG_PID:-}" ] && kill "$REG_PID" 2>/dev/null; [ -n "${REACT_REG_PID:-}" ] && kill "$REACT_REG_PID" 2>/dev/null; rm -rf "$SMOKE" "${SMOKE}-tools" "${REG:-}" "${E2E:-}" "${REACTDIR:-}" "${NEXTDIR:-}" "${REACTREG:-}" "${DLX_EMPTY:-}" "${DLX_EXISTING:-}"; }
+cleanup() { [ -n "${REG_PID:-}" ] && kill "$REG_PID" 2>/dev/null; [ -n "${REACT_REG_PID:-}" ] && kill "$REACT_REG_PID" 2>/dev/null; rm -rf "$SMOKE" "${SMOKE}-tools" "${REG:-}" "${E2E:-}" "${REACTDIR:-}" "${NEXTDIR:-}" "${REACTREG:-}" "${DLX_EMPTY:-}" "${DLX_EXISTING:-}" "${PRETTIERDIR:-}"; }
 trap cleanup EXIT
 
 cd "$SMOKE"
@@ -43,6 +43,7 @@ npm install --no-package-lock --silent \
   "file:${PKG}/blueprint-gitignore" \
   "file:${PKG}/blueprint-vitest" \
   "file:${PKG}/blueprint-changesets" \
+  "file:${PKG}/blueprint-prettier" \
   "file:${PKG}/blueprint-markdown" \
   "file:${PKG}/blueprint-skills" \
   "file:${PKG}/blueprint-husky-lint-staged" \
@@ -1273,6 +1274,70 @@ rm dirty.flag
 local_step "repair: remodel succeeds again" 0 remodel
 cd "$SMOKE"
 rm -rf "$LOCALDIR"
+
+echo "=== 13. Prettier: clean packed bootstrap, local tool, drift and idempotence ==="
+PRETTIERDIR="$(mktemp -d -t pjt-prettier.XXXXXX)"
+cd "$PRETTIERDIR"
+git init -q
+git config user.email t@t
+git config user.name t
+echo "{\"name\":\"smoke-prettier\",\"version\":\"0.0.0\",\"private\":true,\"type\":\"module\",\"packageManager\":\"${PNPM_SPEC}\",\"devDependencies\":{\"@projitect/cli\":\"^${BASE_VERSION}\"},\"pnpm\":{\"overrides\":{\"@projitect/cli\":\"file:${REACTREG}/projitect-cli-${BASE_VERSION}.tgz\"}}}" > package.json
+printf 'node_modules/\n' > .gitignore
+write_npmrc
+pnpm add -D "@projitect/blueprint-prettier@${BASE_VERSION}" "@projitect/blueprint@${BASE_VERSION}" "effect@${EFFECT_VERSION}" tsx > /tmp/prettier-bootstrap-install.out 2>&1
+[ $? -eq 0 ] && pass "Prettier packed blueprint and CLI install in a clean project" || fail "Prettier bootstrap install failed: $(tail -12 /tmp/prettier-bootstrap-install.out)"
+[ ! -e node_modules/.bin/prettier ] && pass "bootstrap has no preinstalled project formatter" || fail "bootstrap unexpectedly supplied a direct formatter"
+PJT="${PRETTIERDIR}/node_modules/@projitect/cli/bin/pjt.mjs"
+node "$PJT" init --yes > /tmp/prettier-init.out 2>&1
+[ $? -eq 0 ] && pass "Prettier consumer initializes from the packed CLI" || fail "Prettier init failed: $(tail -12 /tmp/prettier-init.out)"
+node "$PJT" add @projitect/blueprint-prettier --section config > /tmp/prettier-add-config.out 2>&1
+[ $? -eq 0 ] && pass "documented add config command succeeds" || fail "Prettier add config failed: $(tail -12 /tmp/prettier-add-config.out)"
+sed -i.bak 's/prettier.config()/prettier.config({ semi: false, tabWidth: 4, printWidth: 12 })/' .pjt.ts
+rm .pjt.ts.bak
+node "$PJT" remodel > /tmp/prettier-config-only.out 2>&1
+[ $? -eq 0 ] && pass "config-only remodel succeeds before a project formatter exists" || fail "config-only bootstrap failed: $(tail -12 /tmp/prettier-config-only.out)"
+pnpm install --no-frozen-lockfile > /tmp/prettier-formatter-install.out 2>&1
+[ $? -eq 0 ] && [ -e node_modules/.bin/prettier ] && pass "install supplies the declared project-local formatter" || fail "formatter install failed: $(tail -12 /tmp/prettier-formatter-install.out)"
+node "$PJT" add @projitect/blueprint-prettier --section fix > /tmp/prettier-add-fix.out 2>&1
+[ $? -eq 0 ] && grep -q 'prettier.fix()' .pjt.ts && pass "documented add fix command succeeds" || fail "Prettier add fix failed: $(tail -12 /tmp/prettier-add-fix.out)"
+cat > .pjt.ts <<'PJT'
+import { pjt } from "@projitect/cli"
+import { seedFile } from "@projitect/blueprint"
+import { prettier } from "@projitect/blueprint-prettier"
+export default pjt({ blueprints: [
+  seedFile({ id: "smoke:messy", version: "1.0.0", path: "messy.js", content: "const   a  =  1;\n" }),
+  prettier.config({ semi: false, tabWidth: 4, printWidth: 12 }),
+  prettier.fix(),
+] })
+PJT
+printf 'const   a  =  1;\n' > messy.js
+node "$PJT" inspect > /tmp/prettier-dirty-inspect.out 2>&1
+[ $? -ne 0 ] && grep -q "prettier --check" /tmp/prettier-dirty-inspect.out && pass "direct CLI inspect reports the failing local check" || fail "dirty inspect did not report the formatter: $(tail -12 /tmp/prettier-dirty-inspect.out)"
+grep -q 'const   a' messy.js && pass "inspect never writes the source" || fail "inspect changed the source"
+git add -A
+git commit -qm "baseline"
+node "$PJT" build --force --yes > /tmp/prettier-build.out 2>&1
+[ $? -eq 0 ] && pass "build runs the real formatter after writing files" || fail "Prettier build failed: $(tail -12 /tmp/prettier-build.out)"
+grep -q 'const a = 1$' messy.js && pass "build formatted the seeded JavaScript" || fail "build did not format the seed"
+grep -q '    "tabWidth": 4' .prettierrc.json && pass "managed config retains nondefault formatter indentation" || fail "managed config indentation differs"
+node "$PJT" inspect > /tmp/prettier-clean-inspect.out 2>&1
+[ $? -eq 0 ] && pass "nondefault config and formatted files inspect clean" || fail "inspect found drift after formatting: $(tail -12 /tmp/prettier-clean-inspect.out)"
+cp .prettierrc.json "$PRETTIERDIR/config.expected"
+printf 'const   b  =  2;\n' > messy.js
+node "$PJT" inspect > /tmp/prettier-hand-edit.out 2>&1
+[ $? -ne 0 ] && pass "inspect detects newly unformatted source" || fail "inspect missed the source edit"
+grep -q 'const   b' messy.js && pass "dirty inspect remains read-only" || fail "dirty inspect modified the source"
+node "$PJT" remodel > /tmp/prettier-remodel.out 2>&1
+[ $? -eq 0 ] && pass "remodel succeeds with the real project-local formatter" || fail "Prettier remodel failed: $(tail -12 /tmp/prettier-remodel.out)"
+grep -q 'const b = 2$' messy.js && pass "remodel formatted the edited source" || fail "remodel did not format the edit"
+cmp -s .prettierrc.json config.expected && pass "formatting leaves the owned config byte-identical" || fail "formatter changed the managed config"
+node "$PJT" remodel > /tmp/prettier-repeat.out 2>&1
+[ $? -eq 0 ] && pass "a repeated remodel succeeds" || fail "repeat remodel failed: $(tail -12 /tmp/prettier-repeat.out)"
+cmp -s .prettierrc.json config.expected && pass "repeated remodel keeps config bytes unchanged" || fail "repeat remodel changed the config"
+node "$PJT" inspect > /tmp/prettier-final-inspect.out 2>&1
+[ $? -eq 0 ] && pass "the complete bootstrap and repair journey ends clean" || fail "final Prettier inspect failed: $(tail -12 /tmp/prettier-final-inspect.out)"
+cd "$SMOKE"
+rm -rf "$PRETTIERDIR"
 
 kill "$REACT_REG_PID" 2>/dev/null
 cd "$SMOKE"
