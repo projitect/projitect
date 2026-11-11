@@ -1,8 +1,9 @@
-import { Effect, Match } from "effect"
+import { Array, Effect, Match, Option } from "effect"
 import { RecordX } from "@nunofyobiz/effect-extras"
-import { BlueprintFileSystem } from "@projitect/core"
-import type { Errors } from "@projitect/core"
-import type { FilePlan, ProjectPlan, RegionPlanFile, MergePlanFile } from "./plan.js"
+import { BlueprintFileSystem, Errors } from "@projitect/core"
+import { FilePlan } from "./plan.js"
+import type { ProjectPlan, RegionPlanFile, MergePlanFile } from "./plan.js"
+import { findReplacedAncestor } from "./merge-ownership.js"
 import { readIfExists } from "./project-file.js"
 import { findRegion, renderRegion, upsertRegion } from "./region.js"
 
@@ -17,12 +18,21 @@ export const applyPlan = (params: {
   | Errors.RegionMissingEnd
   | Errors.RegionDuplicate
   | Errors.FsWriteFailed
-  | Errors.FsPermissionDenied,
+  | Errors.FsPermissionDenied
+  | Errors.ApplyMergeAncestorNotObject,
   BlueprintFileSystem
 > => {
   const { plan } = params
   return Effect.gen(function* () {
     const fs = yield* BlueprintFileSystem
+    // Refuse before the first write: a merge never replaces a non-object value it does not own.
+    yield* Effect.forEach(
+      Array.filter(plan.files, FilePlan.$is("Merge")),
+      assertNoReplacedAncestor,
+      {
+        discard: true,
+      },
+    )
     const written: string[] = []
     for (const file of plan.files) {
       const current = yield* readIfExists(file.path)
@@ -39,6 +49,32 @@ export const applyPlan = (params: {
     return written
   })
 }
+
+const assertNoReplacedAncestor = (
+  file: MergePlanFile,
+): Effect.Effect<void, Errors.ApplyMergeAncestorNotObject, BlueprintFileSystem> =>
+  Effect.flatMap(readIfExists(file.path), (current) =>
+    Option.match(
+      findReplacedAncestor(
+        current === null ? null : safeParseJson(current),
+        file.value,
+        Array.fromIterable(file.ownership.keys()),
+      ),
+      {
+        onNone: () => Effect.void,
+        onSome: ({ field, ancestor }) =>
+          Effect.fail(
+            new Errors.ApplyMergeAncestorNotObject({
+              id: "pjt.apply.merge-ancestor-not-object",
+              path: file.path,
+              field,
+              ancestor,
+              message: `Writing "${field}" in ${file.path} would replace "${ancestor}", which holds a non-object value that no blueprint owns. Move that value out of the way, or have the blueprint own "${ancestor}", then rerun.`,
+            }),
+          ),
+      },
+    ),
+  )
 
 const nextContent = (params: {
   readonly file: FilePlan

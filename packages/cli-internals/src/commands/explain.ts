@@ -82,6 +82,8 @@ const ERROR_BLURBS: Readonly<Record<Errors.ErrorId, string>> = {
     "A blueprint left .pjt.ts but its lockfile entry (written before lockfile v3) only records an owned parent key, so the keys it wrote under it are unknown. Keep the blueprint in .pjt.ts and run `pjt remodel` once, or delete the key by hand.",
   "pjt.apply.dirty-git":
     "`build` requires a clean git working tree. Commit or stash first, then retry.",
+  "pjt.apply.merge-ancestor-not-object":
+    "A merge blueprint writes a field under a key whose current value in the file is an array, scalar or null that the blueprint does not own, so the merge would replace it with an object. Move that value out of the way or make the blueprint own the key, then rerun.",
   "pjt.init.git-missing":
     "`pjt init` requires a git repository. Run `git init` first, or rerun with --yes.",
   "pjt.init.package-json-missing":

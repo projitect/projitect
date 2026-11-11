@@ -249,6 +249,48 @@ describe("remodel with merge ownership", () => {
     expect(await readPackage()).toEqual({ name: "demo", scripts: { custom: "mine" } })
   })
 
+  it("keeps the new descendant when the same owner upgrades a recorded leaf into an object", async () => {
+    await fs.writeFile(path.join(cwd, "package.json"), "{}\n", "utf8")
+    declare([
+      { id: "pjt:a", operations: [merge("pjt:a", ["scripts"], { scripts: { test: "vitest" } })] },
+    ])
+    expect(Exit.isSuccess(await run())).toBe(true)
+    declare([
+      {
+        id: "pjt:a",
+        operations: [merge("pjt:a", ["scripts"], { scripts: { test: { unit: "vitest run" } } })],
+      },
+    ])
+    expect(Exit.isSuccess(await run())).toBe(true)
+    expect(await readPackage()).toEqual({ scripts: { test: { unit: "vitest run" } } })
+  })
+
+  it("keeps the user's children when a departing owner's recorded leaf has become an object", async () => {
+    await fs.writeFile(path.join(cwd, "package.json"), "{}\n", "utf8")
+    declare([{ id: "pjt:a", operations: [merge("pjt:a", ["scripts"], { scripts: { x: ["a"] } })] }])
+    expect(Exit.isSuccess(await run())).toBe(true)
+    await fs.writeFile(
+      path.join(cwd, "package.json"),
+      '{ "scripts": { "x": { "mine": "1" } } }\n',
+      "utf8",
+    )
+    declare([{ id: "pjt:ignore", operations: [gitignore] }])
+    expect(Exit.isSuccess(await run())).toBe(true)
+    expect(await readPackage()).toEqual({ scripts: { x: { mine: "1" } } })
+  })
+
+  it("refuses a descendant-only claim under an unowned array, changing no file or the lockfile", async () => {
+    await fs.writeFile(path.join(cwd, "package.json"), '{ "a": [1, 2] }\n', "utf8")
+    declare([
+      { id: "pjt:ignore", operations: [gitignore] },
+      { id: "pjt:a", operations: [merge("pjt:a", ["a.b"], { a: { b: "x" } })] },
+    ])
+    const before = await snapshot()
+    const exit = await run()
+    expect(JSON.stringify(exit)).toContain("pjt.apply.merge-ancestor-not-object")
+    expect(await snapshot()).toEqual(before)
+  })
+
   describe("legacy lockfiles that record only the claimed key", () => {
     const legacyLock = (ownedKeys: readonly string[]) =>
       `${JSON.stringify({

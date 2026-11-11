@@ -11,6 +11,16 @@ import type { ChangeSet } from "@projitect/core"
 /** A dotted key's path segments — the one convention planning and removal share. */
 export const keySegments = (key: string): readonly string[] => key.split(".")
 
+/** The value at a dotted path of a parsed JSON tree; `None` when any segment is missing. */
+export const valueAt = (tree: unknown, segments: readonly string[]): Option.Option<unknown> =>
+  Array.reduce(segments, Option.some(tree), (node, segment) =>
+    Option.flatMap(node, (value) =>
+      PredicateX.unsafeIsRecord(value) && segment in value
+        ? Option.some(value[segment])
+        : Option.none(),
+    ),
+  )
+
 /** `ancestor` equals `key` or is a proper ancestor of it: `scripts` covers `scripts.test`, not `scripts.testing`. */
 export const covers = (ancestor: string, key: string): boolean => {
   const prefix = keySegments(ancestor)
@@ -129,4 +139,40 @@ export const checkWriteCoverage = (
           }),
         ),
     }),
+  )
+
+/** A written field and the ancestor of it that the file holds as a non-object the claim does not own. */
+export interface ReplacedAncestor {
+  readonly field: string
+  readonly ancestor: string
+}
+
+/**
+ * The first field `value` writes beneath an ancestor that `current` holds as an array, scalar or
+ * `null` while no owned key covers that ancestor: the deep merge replaces a non-object with the
+ * object the write needs, taking data the blueprint does not own. An owned ancestor may replace;
+ * an absent one has nothing to take.
+ */
+export const findReplacedAncestor = (
+  current: unknown,
+  value: unknown,
+  ownedKeys: readonly string[],
+): Option.Option<ReplacedAncestor> =>
+  Array.findFirst(
+    Array.flatMap(writtenFields(value), (field) =>
+      Array.map(
+        Array.makeBy(keySegments(field).length - 1, (depth) =>
+          keySegments(field)
+            .slice(0, depth + 1)
+            .join("."),
+        ),
+        (ancestor): ReplacedAncestor => ({ field, ancestor }),
+      ),
+    ),
+    ({ ancestor }) =>
+      !Array.some(ownedKeys, (key) => covers(key, ancestor)) &&
+      Option.exists(
+        valueAt(current, keySegments(ancestor)),
+        (found) => !PredicateX.unsafeIsRecord(found),
+      ),
   )

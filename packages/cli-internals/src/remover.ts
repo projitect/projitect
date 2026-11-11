@@ -2,7 +2,7 @@ import { Array, Effect, Match, Option, Predicate, Record, Result } from "effect"
 import { PredicateX, RecordX, StringX } from "@nunofyobiz/effect-extras"
 import { BlueprintFileSystem, Errors } from "@projitect/core"
 import type { PjtLock } from "@projitect/core"
-import { keySegments } from "./merge-ownership.js"
+import { keySegments, valueAt } from "./merge-ownership.js"
 import type { LegacyMergeClaim } from "./plan.js"
 import { readIfExists } from "./project-file.js"
 import { findRegion } from "./region.js"
@@ -62,16 +62,6 @@ const removeRegion = (
     return true
   })
 
-/** The value at a dotted path of a parsed JSON tree; `None` when any segment is missing. */
-const valueAt = (tree: unknown, segments: readonly string[]): Option.Option<unknown> =>
-  Array.reduce(segments, Option.some(tree), (node, segment) =>
-    Option.flatMap(node, (value) =>
-      PredicateX.unsafeIsRecord(value) && segment in value
-        ? Option.some(value[segment])
-        : Option.none(),
-    ),
-  )
-
 const parseRecord = (raw: string | null): Option.Option<Record<string, unknown>> =>
   Option.filter(
     Option.flatMap(Option.fromNullishOr(raw), (text) =>
@@ -81,9 +71,10 @@ const parseRecord = (raw: string | null): Option.Option<Record<string, unknown>>
   )
 
 /**
- * A legacy claim (no recorded `writtenPaths`) is ambiguous when its key currently holds a
- * non-empty object: the lock cannot say which of its children the blueprint wrote and which the
- * user added. An absent key, a scalar, an array, `null` or `{}` has no such children.
+ * A key is ambiguous when it currently holds a non-empty object: the lock cannot say which of its
+ * children the blueprint wrote and which the user added. For a legacy claim (no recorded
+ * `writtenPaths`) that is the parent key itself; for a recorded field it is a leaf the user turned
+ * into an object. An absent key, a scalar, an array, `null` or `{}` has no such children.
  */
 const isAmbiguous = (tree: Record<string, unknown>, key: string): boolean =>
   Option.exists(
@@ -126,7 +117,8 @@ export const assertNoAmbiguousMergeClaims = (
 /**
  * Delete what a departing merge claim wrote. A recorded `writtenPaths` list deletes exactly those
  * fields (an object left empty by the deletion goes with it); a legacy claim deletes its key only
- * when that key is unambiguous — `remodel` refuses the ambiguous ones before it gets here.
+ * when that key is unambiguous — `remodel` refuses the ambiguous ones before it gets here. Either
+ * way a field that now holds an object with children is left alone.
  */
 const removeMergeFields = (
   op: PjtLock.LockMergeOp,
@@ -138,7 +130,12 @@ const removeMergeFields = (
       return false
     }
     const tree = parsed.value
-    const targets = op.writtenPaths ?? Array.filter(op.ownedKeys, (key) => !isAmbiguous(tree, key))
+    // A field that now holds an object with children keeps them: whatever the blueprint wrote
+    // there was replaced, and the children are not its to delete.
+    const targets = Array.filter(
+      op.writtenPaths ?? op.ownedKeys,
+      (field) => !isAmbiguous(tree, field),
+    )
 
     // Fold each dotted field out of the tree, tracking whether anything actually changed.
     const seed: { readonly tree: unknown; readonly mutated: boolean } = { tree, mutated: false }

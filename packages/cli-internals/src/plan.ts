@@ -367,7 +367,12 @@ const droppedOwnedOps = (
     (op) => op._tag === "Owned" && !Array.some(live.operations, (l) => l.path === op.path),
   )
 
-/** Merge fields the prior lock entry recorded as written that the live entry no longer writes. */
+/**
+ * Merge fields the prior lock entry recorded as written that the live entry no longer writes. A
+ * field the live entry writes at, above or below it is not dropped: the deep merge already replaced
+ * it (a scalar becoming an object, an object becoming a scalar), so deleting it would delete what
+ * the live entry just wrote.
+ */
 const droppedMergeOps = (
   prior: PjtLock.BlueprintLockEntry,
   live: PjtLock.BlueprintLockEntry,
@@ -383,7 +388,10 @@ const droppedMergeOps = (
       ? Result.succeed(
           PjtLock.LockMergeOp.make({
             ...op,
-            writtenPaths: Array.filter(op.writtenPaths, (field) => !liveWritten.includes(field)),
+            writtenPaths: Array.filter(
+              op.writtenPaths,
+              (field) => !Array.some(liveWritten, (written) => overlaps(field, written)),
+            ),
           }),
         )
       : Result.failVoid
