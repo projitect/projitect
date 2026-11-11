@@ -3,6 +3,7 @@ import { isBuiltin } from "node:module"
 import { tmpdir } from "node:os"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
+import { runInNewContext } from "node:vm"
 import { build } from "esbuild"
 import type { Metafile } from "esbuild"
 import { describe, expect, it } from "vitest"
@@ -38,6 +39,44 @@ const nodeImports = (metafile: Metafile): readonly string[] =>
   )
 
 describe("browser bundles contain no node:* module", () => {
+  it("initializes the engine and registry without Node globals", async () => {
+    const result = await build({
+      stdin: {
+        contents:
+          'export * from "./browser.js"; export * from "./browser-blueprints.js"; export { makeInMemoryLayer } from "@projitect/test-kit";',
+        resolveDir: srcDir,
+      },
+      bundle: true,
+      write: false,
+      platform: "browser",
+      format: "iife",
+      globalName: "BrowserEntry",
+      logLevel: "silent",
+    })
+    const output = result.outputFiles[0]
+    expect(output).toBeDefined()
+    if (output === undefined) {
+      throw new Error("browser bundle was not emitted")
+    }
+    expect(() => {
+      runInNewContext(
+        output.text,
+        {
+          TextEncoder,
+          TextDecoder,
+          URL,
+          URLSearchParams,
+          AbortController,
+          setTimeout,
+          clearTimeout,
+          performance,
+          crypto: globalThis.crypto,
+        },
+        { timeout: 10_000 },
+      )
+    }).not.toThrow()
+  })
+
   it.each([
     ["the browser engine entry", path.join(srcDir, "browser.ts")],
     ["the first-party blueprint registry entry", path.join(srcDir, "browser-blueprints.ts")],

@@ -339,11 +339,22 @@ export default tseslint.config(
   // ===== @projitect/core stays runtime-pure =====
   //
   // Core is types + Schema + error definitions; it must work in any JS runtime. Banning
-  // `node:*` imports keeps it portable should we later want to run a blueprint planner in the
-  // browser (interactive in-browser demo on the docs site is on the roadmap).
+  // `node:*` imports and Node globals keeps the browser planner portable. An import-only ban
+  // misses top-level process.cwd() calls, which crash as soon as a browser loads the bundle.
   {
     files: ["packages/core/**"],
     rules: {
+      "no-restricted-globals": [
+        "error",
+        {
+          name: "process",
+          message: "Core is runtime-pure. Supply host configuration from the Node platform layer.",
+        },
+        {
+          name: "Buffer",
+          message: "Core is runtime-pure. Use portable byte arrays instead of the Node global.",
+        },
+      ],
       "no-restricted-imports": [
         "error",
         {

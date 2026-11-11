@@ -10,6 +10,7 @@ import { parseEnv, resolveConfig } from "../src/config-cascade.js"
 describe("ProjitectConfig.resolve — the cascade reducer", () => {
   it("returns the defaults when there are no overrides", () => {
     const config = ProjitectConfig.resolve()
+    expect(config.projectRoot).toBe("/")
     expect(config.blueprintFile).toBe(".pjt.ts")
     expect(config.requireCleanGit).toBe(true)
     expect(config.verbosity).toBe(1)

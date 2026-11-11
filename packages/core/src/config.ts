@@ -9,7 +9,7 @@ import { Reducer, Schema } from "effect"
  * final resolved value is what every command consumes.
  */
 export const ProjitectConfig = Schema.Struct({
-  /** Absolute path to the project root. Defaults to the directory containing `.pjt.ts`. */
+  /** Absolute path to the project root. Hosts supply their root; the portable default is `/`. */
   projectRoot: Schema.String,
   /** Path to the user's blueprint file, relative to projectRoot. Defaults to `.pjt.ts`. */
   blueprintFile: Schema.String,
@@ -24,7 +24,7 @@ export const ProjitectConfig = Schema.Struct({
 export type ProjitectConfig = typeof ProjitectConfig.Type
 
 export const defaults: ProjitectConfig = {
-  projectRoot: process.cwd(),
+  projectRoot: "/",
   blueprintFile: ".pjt.ts",
   requireCleanGit: true,
   jsonOutput: false,

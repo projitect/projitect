@@ -42,6 +42,8 @@ A browser has no native TypeScript stripping or `tsx`, so `evaluatePjt` transpil
 
 `evaluatePjt` executes the text as JavaScript and is not a security sandbox; see [Browser demo boundary](#browser-demo-boundary-planned) for what hosts must do with untrusted snippets.
 
+Core configuration uses `/` as its portable default project root. The Node CLI dispatch already supplies its current working directory as a command-line override, preserving command behavior. Programmatic core consumers that need a host-specific root pass it explicitly to `ProjitectConfig.resolve`; core never reads Node globals during import.
+
 ## Ownership modes
 
 | Mode     | Meaning                                                         |

@@ -15,4 +15,8 @@ Migration for direct callers of `buildPlan`: pass the new required `layerFor` ar
 `makeRealLayer`; a browser passes a `makeGatedLayer` over an in-memory layer. The planner no longer
 imports the Node-backed filesystem.
 
+Core's portable default `projectRoot` is now `/` rather than reading `process.cwd()` during import.
+Direct callers of `ProjitectConfig.resolve` supply their host root explicitly when needed. The Node
+CLI dispatch still supplies its current working directory and retains all override layers.
+
 Major per the AGENTS.md "Versioning (lockstep)" table: an exported function signature changed.
