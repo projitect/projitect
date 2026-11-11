@@ -78,6 +78,8 @@ const ERROR_BLURBS: Readonly<Record<Errors.ErrorId, string>> = {
   "pjt.region.missing-end":
     "A region start marker was found without a matching end marker. The file has been hand-edited and the closing marker removed.",
   "pjt.region.duplicate": "Multiple start markers for the same region in one file. Hand-edited?",
+  "pjt.remove.ambiguous-merge-claim":
+    "A blueprint left .pjt.ts but its lockfile entry (written before lockfile v3) only records an owned parent key, so the keys it wrote under it are unknown. Keep the blueprint in .pjt.ts and run `pjt remodel` once, or delete the key by hand.",
   "pjt.apply.dirty-git":
     "`build` requires a clean git working tree. Commit or stash first, then retry.",
   "pjt.init.git-missing":

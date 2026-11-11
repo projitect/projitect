@@ -12,6 +12,7 @@ import type {
   OwnedPlanFile,
   SeedPlanFile,
   UpgradeRecord,
+  LegacyMergeClaim,
 } from "./plan.js"
 
 export interface FileDiff {
@@ -165,11 +166,13 @@ export const renderInspectReport = (params: {
   readonly removals: readonly PjtLock.LockOperation[]
   readonly upgrades: readonly UpgradeRecord[]
   readonly commands?: readonly CheckFailure[]
+  readonly ambiguousMergeClaims?: readonly LegacyMergeClaim[]
 }): string => {
-  const { diff, removals, upgrades, commands = [] } = params
+  const { diff, removals, upgrades, commands = [], ambiguousMergeClaims = [] } = params
   const lines = Array.flatten([
     Array.map(upgrades, (u) => `↑ upgrade ${u.blueprintId} ${u.from} → ${u.to}`),
     Array.map(removals, removalSummary),
+    Array.map(ambiguousMergeClaims, ambiguousSummary),
     Array.map(diff.files, (f) => f.summary),
     Array.map(commands, checkSummary),
   ])
@@ -193,12 +196,15 @@ const checkSummary = (failure: CheckFailure): string => {
   return [`! check failed: ${failure.check} (${status})`, ...output].join("\n")
 }
 
+const ambiguousSummary = (claim: LegacyMergeClaim): string =>
+  `! cannot remove "${claim.key}" from ${claim.path}: ${claim.blueprintId} left .pjt.ts but its lockfile entry predates lockfile v3 and does not say which fields it wrote. Run \`pjt remodel\` with ${claim.blueprintId} still in .pjt.ts to upgrade the lockfile, or delete the key by hand.`
+
 const removalSummary = (op: PjtLock.LockOperation): string =>
   Match.valueTags(op, {
     Region: (region) =>
       `- remove ${region.ownerId} region from ${region.path}   (blueprint left .pjt.ts)`,
     Merge: (merge) =>
-      `- remove merge keys ${merge.ownedKeys.join(", ")} from ${merge.path}   (blueprint left .pjt.ts)`,
+      `- remove merge keys ${(merge.writtenPaths ?? merge.ownedKeys).join(", ")} from ${merge.path}   (blueprint left .pjt.ts)`,
     Owned: (owned) => `- delete ${owned.path}   (blueprint left .pjt.ts)`,
     Seed: (seed) =>
       `  (seed ${seed.ownerId} for ${seed.path} retained; blueprint left but seed mode is write-once)`,

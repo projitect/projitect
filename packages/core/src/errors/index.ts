@@ -169,6 +169,21 @@ export class RegionDuplicate extends Schema.TaggedError<RegionDuplicate>()("Regi
 }) {}
 
 // ---------------------------------------------------------------------------
+// Removal errors — a departing blueprint's lockfile claim cannot be removed safely
+// ---------------------------------------------------------------------------
+
+export class RemoveAmbiguousMergeClaim extends Schema.TaggedError<RemoveAmbiguousMergeClaim>()(
+  "RemoveAmbiguousMergeClaim",
+  {
+    id: Schema.Literal("pjt.remove.ambiguous-merge-claim"),
+    path: Schema.String,
+    key: Schema.String,
+    ownerId: Schema.String,
+    message: Schema.String,
+  },
+) {}
+
+// ---------------------------------------------------------------------------
 // Apply / init errors
 // ---------------------------------------------------------------------------
 
@@ -363,6 +378,8 @@ export type PlanError =
   | PlanUnownedMergeWrite
   | PlanConflictOwned
 
+export type RemoveClaimError = RemoveAmbiguousMergeClaim
+
 export type ApplyError = ApplyDirtyGit
 
 export type InitError = InitGitMissing | InitPackageJsonMissing
@@ -384,6 +401,7 @@ export type ProjitectError =
   | LoaderError
   | ConfigError
   | PlanError
+  | RemoveClaimError
   | ApplyError
   | InitError
   | LockError
@@ -415,6 +433,7 @@ export const ERROR_IDS = [
   "pjt.skills.invalid-path",
   "pjt.region.missing-end",
   "pjt.region.duplicate",
+  "pjt.remove.ambiguous-merge-claim",
   "pjt.apply.dirty-git",
   "pjt.init.git-missing",
   "pjt.init.package-json-missing",

@@ -231,4 +231,91 @@ describe("remodel with merge ownership", () => {
     expect(Exit.isSuccess(await run())).toBe(true)
     expect(await readPackage()).toEqual({ scripts: { custom: "mine", keep: "k" } })
   })
+
+  it("deletes only the fields a departing owner wrote and keeps the user's children under its parent key", async () => {
+    await fs.writeFile(
+      path.join(cwd, "package.json"),
+      '{ "name": "demo", "scripts": { "custom": "mine" } }\n',
+      "utf8",
+    )
+    declare([
+      { id: "pjt:old", operations: [merge("pjt:old", ["scripts"], { scripts: { build: "tsc" } })] },
+    ])
+    expect(Exit.isSuccess(await run())).toBe(true)
+    expect(await readPackage()).toEqual({ name: "demo", scripts: { custom: "mine", build: "tsc" } })
+
+    declare([{ id: "pjt:ignore", operations: [gitignore] }])
+    expect(Exit.isSuccess(await run())).toBe(true)
+    expect(await readPackage()).toEqual({ name: "demo", scripts: { custom: "mine" } })
+  })
+
+  describe("legacy lockfiles that record only the claimed key", () => {
+    const legacyLock = (ownedKeys: readonly string[]) =>
+      `${JSON.stringify({
+        version: 2,
+        blueprints: {
+          "pjt:old": {
+            version: "1.0.0",
+            operations: [{ _tag: "Merge", path: "package.json", ownedKeys }],
+          },
+        },
+      })}\n`
+
+    it("refuses to remove a parent claim whose object holds children, changing nothing", async () => {
+      await fs.writeFile(
+        path.join(cwd, "package.json"),
+        '{ "scripts": { "build": "tsc", "custom": "mine" } }\n',
+        "utf8",
+      )
+      await fs.writeFile(path.join(cwd, ".pjt.lock"), legacyLock(["scripts"]), "utf8")
+      declare([{ id: "pjt:ignore", operations: [gitignore] }])
+      const before = await snapshot()
+      const exit = await run()
+      expect(JSON.stringify(exit)).toContain("pjt.remove.ambiguous-merge-claim")
+      expect(await snapshot()).toEqual(before)
+    })
+
+    it("removes a legacy leaf claim, and a parent claim over an array or scalar", async () => {
+      await fs.writeFile(
+        path.join(cwd, "package.json"),
+        '{ "name": "demo", "files": ["dist"], "scripts": { "build": "tsc", "custom": "mine" } }\n',
+        "utf8",
+      )
+      await fs.writeFile(
+        path.join(cwd, ".pjt.lock"),
+        legacyLock(["scripts.build", "files"]),
+        "utf8",
+      )
+      declare([{ id: "pjt:ignore", operations: [gitignore] }])
+      expect(Exit.isSuccess(await run())).toBe(true)
+      expect(await readPackage()).toEqual({ name: "demo", scripts: { custom: "mine" } })
+    })
+
+    it("upgrades the lockfile to v3 with the written fields when the blueprint stays", async () => {
+      await fs.writeFile(path.join(cwd, "package.json"), "{}\n", "utf8")
+      await fs.writeFile(path.join(cwd, ".pjt.lock"), legacyLock(["scripts"]), "utf8")
+      declare([
+        {
+          id: "pjt:old",
+          operations: [merge("pjt:old", ["scripts"], { scripts: { build: "tsc", files: ["a"] } })],
+        },
+      ])
+      expect(Exit.isSuccess(await run())).toBe(true)
+      const lock = JSON.parse(await fs.readFile(path.join(cwd, ".pjt.lock"), "utf8")) as unknown
+      expect(lock).toMatchObject({
+        version: 3,
+        blueprints: {
+          "pjt:old": {
+            operations: [
+              {
+                _tag: "Merge",
+                ownedKeys: ["scripts"],
+                writtenPaths: ["scripts.build", "scripts.files"],
+              },
+            ],
+          },
+        },
+      })
+    })
+  })
 })

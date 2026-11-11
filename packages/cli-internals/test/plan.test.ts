@@ -192,7 +192,12 @@ describe("buildPlan — happy paths", () => {
       version: "2.3.4",
       operations: [
         { _tag: "Region", path: ".gitignore", ownerId: "pjt:multi", commentPrefix: "#" },
-        { _tag: "Merge", path: "package.json", ownedKeys: ["scripts.x"] },
+        {
+          _tag: "Merge",
+          path: "package.json",
+          ownedKeys: ["scripts.x"],
+          writtenPaths: ["scripts.x"],
+        },
       ],
     })
   })
@@ -451,7 +456,7 @@ describe("diffLockfile", () => {
       previous: null,
       current: { "pjt:a": { version: "1.0.0", operations: [] } },
     })
-    expect(out).toEqual({ removals: [], upgrades: [] })
+    expect(out).toEqual({ removals: [], legacyMergeClaims: [], upgrades: [] })
   })
 
   it("emits removals for blueprints absent from the current set", () => {
@@ -552,6 +557,82 @@ describe("diffLockfile", () => {
   })
 })
 
+describe("diffLockfile — merge fields recorded by lockfile v3", () => {
+  const merge = (
+    ownedKeys: readonly string[],
+    writtenPaths?: readonly string[],
+  ): PjtLock.LockOperation => ({
+    _tag: "Merge",
+    path: "package.json",
+    ownedKeys,
+    ...(writtenPaths === undefined ? {} : { writtenPaths }),
+  })
+  const lockOf = (id: string, op: PjtLock.LockOperation): PjtLock.PjtLock => ({
+    version: 3,
+    blueprints: { [id]: { version: "1.0.0", operations: [op] } },
+  })
+
+  it("removes only the recorded fields of a departing blueprint, keeping the owned parent", () => {
+    const { removals, legacyMergeClaims } = diffLockfile({
+      previous: lockOf("pjt:old", merge(["scripts"], ["scripts.build", "scripts.test"])),
+      current: {},
+    })
+    expect(removals).toEqual([merge(["scripts"], ["scripts.build", "scripts.test"])])
+    expect(legacyMergeClaims).toEqual([])
+  })
+
+  it("skips fields a live blueprint now claims, exactly or through an ancestor", () => {
+    const { removals } = diffLockfile({
+      previous: lockOf("pjt:old", merge(["scripts"], ["scripts.build", "scripts.test"])),
+      current: {
+        "pjt:new": { version: "1.0.0", operations: [merge(["scripts.test"], ["scripts.test"])] },
+      },
+    })
+    expect(removals).toEqual([merge(["scripts"], ["scripts.build"])])
+  })
+
+  it("drops the removal when a live ancestor claims every recorded field", () => {
+    const { removals } = diffLockfile({
+      previous: lockOf("pjt:old", merge(["scripts.test"], ["scripts.test"])),
+      current: { "pjt:new": { version: "1.0.0", operations: [merge(["scripts"], ["scripts.x"])] } },
+    })
+    expect(removals).toEqual([])
+  })
+
+  it("reports a legacy claim, which records no written fields, as a legacy merge claim", () => {
+    const { removals, legacyMergeClaims } = diffLockfile({
+      previous: lockOf("pjt:old", merge(["scripts", "name"])),
+      current: {},
+    })
+    expect(removals).toEqual([merge(["scripts", "name"])])
+    expect(legacyMergeClaims).toEqual([
+      { blueprintId: "pjt:old", path: "package.json", key: "scripts" },
+      { blueprintId: "pjt:old", path: "package.json", key: "name" },
+    ])
+  })
+
+  it("removes a field a still-present blueprint stopped writing, even under its own owned key", () => {
+    const { removals } = diffLockfile({
+      previous: lockOf("pjt:a", merge(["scripts"], ["scripts.old", "scripts.kept"])),
+      current: {
+        "pjt:a": { version: "2.0.0", operations: [merge(["scripts"], ["scripts.kept"])] },
+      },
+    })
+    expect(removals).toEqual([merge(["scripts"], ["scripts.old"])])
+  })
+
+  it("never removes a stopped field another live blueprint claims", () => {
+    const { removals } = diffLockfile({
+      previous: lockOf("pjt:a", merge(["scripts"], ["scripts.old"])),
+      current: {
+        "pjt:a": { version: "2.0.0", operations: [merge(["scripts.kept"], ["scripts.kept"])] },
+        "pjt:b": { version: "1.0.0", operations: [merge(["scripts.old"], ["scripts.old"])] },
+      },
+    })
+    expect(removals).toEqual([])
+  })
+})
+
 describe("diffLockfile — owned files dropped by a still-present blueprint", () => {
   const entry = (version: string, paths: readonly string[]): PjtLock.BlueprintLockEntry => ({
     version,
@@ -574,7 +655,7 @@ const mergeBlueprint = (id: string, ownedKeys: readonly string[], value: unknown
   })
 
 const planErrorOf = (tree: readonly _Blueprint.Blueprint[]) =>
-  runError(buildPlan({ tree, projectRoot: ROOT }))
+  runError(buildPlan({ tree, projectRoot: ROOT, layerFor: makeRealLayer }))
 
 describe("buildPlan — merge key overlap", () => {
   const parent = () => mergeBlueprint("pjt:parent", ["scripts"], { scripts: { build: "tsc" } })
@@ -616,6 +697,7 @@ describe("buildPlan — merge key overlap", () => {
           mergeBlueprint("pjt:b", ["scripts.testing"], { scripts: { testing: "b" } }),
         ],
         projectRoot: ROOT,
+        layerFor: makeRealLayer,
       }),
     )
     const file = plan.files[0]
@@ -632,6 +714,7 @@ describe("buildPlan — merge key overlap", () => {
       buildPlan({
         tree: [mergeBlueprint("pjt:a", ownedKeys, { scripts: { test: "vitest" } })],
         projectRoot: ROOT,
+        layerFor: makeRealLayer,
       }),
     )
     const file = plan.files[0]
@@ -639,7 +722,12 @@ describe("buildPlan — merge key overlap", () => {
       scripts: "pjt:a",
     })
     expect(byBlueprint["pjt:a"]?.operations).toEqual([
-      { _tag: "Merge", path: "package.json", ownedKeys: ["scripts"] },
+      {
+        _tag: "Merge",
+        path: "package.json",
+        ownedKeys: ["scripts"],
+        writtenPaths: ["scripts.test"],
+      },
     ])
   })
 
@@ -663,6 +751,7 @@ describe("buildPlan — merge key overlap", () => {
           }),
         ],
         projectRoot: ROOT,
+        layerFor: makeRealLayer,
       }),
     )
     const file = plan.files[0]
@@ -674,7 +763,11 @@ describe("buildPlan — merge key overlap", () => {
 
 describe("buildPlan — merge write coverage", () => {
   const planWith = (ownedKeys: readonly string[], value: unknown) =>
-    buildPlan({ tree: [mergeBlueprint("pjt:a", ownedKeys, value)], projectRoot: ROOT })
+    buildPlan({
+      tree: [mergeBlueprint("pjt:a", ownedKeys, value)],
+      projectRoot: ROOT,
+      layerFor: makeRealLayer,
+    })
 
   it("rejects a scalar field outside the owned keys, naming the path and field", () => {
     const err = runError(planWith(["scripts.test"], { scripts: { test: "x" }, name: "project" }))

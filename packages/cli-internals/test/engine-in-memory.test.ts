@@ -75,7 +75,7 @@ describe("engine against the in-memory filesystem", () => {
 
   it("round-trips the lockfile through the service", async () => {
     const lock: PjtLock.PjtLock = {
-      version: 2,
+      version: 3,
       blueprints: {
         "pjt:a": {
           version: "1",

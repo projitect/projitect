@@ -5,7 +5,7 @@ import { loadBlueprintFile, isEffectTree } from "../loader.js"
 import type { BlueprintTree } from "../loader.js"
 import { buildPlan, diffLockfile } from "../plan.js"
 import { applyPlan } from "../applier.js"
-import { applyRemovals } from "../remover.js"
+import { applyRemovals, assertNoAmbiguousMergeClaims } from "../remover.js"
 import { makeProjectRootLayer, makeRealLayer } from "../filesystem-impl.js"
 import { readLockfile, writeLockfile } from "../lockfile.js"
 import { runPostApply } from "../post-apply.js"
@@ -54,12 +54,14 @@ export const remodel = (params: {
     })
     return yield* Effect.gen(function* () {
       const previous = yield* readLockfile
-      const { removals } = diffLockfile({ previous, current: byBlueprint })
+      const { removals, legacyMergeClaims } = diffLockfile({ previous, current: byBlueprint })
+      // Refuse before any write: nothing on disk, nor the lockfile, changes when a claim is ambiguous.
+      yield* assertNoAmbiguousMergeClaims(legacyMergeClaims)
 
       const written = yield* applyPlan({ plan })
       const removed = yield* applyRemovals({ removals })
 
-      const nextLock: PjtLock.PjtLock = { version: 2, blueprints: byBlueprint }
+      const nextLock: PjtLock.PjtLock = { version: 3, blueprints: byBlueprint }
       yield* writeLockfile({ lock: nextLock })
 
       const ran = yield* runPostApply({

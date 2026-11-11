@@ -5,7 +5,13 @@ import { ChangeSet, Errors, PjtLock } from "@projitect/core"
 import type { Blueprint, BlueprintFileSystem, Permission } from "@projitect/core"
 import { isDirectoryBlueprint } from "@projitect/blueprint"
 import type { DirectoryBlueprint } from "@projitect/blueprint"
-import { checkWriteCoverage, minimalKeys, overlaps, reconcileOwnership } from "./merge-ownership.js"
+import {
+  checkWriteCoverage,
+  minimalKeys,
+  overlaps,
+  reconcileOwnership,
+  writtenFields,
+} from "./merge-ownership.js"
 
 // ---------------------------------------------------------------------------
 // File-level plan shape (after reducing all blueprints' ChangeSets per path)
@@ -213,11 +219,28 @@ export const buildPlan = (params: {
   })
 }
 
+/** A merge claim left in the lockfile by a blueprint whose written fields are unknown (lockfile v1/v2). */
+export interface LegacyMergeClaim {
+  readonly blueprintId: string
+  readonly path: string
+  readonly key: string
+}
+
+interface Departure {
+  readonly blueprintId: string
+  readonly op: PjtLock.LockOperation
+}
+
 /**
  * Diff the previous lockfile against the current blueprint set. Returns:
  * - `removals`: ops from blueprints present in the lockfile but absent from the current tree,
- *   plus owned files a still-present blueprint no longer ships (a new version dropping a file).
- *   The applier deletes the matching regions / merge keys / owned files in a follow-up step.
+ *   plus owned files and merge fields a still-present blueprint no longer ships (a new version
+ *   dropping them). A removed merge op carries the fields to delete in `writtenPaths`: what the
+ *   blueprint wrote, minus anything a live claim from another blueprint covers. The applier
+ *   deletes the matching regions / merge fields / owned files in a follow-up step.
+ * - `legacyMergeClaims`: the keys of removed merge ops recorded before lockfile v3, which have no
+ *   `writtenPaths`; whether each one is safe to delete depends on the file, so `remodel` checks
+ *   them before it writes anything.
  * - `upgrades`: blueprints present in both, with different versions. Informational only — the
  *   actual content is regenerated from the current blueprint, so applying handles upgrade
  *   content automatically; this list is for `inspect`'s human output.
@@ -227,12 +250,14 @@ export const diffLockfile = (params: {
   readonly current: ByBlueprint
 }): {
   readonly removals: readonly PjtLock.LockOperation[]
+  readonly legacyMergeClaims: readonly LegacyMergeClaim[]
   readonly upgrades: readonly UpgradeRecord[]
 } => {
   const { previous, current } = params
   return NonNullableX.match(previous, {
     whenNullable: () => ({
       removals: Array.empty<PjtLock.LockOperation>(),
+      legacyMergeClaims: Array.empty<LegacyMergeClaim>(),
       upgrades: Array.empty<UpgradeRecord>(),
     }),
     whenNotNullable: (lock) => {
@@ -242,25 +267,47 @@ export const diffLockfile = (params: {
           Array.map(live.operations, (op) => op.path),
         ),
       )
-      const liveMergeClaims = Array.filterMap(
-        Array.flatMap(Record.values(current), (live) => live.operations),
-        asLockMergeOp,
-      )
-      const removals = Array.filterMap(
-        Array.flatMap(entries, ([id, prior]) =>
+      // A blueprint's own live claim never protects what it stopped writing: only the others' do.
+      const claimsOfOthers = (blueprintId: string): readonly PjtLock.LockMergeOp[] =>
+        Array.filterMap(
+          Array.flatMap(
+            Record.values(Record.filter(current, (_, id) => id !== blueprintId)),
+            (live) => live.operations,
+          ),
+          asLockMergeOp,
+        )
+      const departures = Array.flatMap(entries, ([id, prior]): readonly Departure[] =>
+        Array.map(
           Option.match(Record.get(current, id), {
             onNone: () => prior.operations,
-            onSome: (live) => droppedOwnedOps(prior, live),
+            onSome: (live) => [...droppedOwnedOps(prior, live), ...droppedMergeOps(prior, live)],
           }),
+          (op) => ({ blueprintId: id, op }),
         ),
-        (op): Result.Result<PjtLock.LockOperation, void> =>
+      )
+      const surviving = Array.filterMap(
+        departures,
+        ({ blueprintId, op }): Result.Result<Departure, void> =>
           Match.valueTags(op, {
-            Region: (region) => Result.succeed(region),
-            Seed: (seed) => Result.succeed(seed),
+            Region: (region) => Result.succeed({ blueprintId, op: region }),
+            Seed: (seed) => Result.succeed({ blueprintId, op: seed }),
             // A path some blueprint still plans (e.g. reassigned to another owner) is not an orphan.
-            Owned: (owned) => (livePaths.has(owned.path) ? Result.failVoid : Result.succeed(owned)),
-            Merge: (merge) => withoutLiveKeys(merge, liveMergeClaims),
+            Owned: (owned) =>
+              livePaths.has(owned.path)
+                ? Result.failVoid
+                : Result.succeed({ blueprintId, op: owned }),
+            Merge: (merge) =>
+              Result.map(withoutLiveKeys(merge, claimsOfOthers(blueprintId)), (kept) => ({
+                blueprintId,
+                op: kept,
+              })),
           }),
+      )
+      const removals = Array.map(surviving, (departure) => departure.op)
+      const legacyMergeClaims = Array.flatMap(surviving, ({ blueprintId, op }) =>
+        op._tag === "Merge" && op.writtenPaths === undefined
+          ? Array.map(op.ownedKeys, (key) => ({ blueprintId, path: op.path, key }))
+          : Array.empty<LegacyMergeClaim>(),
       )
       const upgrades = Array.flatMap(entries, ([id, prior]) =>
         Record.get(current, id).pipe(
@@ -269,7 +316,7 @@ export const diffLockfile = (params: {
           Option.getOrElse(() => Array.empty<UpgradeRecord>()),
         ),
       )
-      return { removals, upgrades }
+      return { removals, legacyMergeClaims, upgrades }
     },
   })
 }
@@ -278,9 +325,10 @@ const asLockMergeOp = (op: PjtLock.LockOperation): Result.Result<PjtLock.LockMer
   op._tag === "Merge" ? Result.succeed(op) : Result.failVoid
 
 /**
- * A departing merge claim minus every key that equals, contains or sits inside a key some
+ * A departing merge claim minus every key that equals, contains or sits inside a key some other
  * blueprint still claims on the same file: those belong to the live owner now, so removal never
- * reaches them. Nothing left to remove drops the op.
+ * reaches them. A v3 claim narrows its `writtenPaths` the same way; a legacy claim narrows its
+ * `ownedKeys`. Nothing left to remove drops the op.
  */
 const withoutLiveKeys = (
   op: PjtLock.LockMergeOp,
@@ -291,13 +339,22 @@ const withoutLiveKeys = (
     Array.filter((live) => live.path === op.path),
     Array.flatMap((live) => live.ownedKeys),
   )
-  const ownedKeys = Array.filter(
-    op.ownedKeys,
-    (key) => !Array.some(liveKeys, (liveKey) => overlaps(key, liveKey)),
-  )
-  return Array.isArrayNonEmpty(ownedKeys)
-    ? Result.succeed(PjtLock.LockMergeOp.make({ path: op.path, ownedKeys }))
-    : Result.failVoid
+  const unclaimed = (keys: readonly string[]): readonly string[] =>
+    Array.filter(keys, (key) => !Array.some(liveKeys, (liveKey) => overlaps(key, liveKey)))
+  return Option.match(Option.fromUndefinedOr(op.writtenPaths), {
+    onNone: () => {
+      const ownedKeys = unclaimed(op.ownedKeys)
+      return Array.isReadonlyArrayNonEmpty(ownedKeys)
+        ? Result.succeed(PjtLock.LockMergeOp.make({ path: op.path, ownedKeys }))
+        : Result.failVoid
+    },
+    onSome: (written) => {
+      const writtenPaths = unclaimed(written)
+      return Array.isReadonlyArrayNonEmpty(writtenPaths)
+        ? Result.succeed(PjtLock.LockMergeOp.make({ ...op, writtenPaths }))
+        : Result.failVoid
+    },
+  })
 }
 
 /** Owned files the prior lock entry had but the live entry no longer plans. */
@@ -309,6 +366,28 @@ const droppedOwnedOps = (
     prior.operations,
     (op) => op._tag === "Owned" && !Array.some(live.operations, (l) => l.path === op.path),
   )
+
+/** Merge fields the prior lock entry recorded as written that the live entry no longer writes. */
+const droppedMergeOps = (
+  prior: PjtLock.BlueprintLockEntry,
+  live: PjtLock.BlueprintLockEntry,
+): readonly PjtLock.LockOperation[] =>
+  Array.filterMap(prior.operations, (op) => {
+    const liveWritten = pipe(
+      live.operations,
+      Array.filterMap(asLockMergeOp),
+      Array.filter((l) => l.path === op.path),
+      Array.flatMap((l) => l.writtenPaths ?? []),
+    )
+    return op._tag === "Merge" && op.writtenPaths !== undefined
+      ? Result.succeed(
+          PjtLock.LockMergeOp.make({
+            ...op,
+            writtenPaths: Array.filter(op.writtenPaths, (field) => !liveWritten.includes(field)),
+          }),
+        )
+      : Result.failVoid
+  })
 
 const groupByBlueprint = (attributed: readonly AttributedFileOp[]): ByBlueprint =>
   Record.map(
@@ -332,7 +411,12 @@ const toLockOp = (op: FileOperation): PjtLock.LockOperation =>
           PredicateX.isNonEmptyString(region.commentSuffix) ? region.commentSuffix : undefined,
         ),
       }),
-    Merge: (merge) => PjtLock.LockMergeOp.make({ path: merge.path, ownedKeys: merge.ownedKeys }),
+    Merge: (merge) =>
+      PjtLock.LockMergeOp.make({
+        path: merge.path,
+        ownedKeys: merge.ownedKeys,
+        writtenPaths: writtenFields(merge.value),
+      }),
     Owned: (owned) =>
       PjtLock.LockOwnedOp.make({
         path: owned.path,

@@ -1,8 +1,9 @@
-import { Array, Effect, Match, Option, Predicate } from "effect"
+import { Array, Effect, Match, Option, Predicate, Record, Result } from "effect"
 import { PredicateX, RecordX, StringX } from "@nunofyobiz/effect-extras"
-import { BlueprintFileSystem } from "@projitect/core"
-import type { Errors, PjtLock } from "@projitect/core"
+import { BlueprintFileSystem, Errors } from "@projitect/core"
+import type { PjtLock } from "@projitect/core"
 import { keySegments } from "./merge-ownership.js"
+import type { LegacyMergeClaim } from "./plan.js"
 import { readIfExists } from "./project-file.js"
 import { findRegion } from "./region.js"
 
@@ -31,7 +32,7 @@ const applyOne = (
 ): Effect.Effect<boolean, RemoveError, BlueprintFileSystem> =>
   Match.valueTags(op, {
     Region: (region) => removeRegion(region),
-    Merge: (merge) => removeMergeKeys(merge.path, merge.ownedKeys),
+    Merge: (merge) => removeMergeFields(merge),
     Owned: (owned) => removeFile(owned.path, owned.ownedDir),
     // Seed is write-once; we never delete the file when a seed blueprint leaves.
     Seed: () => Effect.succeed(false),
@@ -61,36 +62,96 @@ const removeRegion = (
     return true
   })
 
-const removeMergeKeys = (
-  file: string,
-  keys: readonly string[],
+/** The value at a dotted path of a parsed JSON tree; `None` when any segment is missing. */
+const valueAt = (tree: unknown, segments: readonly string[]): Option.Option<unknown> =>
+  Array.reduce(segments, Option.some(tree), (node, segment) =>
+    Option.flatMap(node, (value) =>
+      PredicateX.unsafeIsRecord(value) && segment in value
+        ? Option.some(value[segment])
+        : Option.none(),
+    ),
+  )
+
+const parseRecord = (raw: string | null): Option.Option<Record<string, unknown>> =>
+  Option.filter(
+    Option.flatMap(Option.fromNullishOr(raw), (text) =>
+      Option.getSuccess(Result.try(() => JSON.parse(text) as unknown)),
+    ),
+    PredicateX.unsafeIsRecord,
+  )
+
+/**
+ * A legacy claim (no recorded `writtenPaths`) is ambiguous when its key currently holds a
+ * non-empty object: the lock cannot say which of its children the blueprint wrote and which the
+ * user added. An absent key, a scalar, an array, `null` or `{}` has no such children.
+ */
+const isAmbiguous = (tree: Record<string, unknown>, key: string): boolean =>
+  Option.exists(
+    valueAt(tree, keySegments(key)),
+    (value) => PredicateX.unsafeIsRecord(value) && !Record.isEmptyRecord(value),
+  )
+
+/** The legacy merge claims whose key currently holds an object `pjt remodel` cannot safely delete. */
+export const findAmbiguousMergeClaims = (
+  claims: readonly LegacyMergeClaim[],
+): Effect.Effect<readonly LegacyMergeClaim[], never, BlueprintFileSystem> =>
+  Effect.forEach(claims, (claim) =>
+    Effect.map(readIfExists(claim.path), (raw) =>
+      Option.exists(parseRecord(raw), (tree) => isAmbiguous(tree, claim.key))
+        ? Option.some(claim)
+        : Option.none<LegacyMergeClaim>(),
+    ),
+  ).pipe(Effect.map(Array.getSomes))
+
+/** Fail with the first ambiguous legacy claim, before anything has been written. */
+export const assertNoAmbiguousMergeClaims = (
+  claims: readonly LegacyMergeClaim[],
+): Effect.Effect<void, Errors.RemoveAmbiguousMergeClaim, BlueprintFileSystem> =>
+  Effect.flatMap(findAmbiguousMergeClaims(claims), (ambiguous) =>
+    Option.match(Array.head(ambiguous), {
+      onNone: () => Effect.void,
+      onSome: (claim) =>
+        Effect.fail(
+          new Errors.RemoveAmbiguousMergeClaim({
+            id: "pjt.remove.ambiguous-merge-claim",
+            path: claim.path,
+            key: claim.key,
+            ownerId: claim.blueprintId,
+            message: `Blueprint ${claim.blueprintId} left .pjt.ts, but its lockfile entry only records the parent key "${claim.key}" in ${claim.path}, not the fields it wrote, so removing it could delete fields you added. Keep ${claim.blueprintId} in .pjt.ts and run \`pjt remodel\` once to upgrade .pjt.lock, then remove it; or delete "${claim.key}" from ${claim.path} by hand.`,
+          }),
+        ),
+    }),
+  )
+
+/**
+ * Delete what a departing merge claim wrote. A recorded `writtenPaths` list deletes exactly those
+ * fields (an object left empty by the deletion goes with it); a legacy claim deletes its key only
+ * when that key is unambiguous — `remodel` refuses the ambiguous ones before it gets here.
+ */
+const removeMergeFields = (
+  op: PjtLock.LockMergeOp,
 ): Effect.Effect<boolean, RemoveError, BlueprintFileSystem> =>
   Effect.gen(function* () {
     const fs = yield* BlueprintFileSystem
-    const raw = yield* readIfExists(file)
-    if (raw === null) {
+    const parsed = parseRecord(yield* readIfExists(op.path))
+    if (Option.isNone(parsed)) {
       return false
     }
-    const parsed = yield* Effect.try(() => JSON.parse(raw) as unknown).pipe(Effect.option)
-    if (Option.isNone(parsed) || !PredicateX.unsafeIsRecord(parsed.value)) {
-      return false
-    }
+    const tree = parsed.value
+    const targets = op.writtenPaths ?? Array.filter(op.ownedKeys, (key) => !isAmbiguous(tree, key))
 
-    // Fold each dotted key out of the tree, tracking whether anything actually changed.
-    const seed: { readonly tree: unknown; readonly mutated: boolean } = {
-      tree: parsed.value,
-      mutated: false,
-    }
-    const result = Array.reduce(keys, seed, (state, key) =>
-      Option.match(RecordX.deleteByPath(state.tree, keySegments(key)), {
-        onSome: (tree) => ({ tree, mutated: true }),
+    // Fold each dotted field out of the tree, tracking whether anything actually changed.
+    const seed: { readonly tree: unknown; readonly mutated: boolean } = { tree, mutated: false }
+    const result = Array.reduce(targets, seed, (state, field) =>
+      Option.match(RecordX.deleteByPath(state.tree, keySegments(field)), {
+        onSome: (next) => ({ tree: next, mutated: true }),
         onNone: () => state,
       }),
     )
     if (!result.mutated) {
       return false
     }
-    yield* fs.writeFile(file, `${JSON.stringify(result.tree, null, 2)}\n`)
+    yield* fs.writeFile(op.path, `${JSON.stringify(result.tree, null, 2)}\n`)
     return true
   })
 
