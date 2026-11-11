@@ -16,7 +16,7 @@ const failureOf = (source: string): PjtEvalFailure => {
 describe("evaluatePjt", () => {
   it("returns the blueprint list of a valid, typed .pjt.ts", async () => {
     const result = evaluatePjt(
-      `import { pjt } from "projitect/cli"
+      `import { pjt } from "@projitect/cli"
 import { gitignores } from "@projitect/blueprint-gitignore"
 
 export default pjt({
@@ -39,7 +39,7 @@ export default pjt({
 
   it("returns a typed failure with the line for a syntax error, without throwing", () => {
     const failure = failureOf(
-      'import { pjt } from "projitect/cli"\nexport default pjt({ blueprints: [ )\n',
+      'import { pjt } from "@projitect/cli"\nexport default pjt({ blueprints: [ )\n',
     )
     expect(failure._tag).toBe("Syntax")
     expect(failure).toMatchObject({ line: 2 })
@@ -59,6 +59,35 @@ export default pjt({
     })
   })
 
+  it.each([
+    ["the config tag", 'export default { get _tag() { throw new Error("getter failed") } }'],
+    [
+      "the blueprint list",
+      'export default { _tag: "ProjitectConfig", get blueprints() { throw new Error("getter failed") } }',
+    ],
+    [
+      "a nested directory",
+      'export default { _tag: "ProjitectConfig", blueprints: [{ _tag: "Directory", name: "web", get children() { throw new Error("getter failed") } }] }',
+    ],
+  ])("returns a runtime failure when reading %s throws", (_name, source) => {
+    expect(failureOf(source)).toMatchObject({ _tag: "Runtime", message: "getter failed" })
+  })
+
+  it("handles thrown values whose string conversion also throws", () => {
+    expect(failureOf("throw Object.create(null)")).toMatchObject({
+      _tag: "Runtime",
+      message: "Evaluation failed with an unreadable thrown value",
+    })
+  })
+
+  it("rejects cyclic directory trees without overflowing the stack", () => {
+    expect(
+      failureOf(`const node = { _tag: "Directory", name: "web", children: [] }
+node.children.push(node)
+export default { _tag: "ProjitectConfig", blueprints: [node] }`),
+    ).toMatchObject({ _tag: "InvalidDefaultExport" })
+  })
+
   it("returns a typed failure when the default export is not pjt({...})", () => {
     expect(failureOf("export default [1, 2]\n")).toMatchObject({
       _tag: "InvalidDefaultExport",
@@ -69,6 +98,7 @@ export default pjt({
   it.each([
     ["no blueprints", 'export default { _tag: "ProjitectConfig" }\n'],
     ["a non-array blueprints", 'export default { _tag: "ProjitectConfig", blueprints: 3 }\n'],
+    ["a sparse blueprint list", 'export default { _tag: "ProjitectConfig", blueprints: [,] }\n'],
     [
       "a non-blueprint element",
       'export default { _tag: "ProjitectConfig", blueprints: [{ id: 1 }] }\n',
@@ -87,7 +117,7 @@ export default pjt({
 
   it("keeps directory nodes and the Effect form", async () => {
     const result = evaluatePjt(
-      `import { pjt, directory } from "projitect/cli"
+      `import { pjt, directory } from "@projitect/cli"
 import { gitignores } from "@projitect/blueprint-gitignore"
 import { Effect } from "effect"
 

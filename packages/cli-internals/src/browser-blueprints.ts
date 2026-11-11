@@ -15,7 +15,7 @@ import type { ModuleRegistry } from "./evaluate-pjt.js"
 /**
  * The module registry a browser `.pjt.ts` evaluates against — `@projitect/cli-internals/browser-blueprints`.
  * The first-party blueprint packages are imported directly (so a bundler includes exactly what a
- * demo ships), keyed by the specifier a real `.pjt.ts` writes. `projitect/cli` maps to the raw
+ * demo ships), keyed by the specifier a real `.pjt.ts` writes. `@projitect/cli` maps to the raw
  * `pjt` and `directory`: the CLI's version also prepends a blueprint that reads `package.json`
  * through Node, which has no browser equivalent.
  *
@@ -23,7 +23,7 @@ import type { ModuleRegistry } from "./evaluate-pjt.js"
  */
 export const firstPartyRegistry: ModuleRegistry = {
   effect: Effect,
-  "projitect/cli": { pjt, directory: Blueprint.directory },
+  "@projitect/cli": { pjt, directory: Blueprint.directory },
   "@projitect/blueprint": Blueprint,
   "@projitect/blueprint-changesets": Changesets,
   "@projitect/blueprint-gitignore": Gitignore,
