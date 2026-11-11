@@ -250,13 +250,12 @@ describe("remodel / build / inspect with Exec ops", () => {
   })
 
   afterEach(async () => {
-    delete process.env["PJT_TEST_POST_APPLY"]
     await fs.rm(cwd, { recursive: true, force: true })
   })
 
   const config = () => ProjitectConfig.resolve({ projectRoot: cwd, blueprintFile: FIXTURE })
 
-  const declare = (
+  const declare = async (
     blueprints: readonly {
       id: string
       permissions?: readonly Permission.Permission[]
@@ -266,8 +265,9 @@ describe("remodel / build / inspect with Exec ops", () => {
       )[]
     }[],
   ) => {
-    process.env["PJT_TEST_POST_APPLY"] = JSON.stringify(
-      blueprints.map((b) => ({ permissions: [], ...b })),
+    await fs.writeFile(
+      path.join(cwd, "package.json"),
+      JSON.stringify({ pjtTestPostApply: blueprints.map((b) => ({ permissions: [], ...b })) }),
     )
   }
 
@@ -280,7 +280,7 @@ describe("remodel / build / inspect with Exec ops", () => {
   })
 
   it("remodel runs the commands after the files are written and reports them", async () => {
-    declare([
+    await declare([
       {
         id: "a",
         permissions: [exec("fmt"), exec("lint")],
@@ -303,7 +303,7 @@ describe("remodel / build / inspect with Exec ops", () => {
 
   it("remodel runs no command when a file operation fails", async () => {
     await fs.writeFile(path.join(cwd, ".gitignore"), "# pjt:a start\nold\n", "utf8")
-    declare([
+    await declare([
       {
         id: "pjt:a",
         permissions: [exec("fmt")],
@@ -317,7 +317,7 @@ describe("remodel / build / inspect with Exec ops", () => {
   })
 
   it("remodel surfaces a failing command as CommandFailed after the files were written", async () => {
-    declare([
+    await declare([
       { id: "a", permissions: [exec("fmt")], operations: [gitignore("a"), execOp("a", "fmt")] },
     ])
     const { spawner } = fakeSpawner({ fmt: 3 })
@@ -327,7 +327,7 @@ describe("remodel / build / inspect with Exec ops", () => {
   })
 
   it("remodel refuses a command outside the blueprint's exec permission and never starts it", async () => {
-    declare([{ id: "a", permissions: [exec("fmt")], operations: [execOp("a", "rm -rf /")] }])
+    await declare([{ id: "a", permissions: [exec("fmt")], operations: [execOp("a", "rm -rf /")] }])
     const { calls, spawner } = fakeSpawner()
     const exit = await Effect.runPromiseExit(remodel({ config: config(), spawner }))
     expect(failureOf(exit)).toMatchObject({
@@ -338,7 +338,7 @@ describe("remodel / build / inspect with Exec ops", () => {
   })
 
   it("remodel does not record Exec ops in the lockfile, so commands re-run each time", async () => {
-    declare([{ id: "a", permissions: [exec("fmt")], operations: [execOp("a", "fmt")] }])
+    await declare([{ id: "a", permissions: [exec("fmt")], operations: [execOp("a", "fmt")] }])
     const { calls, spawner } = fakeSpawner()
     await Effect.runPromise(remodel({ config: config(), spawner }))
     await Effect.runPromise(remodel({ config: config(), spawner }))
@@ -348,7 +348,7 @@ describe("remodel / build / inspect with Exec ops", () => {
   })
 
   it("build runs the commands after rebuilding the files", async () => {
-    declare([
+    await declare([
       { id: "a", permissions: [exec("fmt")], operations: [gitignore("a"), execOp("a", "fmt")] },
     ])
     execFileSync("git", ["init", "-q"], { cwd })
@@ -364,7 +364,7 @@ describe("remodel / build / inspect with Exec ops", () => {
   })
 
   it("build reports a command-only run as a success, not a cancellation", async () => {
-    declare([{ id: "a", permissions: [exec("fmt")], operations: [execOp("a", "fmt")] }])
+    await declare([{ id: "a", permissions: [exec("fmt")], operations: [execOp("a", "fmt")] }])
     execFileSync("git", ["init", "-q"], { cwd })
     const { calls, spawner } = fakeSpawner()
     const result = await Effect.runPromise(

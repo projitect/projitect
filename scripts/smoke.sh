@@ -25,7 +25,7 @@ FAILED=0
 pass() { echo "  ✓ $1"; }
 fail() { echo "  ✗ $1"; FAILED=1; }
 
-cleanup() { [ -n "${REG_PID:-}" ] && kill "$REG_PID" 2>/dev/null; [ -n "${REACT_REG_PID:-}" ] && kill "$REACT_REG_PID" 2>/dev/null; rm -rf "$SMOKE" "${SMOKE}-tools" "${REG:-}" "${E2E:-}" "${REACTDIR:-}" "${NEXTDIR:-}" "${REACTREG:-}" "${DLX_EMPTY:-}" "${DLX_EXISTING:-}"; }
+cleanup() { [ -n "${REG_PID:-}" ] && kill "$REG_PID" 2>/dev/null; [ -n "${REACT_REG_PID:-}" ] && kill "$REACT_REG_PID" 2>/dev/null; rm -rf "$SMOKE" "${SMOKE}-tools" "${REG:-}" "${E2E:-}" "${REACTDIR:-}" "${NEXTDIR:-}" "${REACTREG:-}" "${DLX_EMPTY:-}" "${DLX_EXISTING:-}" "${NOGIT:-}" "${YESDIR:-}" "${EXECDIR:-}"; }
 trap cleanup EXIT
 
 cd "$SMOKE"
@@ -176,7 +176,7 @@ make_skills_pkg() {
   local version="$1" dir="$SMOKE/pkgsrc-$1"
   mkdir -p "$dir"
   cat > "$dir/package.json" <<EOF
-{ "name": "acme-skills", "version": "$version", "type": "module", "main": "index.mjs" }
+{ "name": "acme-skills", "version": "$version", "type": "module", "main": "index.mjs", "dependencies": { "@projitect/blueprint-skills": "*" } }
 EOF
   local skill_md run_sh extra
   if [ "$version" = "1.0.0" ]; then
@@ -463,7 +463,9 @@ for (const f of ['package.json', 'dist/package.json']) {
   const p = process.argv[1] + '/' + f;
   const j = JSON.parse(fs.readFileSync(p, 'utf8'));
   j.version = process.argv[2];
-  for (const k of ['peerDependencies', 'devDependencies', 'scripts']) delete j[k];
+  for (const k of ['devDependencies', 'scripts']) delete j[k];
+  // The peers stay so the worker's read allowlist can follow them; loose ranges keep npm from resolving against the registry.
+  for (const name of Object.keys(j.peerDependencies ?? {})) j.peerDependencies[name] = '*';
   fs.writeFileSync(p, JSON.stringify(j, null, 2) + '\n');
 }
 " "$dir/package" "$1"
@@ -484,6 +486,7 @@ make_acme_skills() { # <version>
   [ "$1" = "1.1.0" ] && { skill_md='# v2\n'; extra='"assets/img/new.txt": "new\n"'; }
   cat > "$dir/package.json" <<EOF
 { "name": "@acme/skills", "version": "$1", "type": "module", "main": "index.mjs",
+  "dependencies": { "@projitect/blueprint-skills": "*" },
   "projitect": { "type": "blueprint", "import": "import { acmeSkills } from \"@acme/skills\"", "call": "acmeSkills" } }
 EOF
   cat > "$dir/index.mjs" <<EOF
@@ -508,7 +511,9 @@ const fs = require('fs');
 const p = process.argv[1] + '/package.json';
 const j = JSON.parse(fs.readFileSync(p, 'utf8'));
 j.version = '1.0.0';
-for (const k of ['peerDependencies', 'devDependencies', 'scripts']) delete j[k];
+for (const k of ['devDependencies', 'scripts']) delete j[k];
+// The peers stay so the worker's read allowlist can follow them; loose ranges keep npm from resolving against the registry.
+for (const name of Object.keys(j.peerDependencies ?? {})) j.peerDependencies[name] = '*';
 fs.writeFileSync(p, JSON.stringify(j, null, 2) + '\n');
 " "$REG/pkg-skills/package"
 npm pack "$REG/pkg-skills/package" --pack-destination "$REG" --silent > /dev/null 2>&1
@@ -692,7 +697,9 @@ for (const f of ['package.json', 'dist/package.json']) {
   const p = process.argv[1] + '/' + f;
   const j = JSON.parse(fs.readFileSync(p, 'utf8'));
   j.version = process.argv[2];
-  for (const k of ['peerDependencies', 'devDependencies', 'scripts']) delete j[k];
+  for (const k of ['devDependencies', 'scripts']) delete j[k];
+  // The peers stay so the worker's read allowlist can follow them; loose ranges keep npm from resolving against the registry.
+  for (const name of Object.keys(j.peerDependencies ?? {})) j.peerDependencies[name] = '*';
   fs.writeFileSync(p, JSON.stringify(j, null, 2) + '\n');
 }
 " "$dir/package" "$2"

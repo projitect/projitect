@@ -13,6 +13,7 @@ import {
   reconcileOwnership,
   writtenFields,
 } from "./merge-ownership.js"
+import type { PlannedBlueprint } from "./worker/protocol.js"
 
 // ---------------------------------------------------------------------------
 // File-level plan shape (after reducing all blueprints' ChangeSets per path)
@@ -153,6 +154,30 @@ const normalizeOwnedKeys = (attributed: AttributedFileOp): AttributedFileOp =>
     ? { ...attributed, op: { ...attributed.op, ownedKeys: minimalKeys(attributed.op.ownedKeys) } }
     : attributed
 
+/** Reduce attributed ops with conflict detection and produce the per-blueprint lockfile entries. */
+const reduceAttributed = (
+  attributed: readonly AttributedOp[],
+): Effect.Effect<
+  { readonly plan: ProjectPlan; readonly byBlueprint: ByBlueprint },
+  Errors.PlanError
+> =>
+  Effect.gen(function* () {
+    const fileOps = Array.map(Array.filterMap(attributed, asFileOp), normalizeOwnedKeys)
+    const files = yield* reduceOps(Array.map(fileOps, (a) => a.op))
+    const commands = Array.map(
+      Array.filterMap(attributed, asExecOp),
+      (a): PlannedCommand => ({
+        ownerId: a.op.ownerId,
+        command: a.op.command,
+        ...StructX.defined("check", a.op.check),
+        permissions: a.permissions,
+      }),
+    )
+    // Exec ops are not recorded in the lockfile: commands re-run on every remodel.
+    const byBlueprint = groupByBlueprint(fileOps)
+    return { plan: { files: files.files, commands }, byBlueprint }
+  })
+
 /**
  * Builds the permission-gated `BlueprintFileSystem` Layer one blueprint plans against. Injected so
  * the planner itself touches no `node:*`: the CLI passes `makeRealLayer`, a browser passes
@@ -203,20 +228,7 @@ export const buildPlan = (params: {
       ),
     ).pipe(Effect.map(Array.flatten))
 
-    const fileOps = Array.map(Array.filterMap(attributed, asFileOp), normalizeOwnedKeys)
-    const files = yield* reduceOps(Array.map(fileOps, (a) => a.op))
-    const commands = Array.map(
-      Array.filterMap(attributed, asExecOp),
-      (a): PlannedCommand => ({
-        ownerId: a.op.ownerId,
-        command: a.op.command,
-        ...StructX.defined("check", a.op.check),
-        permissions: a.permissions,
-      }),
-    )
-    // Exec ops are not recorded in the lockfile: commands re-run on every remodel.
-    const byBlueprint = groupByBlueprint(fileOps)
-    return { plan: { files: files.files, commands }, byBlueprint }
+    return yield* reduceAttributed(attributed)
   })
 }
 
@@ -231,6 +243,31 @@ interface Departure {
   readonly blueprintId: string
   readonly op: PjtLock.LockOperation
 }
+
+/**
+ * Build the project plan from what every blueprint planned in the confined worker: its id,
+ * version, permissions, directory prefix and `ChangeSet` as plain data. The CLI uses this; a
+ * caller that holds live blueprint objects uses {@link buildPlan}.
+ */
+export const buildPlanFromPlanned = (params: {
+  readonly planned: readonly PlannedBlueprint[]
+}): Effect.Effect<
+  { readonly plan: ProjectPlan; readonly byBlueprint: ByBlueprint },
+  Errors.PlanError
+> =>
+  reduceAttributed(
+    Array.flatMap(params.planned, ({ id, version, permissions, directoryPrefix, changeSet }) =>
+      Array.map(
+        changeSet.operations,
+        (op): AttributedOp => ({
+          blueprintId: id,
+          blueprintVersion: version,
+          permissions,
+          op: rebaseOp(directoryPrefix, op),
+        }),
+      ),
+    ),
+  )
 
 /**
  * Diff the previous lockfile against the current blueprint set. Returns:

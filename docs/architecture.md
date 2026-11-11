@@ -26,8 +26,8 @@ A map of the monorepo. [AGENTS.md](../AGENTS.md) is the index; see also [getting
 
 `pjt build` and `pjt remodel` turn a project's `.pjt.ts` into file changes. The stages live in `packages/cli-internals/src`:
 
-1. **Loader** (`loader.ts`) reads `.pjt.ts` and yields the declared blueprints.
-2. **Planner** (`plan.ts`) asks each blueprint for its `ChangeSet`; two owners of one region is a `pjt.plan.conflict`.
+1. **Loader** (`worker/`) runs `.pjt.ts` and each blueprint's plan in a permission-restricted child process and returns every blueprint's id, version, permissions and `ChangeSet`.
+2. **Planner** (`plan.ts`) reduces those `ChangeSet`s into one plan; two owners of one region is a `pjt.plan.conflict`.
 3. **Differ** (`differ.ts`) compares the plan with the files on disk. `pjt inspect` reports this drift.
 4. **Applier** (`applier.ts`) writes the changes.
 5. **Post-apply phase** (`post-apply.ts`) runs the `Exec` commands the planner split out of the file plan. It runs after every file operation succeeds, checks each command against its blueprint's `exec` permission before starting any, and `pjt inspect` runs the check variant and reports failing or missing checks as drift. Commands run through `nodeSpawner` (`platform/process-runner.ts`) with no shell of ours (`cross-spawn`, `shell: false`, literal argv; on Windows cross-spawn may itself route a target through `cmd.exe`, so the runner refuses any program, argument or resolved path containing `%`, a line break or NUL, whatever the file extension, instead of altering it). A bare program resolves via `which` from `<projectRoot>/node_modules/.bin` (that directory only, no ancestors), then the caller's `PATH` (relative and empty entries resolved against the project root, as the child resolves them); a program containing a path separator runs as given, relative to the project root. The child gets a per-call env copy with the local bin directory prepended to PATH; `process.env` is never mutated. A tool found nowhere fails `pjt.exec.command-failed`, naming it and the searched directories. Tested on Linux (Node 22.12 and 24 in CI) and, for real `.cmd` shims, on `windows-latest` (the `windows runner` job on GitHub Actions `windows-latest`, Node 22.12.0 and 24); macOS was verified locally with the full check-all and packed-consumer smoke.
@@ -70,9 +70,9 @@ field (`pjt.apply.merge-ancestor-not-object`).
 
 Details: [File ownership modes](./blueprint-authoring.md#file-ownership-modes) and [Region marker convention](./blueprint-authoring.md#region-marker-convention).
 
-## Soft sandbox
+## Sandbox
 
-Blueprints never touch the disk directly. They use `BlueprintFileSystem`, which `cli-internals` gates by the `Permission`s each blueprint declares. ESLint backs this up with import bans: blueprint packages cannot import `@effect/platform`'s `FileSystem` or any `node:*`; `core` and `test-kit` cannot import `node:*`. Node-backed `pjt add` code lives in `cli-internals`, not in blueprint packages; see [Where the `pjt add` CLI code lives](./blueprint-authoring.md#where-the-pjt-add-cli-code-lives). See [Blueprint authoring rules](./blueprint-authoring.md#blueprint-authoring-rules) and [ESLint absorbs Prettier](./tooling.md#eslint-absorbs-prettier).
+Blueprint code runs in a child Node process started with Node's permission model: it can read only an allowlist the parent computes (its own code, a private staged copy of the `.pjt.ts` and the dependency closure it imports, and the Node installation) and has no child-process or worker permission. This prevents accidents; it does not contain malicious code. Blueprints never touch the project directly. They use `BlueprintFileSystem`, whose calls travel to the parent over IPC and which `cli-internals` gates by the `Permission`s each blueprint declares. ESLint backs this up with import bans: blueprint packages cannot import `@effect/platform`'s `FileSystem` or any `node:*`; `core` and `test-kit` cannot import `node:*`. Node-backed `pjt add` code lives in `cli-internals`, not in blueprint packages; see [Where the `pjt add` CLI code lives](./blueprint-authoring.md#where-the-pjt-add-cli-code-lives). See [Blueprint authoring rules](./blueprint-authoring.md#blueprint-authoring-rules) and [ESLint absorbs Prettier](./tooling.md#eslint-absorbs-prettier).
 
 ## Browser demo boundary (planned)
 

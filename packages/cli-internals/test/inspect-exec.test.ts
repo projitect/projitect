@@ -48,27 +48,29 @@ beforeEach(async () => {
 })
 
 afterEach(async () => {
-  delete process.env["PJT_TEST_POST_APPLY"]
   await fs.rm(cwd, { recursive: true, force: true })
 })
 
 const config = () => ProjitectConfig.resolve({ projectRoot: cwd, blueprintFile: FIXTURE })
 
-const declare = (
+// The confined worker has an empty environment, so the fixture reads its blueprints from the
+// project's `package.json` through the permission-gated filesystem.
+const declare = async (
   blueprints: readonly {
     id: string
     permissions?: readonly Permission.Permission[]
     operations: readonly ChangeSet.ExecOp[]
   }[],
 ) => {
-  process.env["PJT_TEST_POST_APPLY"] = JSON.stringify(
-    blueprints.map((b) => ({ permissions: [], ...b })),
+  await fs.writeFile(
+    path.join(cwd, "package.json"),
+    JSON.stringify({ pjtTestPostApply: blueprints.map((b) => ({ permissions: [], ...b })) }),
   )
 }
 
 describe("pjt inspect with Exec ops", () => {
   it("reports clean when every check passes", async () => {
-    declare([
+    await declare([
       { id: "a", permissions: [exec("fmt:check")], operations: [execOp("a", "fmt", "fmt:check")] },
     ])
     const { calls, spawner } = fakeSpawner({})
@@ -79,7 +81,7 @@ describe("pjt inspect with Exec ops", () => {
   })
 
   it("reports a failing check as drift with a structured entry", async () => {
-    declare([
+    await declare([
       { id: "a", permissions: [exec("fmt:check")], operations: [execOp("a", "fmt", "fmt:check")] },
     ])
     const { spawner } = fakeSpawner({ "fmt:check": { exitCode: 3, stderr: "bad format" } })
@@ -107,7 +109,7 @@ describe("pjt inspect with Exec ops", () => {
   })
 
   it("fails with command-not-permitted when the blueprint lacks the exec permission", async () => {
-    declare([{ id: "a", operations: [execOp("a", "fmt", "fmt:check")] }])
+    await declare([{ id: "a", operations: [execOp("a", "fmt", "fmt:check")] }])
     const { calls, spawner } = fakeSpawner({})
     const exit = await Effect.runPromiseExit(inspect({ config: config(), spawner }))
     const error = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined
@@ -116,7 +118,7 @@ describe("pjt inspect with Exec ops", () => {
   })
 
   it("runs an identical check once and skips commands without a check", async () => {
-    declare([
+    await declare([
       { id: "a", permissions: [exec("fmt:check")], operations: [execOp("a", "fmt", "fmt:check")] },
       { id: "b", permissions: [exec("fmt:check")], operations: [execOp("b", "fmt2", "fmt:check")] },
       { id: "c", operations: [execOp("c", "no-check")] },
@@ -128,7 +130,7 @@ describe("pjt inspect with Exec ops", () => {
   })
 
   it("checks every owner's permission before starting even a permitted duplicate check", async () => {
-    declare([
+    await declare([
       { id: "a", permissions: [exec("fmt:check")], operations: [execOp("a", "fmt", "fmt:check")] },
       { id: "b", operations: [execOp("b", "fmt", "fmt:check")] },
     ])
@@ -141,7 +143,7 @@ describe("pjt inspect with Exec ops", () => {
   })
 
   it("rejects an invalid lockfile before starting any checks", async () => {
-    declare([
+    await declare([
       { id: "a", permissions: [exec("fmt:check")], operations: [execOp("a", "fmt", "fmt:check")] },
     ])
     await fs.writeFile(path.join(cwd, ".pjt.lock"), "not valid JSON")
@@ -154,7 +156,7 @@ describe("pjt inspect with Exec ops", () => {
   })
 
   it("reports a check that could not start as drift and still runs later checks", async () => {
-    declare([
+    await declare([
       { id: "a", permissions: [exec("missing")], operations: [execOp("a", "fix-a", "missing")] },
       {
         id: "b",
@@ -180,7 +182,7 @@ describe("pjt inspect with Exec ops", () => {
 
 describe("pjt explain with no error id", () => {
   it("lists each exec operation with its owner, fix and check, in text and JSON", async () => {
-    declare([
+    await declare([
       { id: "a", permissions: [exec("fmt:check")], operations: [execOp("a", "fmt", "fmt:check")] },
       { id: "c", operations: [execOp("c", "no-check")] },
     ])
@@ -197,7 +199,7 @@ describe("pjt explain with no error id", () => {
   })
 
   it("says so when no blueprint declares a command", async () => {
-    declare([])
+    await declare([])
     const text = await Effect.runPromise(explainCommands({ config: config(), json: false }))
     expect(text).toBe("No blueprint declares post-apply commands.")
   })
@@ -205,7 +207,7 @@ describe("pjt explain with no error id", () => {
 
 describe("two blueprints sharing one fix with different checks", () => {
   it("explain lists both declarations and inspect reports the failing second check", async () => {
-    declare([
+    await declare([
       {
         id: "a",
         permissions: [exec("fmt:check-a")],

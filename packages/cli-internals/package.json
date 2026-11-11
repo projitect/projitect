@@ -40,6 +40,7 @@
   "dependencies": {
     "@nunofyobiz/effect-extras": "3.2.0",
     "cross-spawn": "7.0.6",
+    "esbuild": "0.28.1",
     "sucrase": "3.35.1",
     "which": "7.0.0"
   },
