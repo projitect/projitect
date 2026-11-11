@@ -172,7 +172,8 @@ Exit code: `1`. PR fails. Run `pjt remodel` to fix.
 `vitest`, `changesets`, `prettier`, `react` and `next` blueprints, plus `pjt init`, `pjt remodel`, `pjt inspect`, and
 `pjt explain`. Effect v4 RC under the hood.
 
-The `eslint` blueprint, exec and post-apply operations, the
+Blueprints can run post-apply commands: the `prettier` blueprint formats the project after `pjt build`
+and `pjt remodel`, and `pjt inspect` reports a failing check as drift. The `eslint` blueprint, the
 worker-process sandbox, and the interactive in-browser demo are on the [roadmap](/docs/roadmap/).
 
 Ready? **[Get started →](/docs/getting-started/)**
