@@ -3,6 +3,7 @@ import * as os from "node:os"
 import path from "node:path"
 import { Effect, Schema } from "effect"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
+import { directory } from "@projitect/blueprint"
 import { react } from "@projitect/blueprint-react"
 import type { Blueprint } from "@projitect/core"
 import { makeProjectRootLayer, makeRealLayer } from "../src/filesystem-impl.js"
@@ -188,5 +189,22 @@ describe("blueprint-react lifecycle", () => {
     expect(await readFile(".gitignore")).toContain("# mine\n.env\n")
     expect(await readFile(".gitignore")).not.toContain("dist/")
     expect(await hasDrift([])).toBe(false)
+  })
+
+  it("builds a JavaScript app inside directory('my-app') with the package name set", async () => {
+    await remodelTree([])
+    const { plan } = await Effect.runPromise(
+      buildPlan({
+        tree: [directory("my-app", [react({ template: "react", name: "my-app" })])],
+        projectRoot: cwd,
+        layerFor: makeRealLayer,
+      }).pipe(Effect.provide(makeProjectRootLayer(cwd))),
+    )
+    const paths = plan.files.map((file) => file.path)
+    expect(paths.length).toBeGreaterThan(0)
+    expect(paths.every((file) => file.startsWith("my-app/"))).toBe(true)
+    expect(paths).toContain("my-app/vite.config.js")
+    expect(paths).toContain("my-app/src/App.jsx")
+    expect(paths).not.toContain("my-app/tsconfig.json")
   })
 })

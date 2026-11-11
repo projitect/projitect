@@ -1,8 +1,11 @@
 /**
  * Starter source for the React app. Every file here is seeded: written once, never enforced.
+ * The `.tsx` starters carry no type annotations, so the JavaScript template seeds the same text
+ * under `.jsx` names.
  */
 
-export const indexHtml = `<!doctype html>
+/** The `index.html` entry page; `entry` is the module the page loads, e.g. `src/main.tsx`. */
+export const indexHtml = (entry: string) => `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -11,7 +14,7 @@ export const indexHtml = `<!doctype html>
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <script type="module" src="/${entry}"></script>
   </body>
 </html>
 `
