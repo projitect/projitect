@@ -41,11 +41,30 @@ backup for content git does not track.
 
 ## How post-apply commands resolve
 
-`remodel`, `build` and `inspect` run granted `exec` commands from the project root with no shell.
-After the exact permission check, a bare program is looked up in `<projectRoot>/node_modules/.bin`
-(project root only), then the caller's `PATH`; a program with a path separator runs as given,
-relative paths from the project root. A tool found nowhere fails `pjt.exec.command-failed` with
+`remodel`, `build` and `inspect` run granted `exec` commands from the project root. After the exact
+permission check, a bare program is looked up in `<projectRoot>/node_modules/.bin` (project root
+only), then the caller's `PATH`. A program with a path separator runs as given; relative program
+paths and relative or empty `PATH` entries resolve against the project root. Each child gets its
+own environment with the local bin directory prepended; the caller's environment is unchanged.
+A tool found nowhere fails `pjt.exec.command-failed` with
 `Failed to start \`<command>\`: spawn <tool> ENOENT: \`<tool>\` not found in <searched dirs>`.
+
+The parser separates the program and arguments. Single or double quotes group whitespace and are
+removed; there are no escapes, variable expansion, globs or shell operators. The runner passes an
+argument array with `shell: false`, so operators such as `&&` and `|` remain literal arguments.
+On Windows, the maintained `cross-spawn` library may itself invoke `cmd.exe` for package-manager
+shims, shebang scripts and other targets that are not `.exe` or `.com`. Its escaping preserves
+spaces, quotes and shell metacharacters, but cannot preserve every possible input literally.
+
+For that reason, on Windows the runner refuses `%`, carriage return, line feed and NUL in the
+program or any argument before lookup, and in the resolved executable path before spawning.
+The refusal is `pjt.exec.command-failed` and explains which characters must be removed; values
+are never silently rewritten. This conservative rule also applies to `.exe` and `.com` inputs.
+
+Hosted Windows CI runs real process and `.cmd` shim tests on Node 22.12.0 and Node 24, alongside
+post-apply and inspect checks. Linux CI covers Node 22 and 24; macOS has local full-suite and
+packed-consumer smoke verification. A local macOS run skips Windows-only tests and does not
+establish Windows support: the Windows jobs must pass at the current PR head before merge.
 
 ## Missing `.pjt.ts`
 
