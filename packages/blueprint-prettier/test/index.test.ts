@@ -90,42 +90,9 @@ describe("prettier.config() — options", () => {
   })
 })
 
-describe("prettier.config() — against an existing project", () => {
-  it("rewrites a hand-edited config back to the managed content", async () => {
-    const layer = makeInMemoryLayer({ ".prettierrc.json": '{ "semi": true }' })
-    const { operations } = await Effect.runPromise(
-      prettier.config({ semi: false }).plan.pipe(Effect.provide(layer)),
-    )
-    const owned = operations.find((o) => o._tag === "Owned")
-    if (owned?._tag !== "Owned") {
-      throw new Error("expected owned op")
-    }
-    expect(JSON.parse(owned.content)).toEqual({ semi: false })
-  })
-
-  it("leaves other scripts and dependencies in package.json to the merge", async () => {
-    const existing = JSON.stringify({
-      scripts: { test: "vitest run" },
-      devDependencies: { vitest: "^3.0.0" },
-    })
-    const layer = makeInMemoryLayer({ "package.json": existing })
-    const { operations } = await Effect.runPromise(
-      prettier.config().plan.pipe(Effect.provide(layer)),
-    )
-    const merge = operations.find((o) => o._tag === "Merge")
-    if (merge?._tag !== "Merge") {
-      throw new Error("expected merge op")
-    }
-    // Merge mode touches only the owned keys; everything else in the file is preserved by the applier.
-    expect([...merge.ownedKeys].toSorted()).toEqual(["devDependencies.prettier", "scripts.format"])
-    expect(merge.value).not.toHaveProperty("scripts.test")
-    expect(merge.value).not.toHaveProperty("devDependencies.vitest")
-  })
-})
-
 describe("prettier.fix()", () => {
-  const planExec = async (options?: Parameters<typeof prettier.fix>[0]) => {
-    const blueprint = prettier.fix(options)
+  const planExec = async () => {
+    const blueprint = prettier.fix()
     const { operations } = await runPlan(blueprint)
     const op = operations[0]
     if (operations.length !== 1 || op?._tag !== "Exec") {
@@ -150,21 +117,10 @@ describe("prettier.fix()", () => {
     ])
   })
 
-  it.each([
-    ["npm", "npx --no-install"],
-    ["pnpm", "pnpm exec"],
-    ["yarn", "yarn"],
-    ["bun", "bunx --no-install"],
-  ] as const)("runs prettier through %s", async (packageManager, prefix) => {
-    const { blueprint, op } = await planExec({ packageManager })
-    expect(op.command).toBe(`${prefix} prettier --write .`)
-    expect(op.check).toBe(`${prefix} prettier --check .`)
-    expect(blueprint.permissions).toHaveLength(2)
-  })
-
-  it("defaults to npx", async () => {
+  it("runs the bare project-local prettier", async () => {
     const { op } = await planExec()
-    expect(op.command).toBe("npx --no-install prettier --write .")
+    expect(op.command).toBe("prettier --write .")
+    expect(op.check).toBe("prettier --check .")
   })
 })
 

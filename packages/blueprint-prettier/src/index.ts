@@ -6,14 +6,14 @@
  *  - `prettier.config(options?)` owns `.prettierrc.json` (owned mode — projitect rewrites it on
  *    every `remodel`, so teams adjust it through options rather than by hand) and merges the
  *    `format` script and `prettier` devDependency into `package.json` (merge mode).
- *  - `prettier.fix(options?)` contributes a post-apply exec operation: `pjt build` and
+ *  - `prettier.fix()` contributes a post-apply exec operation: `pjt build` and
  *    `pjt remodel` run `prettier --write` after every file is written, and `pjt inspect` runs
  *    `prettier --check` and reports a failure as drift.
  *
  * Ignore files are not managed here; leave `.prettierignore` to the project.
  */
 
-import { Effect, Match } from "effect"
+import { Effect } from "effect"
 import { exec, jsonMerge, ownFile } from "@projitect/blueprint"
 import type { Blueprint } from "@projitect/core"
 import { ChangeSet as CS } from "@projitect/core"
@@ -40,19 +40,6 @@ export interface PrettierConfigOptions {
   readonly trailingComma?: "all" | "es5" | "none"
   /** How to wrap prose in Markdown files. */
   readonly proseWrap?: "always" | "never" | "preserve"
-}
-
-/** The package manager whose runner resolves the project-local `prettier` binary. */
-export type PrettierPackageManager = "pnpm" | "npm" | "yarn" | "bun"
-
-/** Options for `prettier.fix()`. */
-export interface PrettierFixOptions {
-  /**
-   * Package manager that runs the project-local `prettier`. The commands are spawned without a
-   * shell, so a bare `prettier` is not on the path. Defaults to `"npm"` (`npx --no-install`),
-   * which resolves `node_modules/.bin` in any Node project.
-   */
-  readonly packageManager?: PrettierPackageManager
 }
 
 const config = (options: PrettierConfigOptions = {}): Blueprint.Blueprint => {
@@ -94,25 +81,15 @@ const config = (options: PrettierConfigOptions = {}): Blueprint.Blueprint => {
   }
 }
 
-// The runner prefix per package manager; `prettier` and its arguments follow it.
-const runnerPrefix = Match.type<PrettierPackageManager>().pipe(
-  Match.when("pnpm", () => "pnpm exec"),
-  Match.when("npm", () => "npx --no-install"),
-  Match.when("yarn", () => "yarn"),
-  Match.when("bun", () => "bunx --no-install"),
-  Match.exhaustive,
-)
-
-const fix = (options: PrettierFixOptions = {}): Blueprint.Blueprint => {
-  const prefix = runnerPrefix(options.packageManager ?? "npm")
-  return exec({
+// Runs the project-local `prettier`: the process runner looks in `node_modules/.bin` first.
+const fix = (): Blueprint.Blueprint =>
+  exec({
     id: "pjt:prettier:fix",
     version: PACKAGE_VERSION,
     description: "format the project with prettier after build and remodel",
-    fix: `${prefix} prettier --write .`,
-    check: `${prefix} prettier --check .`,
+    fix: "prettier --write .",
+    check: "prettier --check .",
   })
-}
 
 // Only the options given are emitted, in a fixed key order, so the output is deterministic.
 const renderConfig = (options: PrettierConfigOptions): string =>

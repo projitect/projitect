@@ -20,6 +20,7 @@
     { "path": "../../blueprint-gitignore" },
     { "path": "../../blueprint-markdown" },
     { "path": "../../blueprint-next" },
+    { "path": "../../blueprint-prettier" },
     { "path": "../../blueprint-react" },
     { "path": "../../test-kit" }
   ]

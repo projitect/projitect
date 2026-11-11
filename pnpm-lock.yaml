@@ -413,6 +413,9 @@ importers:
       '@projitect/blueprint-next':
         specifier: workspace:*
         version: link:../blueprint-next
+      '@projitect/blueprint-prettier':
+        specifier: workspace:*
+        version: link:../blueprint-prettier
       '@projitect/blueprint-react':
         specifier: workspace:*
         version: link:../blueprint-react

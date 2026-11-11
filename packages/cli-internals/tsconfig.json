@@ -16,6 +16,7 @@
     { "path": "../blueprint-husky-lint-staged" },
     { "path": "../blueprint-markdown" },
     { "path": "../blueprint-next" },
+    { "path": "../blueprint-prettier" },
     { "path": "../blueprint-react" },
     { "path": "../blueprint-skills" },
     { "path": "../blueprint-tsconfig" },
