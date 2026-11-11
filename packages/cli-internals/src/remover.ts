@@ -2,6 +2,7 @@ import { Array, Effect, Match, Option, Predicate } from "effect"
 import { PredicateX, RecordX, StringX } from "@nunofyobiz/effect-extras"
 import { BlueprintFileSystem } from "@projitect/core"
 import type { Errors, PjtLock } from "@projitect/core"
+import { keySegments } from "./merge-ownership.js"
 import { readIfExists } from "./project-file.js"
 import { findRegion } from "./region.js"
 
@@ -81,7 +82,7 @@ const removeMergeKeys = (
       mutated: false,
     }
     const result = Array.reduce(keys, seed, (state, key) =>
-      Option.match(RecordX.deleteByPath(state.tree, key.split(".")), {
+      Option.match(RecordX.deleteByPath(state.tree, keySegments(key)), {
         onSome: (tree) => ({ tree, mutated: true }),
         onNone: () => state,
       }),

@@ -116,6 +116,17 @@ export class PlanConflictMerge extends Schema.TaggedError<PlanConflictMerge>()(
   },
 ) {}
 
+export class PlanUnownedMergeWrite extends Schema.TaggedError<PlanUnownedMergeWrite>()(
+  "PlanUnownedMergeWrite",
+  {
+    id: Schema.Literal("pjt.plan.unowned-merge-write"),
+    path: Schema.String,
+    field: Schema.String,
+    ownerId: Schema.String,
+    message: Schema.String,
+  },
+) {}
+
 export class PlanConflictOwned extends Schema.TaggedError<PlanConflictOwned>()(
   "PlanConflictOwned",
   {
@@ -346,7 +357,11 @@ export type LoaderError = LoaderImportFailed | LoaderInvalidDefaultExport
 
 export type ConfigError = ConfigInvalid | ConfigBlueprintFileNotFound
 
-export type PlanError = PlanConflictRegion | PlanConflictMerge | PlanConflictOwned
+export type PlanError =
+  | PlanConflictRegion
+  | PlanConflictMerge
+  | PlanUnownedMergeWrite
+  | PlanConflictOwned
 
 export type ApplyError = ApplyDirtyGit
 
@@ -395,6 +410,7 @@ export const ERROR_IDS = [
   "pjt.config.blueprint-file-not-found",
   "pjt.plan.conflict-region",
   "pjt.plan.conflict-merge",
+  "pjt.plan.unowned-merge-write",
   "pjt.plan.conflict-owned",
   "pjt.skills.invalid-path",
   "pjt.region.missing-end",

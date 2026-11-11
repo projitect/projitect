@@ -5,6 +5,7 @@ import { ChangeSet, Errors, PjtLock } from "@projitect/core"
 import type { Blueprint, BlueprintFileSystem, Permission } from "@projitect/core"
 import { isDirectoryBlueprint } from "@projitect/blueprint"
 import type { DirectoryBlueprint } from "@projitect/blueprint"
+import { checkWriteCoverage, minimalKeys, overlaps, reconcileOwnership } from "./merge-ownership.js"
 
 // ---------------------------------------------------------------------------
 // File-level plan shape (after reducing all blueprints' ChangeSets per path)
@@ -21,7 +22,7 @@ export type FilePlan = Data.TaggedEnum<{
   readonly Merge: {
     readonly path: string
     readonly value: unknown
-    /** Dotted-key → ownerId. Conflicts on identical keys are caught at reduction time. */
+    /** Minimal dotted-key → ownerId. Overlapping keys of distinct owners are caught at reduction time. */
     readonly ownership: ReadonlyMap<string, string>
   }
   readonly Owned: { readonly path: string; readonly ownerId: string; readonly content: string }
@@ -139,6 +140,12 @@ const asExecOp = (attributed: AttributedOp): Result.Result<AttributedExecOp, voi
     ? Result.succeed({ ...attributed, op: attributed.op })
     : Result.failVoid
 
+/** A merge op declaring a key and its own descendant owns the ancestor alone, in any order. */
+const normalizeOwnedKeys = (attributed: AttributedFileOp): AttributedFileOp =>
+  attributed.op._tag === "Merge"
+    ? { ...attributed, op: { ...attributed.op, ownedKeys: minimalKeys(attributed.op.ownedKeys) } }
+    : attributed
+
 /**
  * Builds the permission-gated `BlueprintFileSystem` Layer one blueprint plans against. Injected so
  * the planner itself touches no `node:*`: the CLI passes `makeRealLayer`, a browser passes
@@ -189,7 +196,7 @@ export const buildPlan = (params: {
       ),
     ).pipe(Effect.map(Array.flatten))
 
-    const fileOps = Array.filterMap(attributed, asFileOp)
+    const fileOps = Array.map(Array.filterMap(attributed, asFileOp), normalizeOwnedKeys)
     const files = yield* reduceOps(Array.map(fileOps, (a) => a.op))
     const commands = Array.map(
       Array.filterMap(attributed, asExecOp),
@@ -235,15 +242,25 @@ export const diffLockfile = (params: {
           Array.map(live.operations, (op) => op.path),
         ),
       )
-      const removals = Array.filter(
+      const liveMergeClaims = Array.filterMap(
+        Array.flatMap(Record.values(current), (live) => live.operations),
+        asLockMergeOp,
+      )
+      const removals = Array.filterMap(
         Array.flatMap(entries, ([id, prior]) =>
           Option.match(Record.get(current, id), {
             onNone: () => prior.operations,
             onSome: (live) => droppedOwnedOps(prior, live),
           }),
         ),
-        // A path some blueprint still plans (e.g. reassigned to another owner) is not an orphan.
-        (op) => op._tag !== "Owned" || !livePaths.has(op.path),
+        (op): Result.Result<PjtLock.LockOperation, void> =>
+          Match.valueTags(op, {
+            Region: (region) => Result.succeed(region),
+            Seed: (seed) => Result.succeed(seed),
+            // A path some blueprint still plans (e.g. reassigned to another owner) is not an orphan.
+            Owned: (owned) => (livePaths.has(owned.path) ? Result.failVoid : Result.succeed(owned)),
+            Merge: (merge) => withoutLiveKeys(merge, liveMergeClaims),
+          }),
       )
       const upgrades = Array.flatMap(entries, ([id, prior]) =>
         Record.get(current, id).pipe(
@@ -255,6 +272,32 @@ export const diffLockfile = (params: {
       return { removals, upgrades }
     },
   })
+}
+
+const asLockMergeOp = (op: PjtLock.LockOperation): Result.Result<PjtLock.LockMergeOp, void> =>
+  op._tag === "Merge" ? Result.succeed(op) : Result.failVoid
+
+/**
+ * A departing merge claim minus every key that equals, contains or sits inside a key some
+ * blueprint still claims on the same file: those belong to the live owner now, so removal never
+ * reaches them. Nothing left to remove drops the op.
+ */
+const withoutLiveKeys = (
+  op: PjtLock.LockMergeOp,
+  liveClaims: readonly PjtLock.LockMergeOp[],
+): Result.Result<PjtLock.LockMergeOp, void> => {
+  const liveKeys = pipe(
+    liveClaims,
+    Array.filter((live) => live.path === op.path),
+    Array.flatMap((live) => live.ownedKeys),
+  )
+  const ownedKeys = Array.filter(
+    op.ownedKeys,
+    (key) => !Array.some(liveKeys, (liveKey) => overlaps(key, liveKey)),
+  )
+  return Array.isArrayNonEmpty(ownedKeys)
+    ? Result.succeed(PjtLock.LockMergeOp.make({ path: op.path, ownedKeys }))
+    : Result.failVoid
 }
 
 /** Owned files the prior lock entry had but the live entry no longer plans. */
@@ -401,41 +444,13 @@ const reduceRegion = (
     },
   })
 
-/**
- * Fold the merge ops' `ownedKeys` into a `key → ownerId` map, failing if two distinct owners claim
- * the same key — the conflict-checked keyed merge behind merge-mode ownership.
- */
-const reconcileOwnership = (
-  path: string,
-  ops: readonly ChangeSet.MergeOp[],
-): Effect.Effect<ReadonlyMap<string, string>, Errors.PlanConflictMerge> =>
-  Effect.gen(function* () {
-    const ownership = new Map<string, string>()
-    for (const op of ops) {
-      for (const key of op.ownedKeys) {
-        const prior = ownership.get(key)
-        if (prior !== undefined && prior !== op.ownerId) {
-          return yield* new Errors.PlanConflictMerge({
-            id: "pjt.plan.conflict-merge",
-            path,
-            key,
-            ownerA: prior,
-            ownerB: op.ownerId,
-            message: `Blueprints ${prior} and ${op.ownerId} both claim key "${key}" in ${path}. ${conflictNextStep}`,
-          })
-        }
-        ownership.set(key, op.ownerId)
-      }
-    }
-    return ownership
-  })
-
 const reduceMerge = (
   path: string,
   ops: readonly ChangeSet.MergeOp[],
 ): Effect.Effect<FilePlan, Errors.PlanError> =>
   Effect.gen(function* () {
-    const ownership = yield* reconcileOwnership(path, ops)
+    const ownership = yield* reconcileOwnership(path, ops, conflictNextStep)
+    yield* Effect.forEach(ops, (op) => checkWriteCoverage(path, op), { discard: true })
     const value = RecordX.deepMergeReducer.combineAll(Array.map(ops, (op) => op.value))
     return FilePlan.Merge({ path, value, ownership })
   })

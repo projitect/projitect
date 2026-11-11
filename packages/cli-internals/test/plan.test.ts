@@ -125,7 +125,7 @@ describe("buildPlan — happy paths", () => {
             _tag: "Merge",
             ownerId: "pjt:a",
             path: "package.json",
-            ownedKeys: ["scripts.a"],
+            ownedKeys: ["scripts.a", "name"],
             value: { scripts: { a: "true" }, name: "project" },
           },
         ],
@@ -156,6 +156,7 @@ describe("buildPlan — happy paths", () => {
       name: "project",
     })
     expect(Object.fromEntries(file.ownership)).toEqual({
+      name: "pjt:a",
       "scripts.a": "pjt:a",
       "scripts.b": "pjt:b",
     })
@@ -475,6 +476,41 @@ describe("diffLockfile", () => {
     expect(out.upgrades).toEqual([])
   })
 
+  describe("merge keys of a departing blueprint", () => {
+    const merge = (ownedKeys: readonly string[]): PjtLock.LockOperation => ({
+      _tag: "Merge",
+      path: "package.json",
+      ownedKeys,
+    })
+    const removalsFor = (departing: readonly string[], live: readonly string[]) =>
+      diffLockfile({
+        previous: lockOf({ "pjt:old": { version: "1.0.0", operations: [merge(departing)] } }),
+        current: { "pjt:new": { version: "1.0.0", operations: [merge(live)] } },
+      }).removals
+
+    it("removes keys no live blueprint claims", () => {
+      expect(removalsFor(["scripts.old"], ["scripts.new"])).toEqual([merge(["scripts.old"])])
+    })
+
+    it("keeps a parent whose descendant a live blueprint now claims", () => {
+      expect(removalsFor(["scripts"], ["scripts.test"])).toEqual([])
+    })
+
+    it("keeps a descendant under a parent a live blueprint now claims", () => {
+      expect(removalsFor(["scripts.test"], ["scripts"])).toEqual([])
+    })
+
+    it("keeps a key reassigned to a live blueprint, but not its siblings", () => {
+      expect(removalsFor(["scripts.test", "scripts.testing"], ["scripts.test"])).toEqual([
+        merge(["scripts.testing"]),
+      ])
+    })
+
+    it("does not treat segment-prefix siblings as overlapping", () => {
+      expect(removalsFor(["scripts.test"], ["scripts.testing"])).toEqual([merge(["scripts.test"])])
+    })
+  })
+
   it("emits an upgrade record when the same blueprint's version changes", () => {
     const previous = lockOf({
       "pjt:a": {
@@ -528,5 +564,188 @@ describe("diffLockfile — owned files dropped by a still-present blueprint", ()
       current: { "pjt:a": entry("1.1.0", ["keep.md", "new.md"]) },
     })
     expect(removals.map((r) => r.path)).toEqual(["old.md"])
+  })
+})
+
+const mergeBlueprint = (id: string, ownedKeys: readonly string[], value: unknown) =>
+  makeBlueprint({
+    id,
+    ops: [{ _tag: "Merge", ownerId: id, path: "package.json", ownedKeys, value }],
+  })
+
+const planErrorOf = (tree: readonly _Blueprint.Blueprint[]) =>
+  runError(buildPlan({ tree, projectRoot: ROOT }))
+
+describe("buildPlan — merge key overlap", () => {
+  const parent = () => mergeBlueprint("pjt:parent", ["scripts"], { scripts: { build: "tsc" } })
+  const child = () => mergeBlueprint("pjt:child", ["scripts.test"], { scripts: { test: "vitest" } })
+
+  it.each([
+    ["parent declared first", () => [parent(), child()]],
+    ["child declared first", () => [child(), parent()]],
+  ])("rejects a parent and a descendant claim from different owners (%s)", (_, tree) => {
+    const err = planErrorOf(tree())
+    expect(err).toMatchObject({
+      _tag: "PlanConflictMerge",
+      id: "pjt.plan.conflict-merge",
+      path: "package.json",
+      key: "scripts",
+      ownerA: "pjt:child",
+      ownerB: "pjt:parent",
+    })
+    expect(err.message).toContain("pjt:parent")
+    expect(err.message).toContain("pjt:child")
+    expect(err.message).toContain('"scripts"')
+    expect(err.message).toContain('"scripts.test"')
+  })
+
+  it("names an identical claim the same way in either order", () => {
+    const a = mergeBlueprint("pjt:a", ["scripts.test"], { scripts: { test: "a" } })
+    const b = mergeBlueprint("pjt:b", ["scripts.test"], { scripts: { test: "b" } })
+    const forward = planErrorOf([a, b])
+    const backward = planErrorOf([b, a])
+    expect(forward).toMatchObject({ key: "scripts.test", ownerA: "pjt:a", ownerB: "pjt:b" })
+    expect(backward).toMatchObject({ key: "scripts.test", ownerA: "pjt:a", ownerB: "pjt:b" })
+  })
+
+  it("judges overlap on segment boundaries: scripts.test and scripts.testing are siblings", async () => {
+    const { plan } = await Effect.runPromise(
+      buildPlan({
+        tree: [
+          mergeBlueprint("pjt:a", ["scripts.test"], { scripts: { test: "a" } }),
+          mergeBlueprint("pjt:b", ["scripts.testing"], { scripts: { testing: "b" } }),
+        ],
+        projectRoot: ROOT,
+      }),
+    )
+    const file = plan.files[0]
+    expect(file?._tag === "Merge" ? file.value : undefined).toEqual({
+      scripts: { test: "a", testing: "b" },
+    })
+  })
+
+  it.each([
+    ["parent first", ["scripts", "scripts.test"]],
+    ["child first", ["scripts.test", "scripts"]],
+  ])("normalises one owner's key and descendant to the ancestor (%s)", async (_, ownedKeys) => {
+    const { plan, byBlueprint } = await Effect.runPromise(
+      buildPlan({
+        tree: [mergeBlueprint("pjt:a", ownedKeys, { scripts: { test: "vitest" } })],
+        projectRoot: ROOT,
+      }),
+    )
+    const file = plan.files[0]
+    expect(file?._tag === "Merge" ? Object.fromEntries(file.ownership) : undefined).toEqual({
+      scripts: "pjt:a",
+    })
+    expect(byBlueprint["pjt:a"]?.operations).toEqual([
+      { _tag: "Merge", path: "package.json", ownedKeys: ["scripts"] },
+    ])
+  })
+
+  it("normalises across two ops of one owner on the same file", async () => {
+    const op = (ownedKeys: readonly string[], value: unknown): ChangeSet.Operation => ({
+      _tag: "Merge",
+      ownerId: "pjt:a",
+      path: "package.json",
+      ownedKeys,
+      value,
+    })
+    const { plan } = await Effect.runPromise(
+      buildPlan({
+        tree: [
+          makeBlueprint({
+            id: "pjt:a",
+            ops: [
+              op(["scripts.test"], { scripts: { test: "x" } }),
+              op(["scripts"], { scripts: {} }),
+            ],
+          }),
+        ],
+        projectRoot: ROOT,
+      }),
+    )
+    const file = plan.files[0]
+    expect(file?._tag === "Merge" ? Object.fromEntries(file.ownership) : undefined).toEqual({
+      scripts: "pjt:a",
+    })
+  })
+})
+
+describe("buildPlan — merge write coverage", () => {
+  const planWith = (ownedKeys: readonly string[], value: unknown) =>
+    buildPlan({ tree: [mergeBlueprint("pjt:a", ownedKeys, value)], projectRoot: ROOT })
+
+  it("rejects a scalar field outside the owned keys, naming the path and field", () => {
+    const err = runError(planWith(["scripts.test"], { scripts: { test: "x" }, name: "project" }))
+    expect(err).toMatchObject({
+      _tag: "PlanUnownedMergeWrite",
+      id: "pjt.plan.unowned-merge-write",
+      path: "package.json",
+      field: "name",
+      ownerId: "pjt:a",
+    })
+    expect(err.message).toContain("package.json")
+    expect(err.message).toContain('"name"')
+  })
+
+  it("rejects an unowned sibling leaf next to an owned key", () => {
+    const err = runError(planWith(["scripts.test"], { scripts: { test: "x", build: "y" } }))
+    expect(err).toMatchObject({ _tag: "PlanUnownedMergeWrite", field: "scripts.build" })
+  })
+
+  it("rejects an unowned object, reporting each leaf it would write", () => {
+    const err = runError(planWith(["scripts.test"], { engines: { node: ">=22" } }))
+    expect(err).toMatchObject({ _tag: "PlanUnownedMergeWrite", field: "engines.node" })
+  })
+
+  it("rejects an unowned array, which the deep merge replaces as one field", () => {
+    const err = runError(planWith(["name"], { name: "p", files: ["dist", "src"] }))
+    expect(err).toMatchObject({ _tag: "PlanUnownedMergeWrite", field: "files" })
+  })
+
+  it("rejects an array write under a child key, because the array itself is the field", () => {
+    const err = runError(planWith(["files.0"], { files: ["dist"] }))
+    expect(err).toMatchObject({ _tag: "PlanUnownedMergeWrite", field: "files" })
+  })
+
+  it("rejects a scalar that replaces an object above the owned key", () => {
+    const err = runError(planWith(["scripts.test"], { scripts: "none" }))
+    expect(err).toMatchObject({ _tag: "PlanUnownedMergeWrite", field: "scripts" })
+  })
+
+  it("rejects an empty nested object, which creates or replaces its key", () => {
+    const err = runError(planWith(["scripts.test"], { scripts: { test: "x" }, config: {} }))
+    expect(err).toMatchObject({ _tag: "PlanUnownedMergeWrite", field: "config" })
+  })
+
+  it("rejects a non-object value, which replaces the whole file", () => {
+    const err = runError(planWith(["name"], ["name"]))
+    expect(err).toMatchObject({ _tag: "PlanUnownedMergeWrite", field: "" })
+  })
+
+  it("rejects the same unowned write whichever owner declares first", () => {
+    const unowned = mergeBlueprint("pjt:u", ["a"], { a: 1, b: 2 })
+    const fine = mergeBlueprint("pjt:f", ["c"], { c: 3 })
+    expect(planErrorOf([unowned, fine])).toMatchObject({ field: "b", ownerId: "pjt:u" })
+    expect(planErrorOf([fine, unowned])).toMatchObject({ field: "b", ownerId: "pjt:u" })
+  })
+
+  it("accepts an exactly owned array and replaces rather than merges it", async () => {
+    const { plan } = await Effect.runPromise(planWith(["files"], { files: ["dist"] }))
+    const file = plan.files[0]
+    expect(file?._tag === "Merge" ? file.value : undefined).toEqual({ files: ["dist"] })
+  })
+
+  it("accepts any depth of object under an owned ancestor, including empty objects", async () => {
+    const { plan } = await Effect.runPromise(
+      planWith(["lint-staged"], { "lint-staged": { "*.ts": ["eslint"], nested: { empty: {} } } }),
+    )
+    expect(plan.files).toHaveLength(1)
+  })
+
+  it("accepts an empty root object as a no-op write", async () => {
+    const { plan } = await Effect.runPromise(planWith([], {}))
+    expect(plan.files).toHaveLength(1)
   })
 })

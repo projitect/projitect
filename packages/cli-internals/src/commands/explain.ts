@@ -68,7 +68,9 @@ const ERROR_BLURBS: Readonly<Record<Errors.ErrorId, string>> = {
   "pjt.plan.conflict-region":
     "Two blueprints share the same `ownerId` for a region in the same file. Pick distinct ids.",
   "pjt.plan.conflict-merge":
-    "Two blueprints claim the same JSON key in the same file. Coordinate ownership.",
+    "Two blueprints claim the same JSON key, or one claims a key that contains the other's, in the same file. Coordinate ownership.",
+  "pjt.plan.unowned-merge-write":
+    "A merge blueprint writes a JSON field that none of its `ownedKeys` covers. Add the field or an ancestor key to `ownedKeys`.",
   "pjt.plan.conflict-owned":
     "Two blueprints both claim full ownership of one file. Only one `ownFile` per path is allowed.",
   "pjt.skills.invalid-path":
