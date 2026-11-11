@@ -26,7 +26,10 @@ edit. Add `changesets()`, swap in `react()`, or delete a line and see what chang
    project starts with a `.gitignore` and a `package.json`, so the first report shows files to create
    and files to modify.
 
-Nothing is written. Every edit starts from the same project, so the output depends only on the text.
+Open **Edit the project files** to change the in-memory `.gitignore` or `package.json`. Changing
+a value owned by a blueprint changes the drift report; changes outside its ownership stay yours.
+Every run uses the current file inputs in a fresh in-memory filesystem. It never applies the plan
+to your computer. **Reset demo** restores the starter `.pjt.ts` and the starter project files.
 
 A syntax error, an unknown import or a conflict between blueprints shows its message in place of the
 plan. The last valid output stays on screen, dimmed and marked stale, until the text is valid again.

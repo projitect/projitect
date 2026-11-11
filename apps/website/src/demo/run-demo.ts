@@ -61,12 +61,15 @@ const messageOf = (cause: unknown): string =>
   cause instanceof Error ? cause.message : "The demo could not run this file."
 
 /** Plan and diff an already-evaluated file against the seeded project. */
-const planAndDiff = (source: string): Effect.Effect<DemoResult, unknown> => {
+const planAndDiff = (
+  source: string,
+  projectFiles: Readonly<Record<string, string>>,
+): Effect.Effect<DemoResult, unknown> => {
   const evaluated = evaluatePjt(source, firstPartyRegistry)
   if (Result.isFailure(evaluated)) {
     return Effect.succeed({ ok: false, message: evaluated.failure.message })
   }
-  const base = makeInMemoryLayer(seedFiles)
+  const base = makeInMemoryLayer(projectFiles)
   return Effect.gen(function* () {
     const tree = yield* blueprintTree(evaluated.success)
     const { plan, byBlueprint } = yield* buildPlan({
@@ -90,9 +93,12 @@ const planAndDiff = (source: string): Effect.Effect<DemoResult, unknown> => {
  * Run the demo for one editor text. Never throws or rejects: a syntax error, an unknown import, a
  * plan conflict or any other failure comes back as `{ ok: false, message }`.
  */
-export const runDemo = async (source: string): Promise<DemoResult> => {
+export const runDemo = async (
+  source: string,
+  projectFiles: Readonly<Record<string, string>> = seedFiles,
+): Promise<DemoResult> => {
   try {
-    const outcome = await Effect.runPromise(Effect.result(planAndDiff(source)))
+    const outcome = await Effect.runPromise(Effect.result(planAndDiff(source, projectFiles)))
     return Result.isSuccess(outcome)
       ? outcome.success
       : { ok: false, message: messageOf(outcome.failure) }

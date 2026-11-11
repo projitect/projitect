@@ -9,16 +9,26 @@ import { seedFiles } from "../demo/seed"
     page, so only run code you wrote or trust.
   </p>
   <details class="pjt-demo-seed">
-    <summary>The project it plans against</summary>
+    <summary>Edit the project files</summary>
+    <p>These files exist only in this tab. Edit a managed value to see drift change.</p>
     {
-      Object.entries(seedFiles).map(([path, content]) => (
+      Object.entries(seedFiles).map(([path, content], index) => (
         <>
-          <p><code>{path}</code></p>
-          <pre>{content}</pre>
+          <p><label for={`pjt-project-file-${index}`}><code>{path}</code></label></p>
+          <textarea
+            id={`pjt-project-file-${index}`}
+            name={path}
+            data-project-file
+            spellcheck="false"
+            autocapitalize="off"
+            autocomplete="off"
+            rows="5"
+          >{content}</textarea>
         </>
       ))
     }
   </details>
+  <p><button type="button" data-reset-demo>Reset demo</button></p>
   <div class="pjt-demo-grid">
     <section>
       <h3 id="pjt-demo-editor-label">.pjt.ts</h3>
@@ -53,6 +63,12 @@ import { seedFiles } from "../demo/seed"
   const planList = root?.querySelector<HTMLElement>("[data-plan]")
   const driftBox = root?.querySelector<HTMLElement>("[data-drift]")
   const staleMarks = root?.querySelectorAll<HTMLElement>("[data-stale]") ?? []
+  const projectEditors = Array.from(
+    root?.querySelectorAll<HTMLTextAreaElement>("[data-project-file]") ?? [],
+  )
+  const initialEditorContent = editor?.value ?? ""
+  const initialProjectContents = projectEditors.map((field) => field.value)
+  const resetDemo = root?.querySelector<HTMLButtonElement>("[data-reset-demo]")
 
   const li = (text: string): HTMLLIElement => {
     const item = document.createElement("li")
@@ -89,14 +105,29 @@ import { seedFiles } from "../demo/seed"
   const run = async (): Promise<void> => {
     if (!editor) return
     const ticket = ++latest
-    const result = await runDemo(editor.value)
+    const projectFiles = Object.fromEntries(
+      projectEditors.map((field) => [field.name, field.value] as const),
+    )
+    const result = await runDemo(editor.value, projectFiles)
     if (ticket === latest) show(result)
   }
 
+  const scheduleRun = (): void => {
+    // Invalidate in-flight output immediately, including during the debounce interval.
+    latest += 1
+    clearTimeout(timer)
+    timer = setTimeout(() => void run(), DEBOUNCE_MS)
+  }
+
   if (editor) {
-    editor.addEventListener("input", () => {
-      clearTimeout(timer)
-      timer = setTimeout(() => void run(), DEBOUNCE_MS)
+    editor.addEventListener("input", scheduleRun)
+    for (const field of projectEditors) field.addEventListener("input", scheduleRun)
+    resetDemo?.addEventListener("click", () => {
+      editor.value = initialEditorContent
+      for (const [index, field] of projectEditors.entries()) {
+        field.value = initialProjectContents[index] ?? ""
+      }
+      scheduleRun()
     })
     void run()
   }
@@ -114,6 +145,9 @@ import { seedFiles } from "../demo/seed"
     display: grid;
     gap: 1rem;
     grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+  }
+  .pjt-demo-seed textarea {
+    min-height: 6rem;
   }
   textarea {
     width: 100%;
