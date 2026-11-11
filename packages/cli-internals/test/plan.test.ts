@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import { Effect } from "effect"
 import { directory } from "@projitect/blueprint"
 import type { Blueprint as _Blueprint, ChangeSet, PjtLock } from "@projitect/core"
+import { makeRealLayer } from "../src/filesystem-impl.js"
 import { buildPlan, diffLockfile } from "../src/plan.js"
 import type { ByBlueprint } from "../src/plan.js"
 
@@ -57,7 +58,9 @@ describe("buildPlan — happy paths", () => {
         ],
       }),
     ]
-    const { plan, byBlueprint } = await Effect.runPromise(buildPlan({ tree, projectRoot: ROOT }))
+    const { plan, byBlueprint } = await Effect.runPromise(
+      buildPlan({ tree, projectRoot: ROOT, layerFor: makeRealLayer }),
+    )
     expect(plan.files).toHaveLength(1)
     expect(plan.files[0]).toMatchObject({
       _tag: "Region",
@@ -100,7 +103,9 @@ describe("buildPlan — happy paths", () => {
         ],
       }),
     ]
-    const { plan } = await Effect.runPromise(buildPlan({ tree, projectRoot: ROOT }))
+    const { plan } = await Effect.runPromise(
+      buildPlan({ tree, projectRoot: ROOT, layerFor: makeRealLayer }),
+    )
     expect(plan.files).toHaveLength(1)
     expect(plan.files[0]).toMatchObject({
       _tag: "Region",
@@ -138,7 +143,9 @@ describe("buildPlan — happy paths", () => {
         ],
       }),
     ]
-    const { plan } = await Effect.runPromise(buildPlan({ tree, projectRoot: ROOT }))
+    const { plan } = await Effect.runPromise(
+      buildPlan({ tree, projectRoot: ROOT, layerFor: makeRealLayer }),
+    )
     expect(plan.files).toHaveLength(1)
     const file = plan.files[0]
     if (file?._tag !== "Merge") {
@@ -177,7 +184,9 @@ describe("buildPlan — happy paths", () => {
         ],
       }),
     ]
-    const { byBlueprint } = await Effect.runPromise(buildPlan({ tree, projectRoot: ROOT }))
+    const { byBlueprint } = await Effect.runPromise(
+      buildPlan({ tree, projectRoot: ROOT, layerFor: makeRealLayer }),
+    )
     expect(byBlueprint["pjt:multi"]).toEqual({
       version: "2.3.4",
       operations: [
@@ -203,7 +212,9 @@ describe("buildPlan — happy paths", () => {
         ],
       }),
     ]
-    const { plan, byBlueprint } = await Effect.runPromise(buildPlan({ tree, projectRoot: ROOT }))
+    const { plan, byBlueprint } = await Effect.runPromise(
+      buildPlan({ tree, projectRoot: ROOT, layerFor: makeRealLayer }),
+    )
     expect(plan.files[0]).toMatchObject({
       _tag: "Region",
       path: "README.md",
@@ -235,7 +246,9 @@ describe("buildPlan — happy paths", () => {
         ],
       }),
     ]
-    const { byBlueprint } = await Effect.runPromise(buildPlan({ tree, projectRoot: ROOT }))
+    const { byBlueprint } = await Effect.runPromise(
+      buildPlan({ tree, projectRoot: ROOT, layerFor: makeRealLayer }),
+    )
     const op = byBlueprint["pjt:hash"]?.operations[0]
     expect(op).toEqual({
       _tag: "Region",
@@ -257,7 +270,9 @@ describe("buildPlan — happy paths", () => {
         ]),
       ]),
     ]
-    const { plan, byBlueprint } = await Effect.runPromise(buildPlan({ tree, projectRoot: ROOT }))
+    const { plan, byBlueprint } = await Effect.runPromise(
+      buildPlan({ tree, projectRoot: ROOT, layerFor: makeRealLayer }),
+    )
     expect(plan.files[0]).toMatchObject({
       _tag: "Owned",
       path: "apps/web/tsconfig.json",
@@ -291,7 +306,7 @@ describe("buildPlan — conflict detection", () => {
         ],
       }),
     ]
-    const err = runError(buildPlan({ tree, projectRoot: ROOT }))
+    const err = runError(buildPlan({ tree, projectRoot: ROOT, layerFor: makeRealLayer }))
     expect(err._tag).toBe("PlanConflictOwned")
     expect(err.message).toContain("run `pjt remodel`")
   })
@@ -323,7 +338,7 @@ describe("buildPlan — conflict detection", () => {
         ],
       }),
     ]
-    const err = runError(buildPlan({ tree, projectRoot: ROOT }))
+    const err = runError(buildPlan({ tree, projectRoot: ROOT, layerFor: makeRealLayer }))
     expect(err._tag).toBe("PlanConflictRegion")
     expect(err.message).toContain("run `pjt remodel`")
   })
@@ -355,7 +370,7 @@ describe("buildPlan — conflict detection", () => {
         ],
       }),
     ]
-    const err = runError(buildPlan({ tree, projectRoot: ROOT }))
+    const err = runError(buildPlan({ tree, projectRoot: ROOT, layerFor: makeRealLayer }))
     expect(err._tag).toBe("PlanConflictMerge")
     expect(err.message).toContain("run `pjt remodel`")
   })
@@ -371,7 +386,7 @@ describe("buildPlan — conflict detection", () => {
         ops: [{ _tag: "Owned", ownerId: "pjt:b", path: "f.txt", content: "b" }],
       }),
     ]
-    const err = runError(buildPlan({ tree, projectRoot: ROOT }))
+    const err = runError(buildPlan({ tree, projectRoot: ROOT, layerFor: makeRealLayer }))
     expect(err._tag).toBe("PlanConflictOwned")
   })
 
@@ -386,7 +401,7 @@ describe("buildPlan — conflict detection", () => {
         ops: [{ _tag: "Seed", ownerId: "pjt:b", path: ".pjt.ts", content: "b" }],
       }),
     ]
-    const err = runError(buildPlan({ tree, projectRoot: ROOT }))
+    const err = runError(buildPlan({ tree, projectRoot: ROOT, layerFor: makeRealLayer }))
     expect(err._tag).toBe("PlanConflictOwned")
   })
 
@@ -413,7 +428,9 @@ describe("buildPlan — conflict detection", () => {
         ],
       }),
     ]
-    const { plan } = await Effect.runPromise(buildPlan({ tree, projectRoot: ROOT }))
+    const { plan } = await Effect.runPromise(
+      buildPlan({ tree, projectRoot: ROOT, layerFor: makeRealLayer }),
+    )
     // Last-write wins on deep-merge for self-claims.
     expect(plan.files[0]).toMatchObject({
       _tag: "Merge",

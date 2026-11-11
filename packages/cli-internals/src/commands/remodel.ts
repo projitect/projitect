@@ -50,6 +50,7 @@ export const remodel = (params: {
     const { plan, byBlueprint } = yield* buildPlan({
       tree,
       projectRoot: params.config.projectRoot,
+      layerFor: makeRealLayer,
     })
     return yield* Effect.gen(function* () {
       const previous = yield* readLockfile

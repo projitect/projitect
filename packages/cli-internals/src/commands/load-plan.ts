@@ -23,5 +23,5 @@ export const loadProjectPlan = (config: ProjitectConfig.ProjitectConfig) =>
           ),
         )
       : file.blueprints
-    return yield* buildPlan({ tree, projectRoot: config.projectRoot })
+    return yield* buildPlan({ tree, projectRoot: config.projectRoot, layerFor: makeRealLayer })
   })

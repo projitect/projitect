@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { Effect } from "effect"
 import { makeInMemoryLayer } from "@projitect/test-kit"
-import { buildPlan, diffLockfile } from "@projitect/cli-internals"
+import { buildPlan, diffLockfile, makeRealLayer } from "@projitect/cli-internals"
 import { skills } from "../src/index.js"
 
 /**
@@ -34,7 +34,7 @@ const one = (name: string, files?: Record<string, string>) => ({
 })
 
 const buildAll = (tree: Parameters<typeof buildPlan>[0]["tree"]) =>
-  buildPlan({ tree, projectRoot: process.cwd() })
+  buildPlan({ tree, projectRoot: process.cwd(), layerFor: makeRealLayer })
 
 describe("skills() — layout", () => {
   it("writes every file under .claude/skills/<name>/, including nested assets", async () => {

@@ -17,6 +17,14 @@
     "./bin": {
       "types": "./dist/bin.d.ts",
       "import": "./dist/bin.js"
+    },
+    "./browser": {
+      "types": "./dist/browser.d.ts",
+      "import": "./dist/browser.js"
+    },
+    "./browser-blueprints": {
+      "types": "./dist/browser-blueprints.d.ts",
+      "import": "./dist/browser-blueprints.js"
     }
   },
   "files": [
@@ -30,14 +38,20 @@
     "tc": "tsc --build"
   },
   "dependencies": {
-    "@nunofyobiz/effect-extras": "3.2.0"
+    "@nunofyobiz/effect-extras": "3.2.0",
+    "sucrase": "3.35.1"
   },
   "devDependencies": {
     "@projitect/blueprint": "workspace:*",
+    "@projitect/blueprint-changesets": "workspace:*",
     "@projitect/blueprint-gitignore": "workspace:*",
+    "@projitect/blueprint-husky-lint-staged": "workspace:*",
     "@projitect/blueprint-markdown": "workspace:*",
     "@projitect/blueprint-next": "workspace:*",
     "@projitect/blueprint-react": "workspace:*",
+    "@projitect/blueprint-skills": "workspace:*",
+    "@projitect/blueprint-tsconfig": "workspace:*",
+    "@projitect/blueprint-vitest": "workspace:*",
     "@projitect/core": "workspace:*",
     "@projitect/test-kit": "workspace:*",
     "@types/node": "22.19.19",
@@ -46,8 +60,46 @@
   },
   "peerDependencies": {
     "@projitect/blueprint": "workspace:*",
+    "@projitect/blueprint-changesets": "workspace:*",
+    "@projitect/blueprint-gitignore": "workspace:*",
+    "@projitect/blueprint-husky-lint-staged": "workspace:*",
+    "@projitect/blueprint-markdown": "workspace:*",
+    "@projitect/blueprint-next": "workspace:*",
+    "@projitect/blueprint-react": "workspace:*",
+    "@projitect/blueprint-skills": "workspace:*",
+    "@projitect/blueprint-tsconfig": "workspace:*",
+    "@projitect/blueprint-vitest": "workspace:*",
     "@projitect/core": "workspace:*",
     "effect": "4.0.0-rc.111"
+  },
+  "peerDependenciesMeta": {
+    "@projitect/blueprint-changesets": {
+      "optional": true
+    },
+    "@projitect/blueprint-gitignore": {
+      "optional": true
+    },
+    "@projitect/blueprint-husky-lint-staged": {
+      "optional": true
+    },
+    "@projitect/blueprint-markdown": {
+      "optional": true
+    },
+    "@projitect/blueprint-next": {
+      "optional": true
+    },
+    "@projitect/blueprint-react": {
+      "optional": true
+    },
+    "@projitect/blueprint-skills": {
+      "optional": true
+    },
+    "@projitect/blueprint-tsconfig": {
+      "optional": true
+    },
+    "@projitect/blueprint-vitest": {
+      "optional": true
+    }
   },
   "engines": {
     "node": ">=22.12.0"

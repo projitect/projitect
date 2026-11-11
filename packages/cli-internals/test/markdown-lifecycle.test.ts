@@ -9,7 +9,7 @@ import { diffPlan } from "../src/differ.js"
 import { applyPlan } from "../src/applier.js"
 import { readLockfile, writeLockfile } from "../src/lockfile.js"
 import { buildPlan, diffLockfile } from "../src/plan.js"
-import { makeProjectRootLayer } from "../src/filesystem-impl.js"
+import { makeProjectRootLayer, makeRealLayer } from "../src/filesystem-impl.js"
 import { applyRemovals } from "../src/remover.js"
 
 /**
@@ -55,7 +55,11 @@ const exists = (relative: string) =>
 const remodelTree = (tree: readonly Blueprint.Blueprint[], root = cwd) =>
   Effect.runPromise(
     Effect.gen(function* () {
-      const { plan, byBlueprint } = yield* buildPlan({ tree, projectRoot: root })
+      const { plan, byBlueprint } = yield* buildPlan({
+        tree,
+        projectRoot: root,
+        layerFor: makeRealLayer,
+      })
       return yield* Effect.gen(function* () {
         const previous = yield* readLockfile
         const { removals } = diffLockfile({ previous, current: byBlueprint })
@@ -70,7 +74,11 @@ const remodelTree = (tree: readonly Blueprint.Blueprint[], root = cwd) =>
 const inspectTree = (tree: readonly Blueprint.Blueprint[]) =>
   Effect.runPromise(
     Effect.gen(function* () {
-      const { plan, byBlueprint } = yield* buildPlan({ tree, projectRoot: cwd })
+      const { plan, byBlueprint } = yield* buildPlan({
+        tree,
+        projectRoot: cwd,
+        layerFor: makeRealLayer,
+      })
       return yield* Effect.gen(function* () {
         const previous = yield* readLockfile
         const { removals, upgrades } = diffLockfile({ previous, current: byBlueprint })
@@ -285,6 +293,7 @@ describe("blueprint-markdown conflicts", () => {
             markdownSnippets.agentsVerification({ content: "## Verification\n\nDifferent.\n" }),
           ],
           projectRoot: cwd,
+          layerFor: makeRealLayer,
         }),
       ),
     )

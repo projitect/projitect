@@ -5,7 +5,7 @@ import { Effect, Schema } from "effect"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import { next } from "@projitect/blueprint-next"
 import type { Blueprint } from "@projitect/core"
-import { makeProjectRootLayer } from "../src/filesystem-impl.js"
+import { makeProjectRootLayer, makeRealLayer } from "../src/filesystem-impl.js"
 import { diffPlan } from "../src/differ.js"
 import { applyPlan } from "../src/applier.js"
 import { readLockfile, writeLockfile } from "../src/lockfile.js"
@@ -65,7 +65,11 @@ const readPackageJson = async () =>
 const remodelTree = (tree: readonly Blueprint.Blueprint[]) =>
   Effect.runPromise(
     Effect.gen(function* () {
-      const { plan, byBlueprint } = yield* buildPlan({ tree, projectRoot: cwd })
+      const { plan, byBlueprint } = yield* buildPlan({
+        tree,
+        projectRoot: cwd,
+        layerFor: makeRealLayer,
+      })
       const previous = yield* readLockfile
       const { removals } = diffLockfile({ previous, current: byBlueprint })
       const written = yield* applyPlan({ plan })
@@ -78,7 +82,11 @@ const remodelTree = (tree: readonly Blueprint.Blueprint[]) =>
 const inspectTree = (tree: readonly Blueprint.Blueprint[]) =>
   Effect.runPromise(
     Effect.gen(function* () {
-      const { plan, byBlueprint } = yield* buildPlan({ tree, projectRoot: cwd })
+      const { plan, byBlueprint } = yield* buildPlan({
+        tree,
+        projectRoot: cwd,
+        layerFor: makeRealLayer,
+      })
       const previous = yield* readLockfile
       const { removals } = diffLockfile({ previous, current: byBlueprint })
       const diff = yield* diffPlan({ plan })
