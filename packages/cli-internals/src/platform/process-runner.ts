@@ -1,4 +1,6 @@
-import { spawn } from "node:child_process"
+import path from "node:path"
+import spawn from "cross-spawn"
+import which from "which"
 import { Effect, Option } from "effect"
 import { Errors } from "@projitect/core"
 import type { Permission } from "@projitect/core"
@@ -20,16 +22,53 @@ export type ProcessSpawner = (
   cwd: string,
 ) => Effect.Effect<CommandOutput & { readonly exitCode: number }, string>
 
-/** Real spawner: `node:child_process` without a shell, so `&&`, `;` and pipes are plain arguments. */
+/** Where a project's own tools live: only the project root's bin directory, never an ancestor's. */
+const localBinDirectory = (cwd: string): string => path.join(cwd, "node_modules", ".bin")
+
+/** True when the program names a location (relative or absolute) instead of a bare tool name. */
+const isExplicitPath = (program: string): boolean =>
+  program.includes("/") || (path.sep === "\\" && program.includes("\\"))
+
+/** The env key holding PATH: Windows keys are case-insensitive, so reuse the existing spelling. */
+const pathKey = (env: NodeJS.ProcessEnv): string =>
+  Object.keys(env).find((key) => key.toUpperCase() === "PATH") ?? "PATH"
+
+/**
+ * Real spawner: `cross-spawn` without a shell, so `&&`, `;` and pipes are plain arguments. A bare
+ * program name resolves against `<cwd>/node_modules/.bin` first, then the caller's PATH; an explicit
+ * path runs as given (relative to `cwd`). The child gets a fresh env whose PATH has the local bin
+ * directory prepended; `process.env` is never modified.
+ */
 export const nodeSpawner: ProcessSpawner = (program, args, cwd) =>
   Effect.callback((resume) => {
-    const child = spawn(program, args, { cwd, shell: false })
+    const localBin = localBinDirectory(cwd)
+    const env: NodeJS.ProcessEnv = { ...process.env }
+    const key = pathKey(env)
+    const callerPath = env[key] ?? ""
+    const searched = [localBin, ...callerPath.split(path.delimiter).filter((entry) => entry !== "")]
+    let file: string
+    if (isExplicitPath(program)) {
+      file = path.isAbsolute(program) ? program : path.resolve(cwd, program)
+    } else {
+      const found = which.sync(program, { path: searched.join(path.delimiter), nothrow: true })
+      if (found === null) {
+        resume(
+          Effect.fail(
+            `spawn ${program} ENOENT: \`${program}\` not found in ${searched.join(", ")}`,
+          ),
+        )
+        return Effect.void
+      }
+      file = found
+    }
+    env[key] = [localBin, callerPath].filter((entry) => entry !== "").join(path.delimiter)
+    const child = spawn(file, [...args], { cwd, env, shell: false })
     let stdout = ""
     let stderr = ""
-    child.stdout.on("data", (chunk: Buffer) => {
+    child.stdout?.on("data", (chunk: Buffer) => {
       stdout = stdout + chunk.toString("utf8")
     })
-    child.stderr.on("data", (chunk: Buffer) => {
+    child.stderr?.on("data", (chunk: Buffer) => {
       stderr = stderr + chunk.toString("utf8")
     })
     child.on("error", (error) => {

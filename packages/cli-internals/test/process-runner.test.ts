@@ -1,4 +1,11 @@
-import { mkdtempSync, readFileSync } from "node:fs"
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  writeFileSync,
+} from "node:fs"
 import { tmpdir } from "node:os"
 import path from "node:path"
 import { Effect, Exit, Fiber, Option, Schema } from "effect"
@@ -188,3 +195,112 @@ describe("nodeSpawner cancellation", () => {
     expect(() => process.kill(pid, 0)).toThrow()
   })
 })
+
+describe.skipIf(process.platform === "win32")(
+  "nodeSpawner tool resolution (real executables)",
+  () => {
+    const makeTool = (dir: string, name: string, body: string): string => {
+      mkdirSync(dir, { recursive: true })
+      const file = path.join(dir, name)
+      writeFileSync(file, `#!/usr/bin/env node\n${body}\n`)
+      chmodSync(file, 0o755)
+      return file
+    }
+    const makeProject = (tool: string, body: string): string => {
+      const root = mkdtempSync(path.join(tmpdir(), "pjt-resolve-"))
+      makeTool(path.join(root, "node_modules", ".bin"), tool, body)
+      return root
+    }
+    const runReal = (command: string, cwd: string) =>
+      Effect.runPromise(
+        runCommand({ permissions: exec(command), command, cwd, spawner: nodeSpawner }),
+      )
+    const stdoutOf = async (command: string, cwd: string): Promise<string> => {
+      const out = await runReal(command, cwd)
+      return out.stdout.trim()
+    }
+
+    it("runs a project-only tool with the caller PATH excluding it, from any working directory", async () => {
+      const root = makeProject("local-only", 'console.log("local:" + process.cwd())')
+      const before = process.cwd()
+      const out = await runReal("local-only", root)
+      expect(out.stdout.trim()).toBe(`local:${realpathSync(root)}`)
+      expect(process.cwd()).toBe(before)
+      expect((process.env["PATH"] ?? "").includes(root)).toBe(false)
+    })
+
+    it("prefers the project-local tool over a global one of the same name", async () => {
+      const root = makeProject("dup-tool", 'console.log("local")')
+      const globalDir = path.join(mkdtempSync(path.join(tmpdir(), "pjt-global-")), "bin")
+      makeTool(globalDir, "dup-tool", 'console.log("global")')
+      const original = process.env["PATH"]
+      process.env["PATH"] = `${globalDir}${path.delimiter}${original ?? ""}`
+      try {
+        expect(await stdoutOf("dup-tool", root)).toBe("local")
+      } finally {
+        process.env["PATH"] = original
+      }
+    })
+
+    it("falls back to the system PATH when there is no local match", async () => {
+      const root = mkdtempSync(path.join(tmpdir(), "pjt-resolve-"))
+      expect(await stdoutOf("node --version", root)).toMatch(/^v\d+/u)
+    })
+
+    it("runs explicit relative (against the project root) and absolute paths as given", async () => {
+      const root = mkdtempSync(path.join(tmpdir(), "pjt-resolve-"))
+      const tool = makeTool(path.join(root, "scripts"), "hello", 'console.log("explicit")')
+      expect(await stdoutOf("./scripts/hello", root)).toBe("explicit")
+      expect(await stdoutOf(tool, root)).toBe("explicit")
+    })
+
+    it("fails with command-failed naming the tool and where it looked", async () => {
+      const root = mkdtempSync(path.join(tmpdir(), "pjt-resolve-"))
+      const exit = await Effect.runPromiseExit(
+        runCommand({
+          permissions: exec("no-such-tool-xyz"),
+          command: "no-such-tool-xyz",
+          cwd: root,
+          spawner: nodeSpawner,
+        }),
+      )
+      const failure = failureOf(exit)
+      expect(failure?.id).toBe("pjt.exec.command-failed")
+      const message = failure?.message ?? ""
+      expect(message).toContain("no-such-tool-xyz")
+      expect(message).toContain(path.join(root, "node_modules", ".bin"))
+    })
+
+    it("refuses a denied command before any lookup or spawn", async () => {
+      const root = makeProject("denied-tool", 'console.log("ran")')
+      let calls = 0
+      const spy: ProcessSpawner = (...args) => {
+        calls = calls + 1
+        return nodeSpawner(...args)
+      }
+      const exit = await Effect.runPromiseExit(
+        runCommand({ permissions: exec("other"), command: "denied-tool", cwd: root, spawner: spy }),
+      )
+      expect(failureOf(exit)?.id).toBe("pjt.exec.command-not-permitted")
+      expect(calls).toBe(0)
+    })
+
+    it("passes operators, variables and globs to the tool as literal arguments", async () => {
+      const root = makeProject("argv-tool", "console.log(JSON.stringify(process.argv.slice(2)))")
+      const out = await runReal("argv-tool a && b ; $HOME *.ts", root)
+      expect(JSON.parse(out.stdout)).toEqual(["a", "&&", "b", ";", "$HOME", "*.ts"])
+    })
+
+    it("keeps two projects' tools and the process PATH apart", async () => {
+      const one = makeProject("which-project", 'console.log("one")')
+      const two = makeProject("which-project", 'console.log("two")')
+      const pathBefore = process.env["PATH"]
+      const [a, b] = await Promise.all([
+        runReal("which-project", one),
+        runReal("which-project", two),
+      ])
+      expect([a.stdout.trim(), b.stdout.trim()]).toEqual(["one", "two"])
+      expect(process.env["PATH"]).toBe(pathBefore)
+    })
+  },
+)

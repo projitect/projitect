@@ -39,7 +39,9 @@
   },
   "dependencies": {
     "@nunofyobiz/effect-extras": "3.2.0",
-    "sucrase": "3.35.1"
+    "cross-spawn": "7.0.6",
+    "sucrase": "3.35.1",
+    "which": "7.0.0"
   },
   "devDependencies": {
     "@projitect/blueprint": "workspace:*",
@@ -54,7 +56,9 @@
     "@projitect/blueprint-vitest": "workspace:*",
     "@projitect/core": "workspace:*",
     "@projitect/test-kit": "workspace:*",
+    "@types/cross-spawn": "6.0.6",
     "@types/node": "22.19.19",
+    "@types/which": "3.0.4",
     "effect": "4.0.0-rc.111",
     "typescript": "5.9.3"
   },
