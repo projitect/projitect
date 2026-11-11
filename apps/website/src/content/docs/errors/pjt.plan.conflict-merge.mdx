@@ -1,13 +1,13 @@
 ---
 title: pjt.plan.conflict-merge
 slug: errors/pjt.plan.conflict-merge
-description: Two blueprints both claim the same JSON key.
+description: Two blueprints claim the same JSON key, or one claims a key that contains the other's.
 sidebar:
   label: pjt.plan.conflict-merge
 ---
 
-**What**: Merge-mode blueprints declare which dotted-path keys they own. When two blueprints claim the same key (e.g. both want `scripts.dev`), the planner refuses to silently pick a winner.
+**What**: Merge-mode blueprints declare which dotted-path keys they own. The planner refuses to pick a winner when two blueprints claim the same key (both want `scripts.dev`) or when one claims a key that contains the other's (`scripts` and `scripts.test`). Keys are compared segment by segment, so `scripts.test` and `scripts.testing` do not conflict. The error names the file, both blueprints and the covering key, and is the same in either declaration order. Nothing is written, and `.pjt.lock` is left as it was.
 
-**How to fix**: Decide which blueprint owns the key. Remove the claim from the other, or coordinate via a wrapper blueprint that takes precedence.
+**How to fix**: Decide which blueprint owns the key. Remove the claim from the other, or narrow the parent claim to the leaves the blueprint writes. A single blueprint declaring a key and its own descendant is not a conflict; it owns the ancestor.
 
 Once the conflict is resolved in `.pjt.ts`, run `pjt remodel`.

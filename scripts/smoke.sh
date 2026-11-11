@@ -91,7 +91,7 @@ $BIN inspect > /dev/null 2>&1
 $BIN remodel > /dev/null
 $BIN inspect > /dev/null 2>&1 && pass "clean after remodel re-applies" || fail "still dirty"
 
-echo "=== 4b. a v1 lockfile is read by inspect untouched, then migrated to v2 by remodel ==="
+echo "=== 4b. a v1 lockfile is read by inspect untouched, then migrated to v3 by remodel ==="
 node -e '
 const fs = require("node:fs");
 const lock = JSON.parse(fs.readFileSync(".pjt.lock", "utf8"));
@@ -103,7 +103,7 @@ head -2 lock.v1 | grep -q '"version": 1,' && pass "lockfile downgraded to v1 for
 $BIN inspect > /dev/null 2>&1 && pass "inspect reads the v1 lockfile and reports clean" || fail "inspect failed on a v1 lockfile"
 cmp -s .pjt.lock lock.v1 && pass "inspect leaves the v1 lockfile bytes unchanged" || fail "inspect rewrote the lockfile"
 $BIN remodel > /dev/null 2>&1 && pass "remodel reads the v1 lockfile without a rebuild" || fail "remodel failed on a v1 lockfile"
-head -2 .pjt.lock | grep -q '"version": 2,' && pass "remodel wrote the lockfile as v2" || fail "lockfile not migrated to v2"
+head -2 .pjt.lock | grep -q '"version": 3,' && pass "remodel wrote the lockfile as v3" || fail "lockfile not migrated to v3"
 node -e '
 const fs = require("node:fs");
 const assert = require("node:assert/strict");
@@ -112,7 +112,7 @@ const original = JSON.parse(fs.readFileSync("lock.v1", "utf8"));
 assert.deepStrictEqual({ ...migrated, version: 1 }, original);
 ' && pass "migration changed only the version" || fail "migration changed ownership data"
 rm lock.v1
-$BIN inspect > /dev/null 2>&1 && pass "clean after the v2 migration" || fail "dirty after the v2 migration"
+$BIN inspect > /dev/null 2>&1 && pass "clean after the v3 migration" || fail "dirty after the v3 migration"
 
 echo "=== 5. lockfile-driven removal ==="
 node -e "

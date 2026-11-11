@@ -116,6 +116,17 @@ export class PlanConflictMerge extends Schema.TaggedError<PlanConflictMerge>()(
   },
 ) {}
 
+export class PlanUnownedMergeWrite extends Schema.TaggedError<PlanUnownedMergeWrite>()(
+  "PlanUnownedMergeWrite",
+  {
+    id: Schema.Literal("pjt.plan.unowned-merge-write"),
+    path: Schema.String,
+    field: Schema.String,
+    ownerId: Schema.String,
+    message: Schema.String,
+  },
+) {}
+
 export class PlanConflictOwned extends Schema.TaggedError<PlanConflictOwned>()(
   "PlanConflictOwned",
   {
@@ -158,6 +169,21 @@ export class RegionDuplicate extends Schema.TaggedError<RegionDuplicate>()("Regi
 }) {}
 
 // ---------------------------------------------------------------------------
+// Removal errors — a departing blueprint's lockfile claim cannot be removed safely
+// ---------------------------------------------------------------------------
+
+export class RemoveAmbiguousMergeClaim extends Schema.TaggedError<RemoveAmbiguousMergeClaim>()(
+  "RemoveAmbiguousMergeClaim",
+  {
+    id: Schema.Literal("pjt.remove.ambiguous-merge-claim"),
+    path: Schema.String,
+    key: Schema.String,
+    ownerId: Schema.String,
+    message: Schema.String,
+  },
+) {}
+
+// ---------------------------------------------------------------------------
 // Apply / init errors
 // ---------------------------------------------------------------------------
 
@@ -166,6 +192,17 @@ export class ApplyDirtyGit extends Schema.TaggedError<ApplyDirtyGit>()("ApplyDir
   command: Schema.Literals(["build", "remodel"]),
   message: Schema.String,
 }) {}
+
+export class ApplyMergeAncestorNotObject extends Schema.TaggedError<ApplyMergeAncestorNotObject>()(
+  "ApplyMergeAncestorNotObject",
+  {
+    id: Schema.Literal("pjt.apply.merge-ancestor-not-object"),
+    path: Schema.String,
+    field: Schema.String,
+    ancestor: Schema.String,
+    message: Schema.String,
+  },
+) {}
 
 export class InitGitMissing extends Schema.TaggedError<InitGitMissing>()("InitGitMissing", {
   id: Schema.Literal("pjt.init.git-missing"),
@@ -346,9 +383,15 @@ export type LoaderError = LoaderImportFailed | LoaderInvalidDefaultExport
 
 export type ConfigError = ConfigInvalid | ConfigBlueprintFileNotFound
 
-export type PlanError = PlanConflictRegion | PlanConflictMerge | PlanConflictOwned
+export type PlanError =
+  | PlanConflictRegion
+  | PlanConflictMerge
+  | PlanUnownedMergeWrite
+  | PlanConflictOwned
 
-export type ApplyError = ApplyDirtyGit
+export type RemoveClaimError = RemoveAmbiguousMergeClaim
+
+export type ApplyError = ApplyDirtyGit | ApplyMergeAncestorNotObject
 
 export type InitError = InitGitMissing | InitPackageJsonMissing
 
@@ -369,6 +412,7 @@ export type ProjitectError =
   | LoaderError
   | ConfigError
   | PlanError
+  | RemoveClaimError
   | ApplyError
   | InitError
   | LockError
@@ -395,11 +439,14 @@ export const ERROR_IDS = [
   "pjt.config.blueprint-file-not-found",
   "pjt.plan.conflict-region",
   "pjt.plan.conflict-merge",
+  "pjt.plan.unowned-merge-write",
   "pjt.plan.conflict-owned",
   "pjt.skills.invalid-path",
   "pjt.region.missing-end",
   "pjt.region.duplicate",
+  "pjt.remove.ambiguous-merge-claim",
   "pjt.apply.dirty-git",
+  "pjt.apply.merge-ancestor-not-object",
   "pjt.init.git-missing",
   "pjt.init.package-json-missing",
   "pjt.drift.detected",

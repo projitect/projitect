@@ -33,6 +33,8 @@ Everything else under the project root is deleted. These survive:
 - `package.json`
 - `pnpm-lock.yaml` / `package-lock.json` / `yarn.lock` / `bun.lockb`
 
+Removals for blueprints that left `.pjt.ts` follow the same rule as [`pjt remodel`](/docs/cli/remodel/): a merge blueprint takes only the fields `.pjt.lock` records it wrote from the preserved `package.json`, and an ambiguous pre-version-3 claim stops the run with `pjt.remove.ambiguous-merge-claim` before anything is written.
+
 The rationale: keep the manifest, the blueprint spec, the lockfile, the dependency store, and version control. Everything else regenerates from the plan.
 
 ## Prerequisites

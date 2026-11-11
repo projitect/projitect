@@ -56,18 +56,51 @@ jsonMerge({
 })
 ```
 
-Each blueprint declares **which dotted-path keys it owns** — leaves such as `scripts.dev` or
-`devDependencies.husky`, never a whole parent like `scripts`. One blueprint owns each key: two
-blueprints claiming the same key (e.g. both want `scripts.prepare`) is a
-`pjt.plan.conflict-merge` error at plan time, and the human resolves it by removing the key from
-one of them. Blueprints never compose a shared script value. Different keys under the same
-parent coexist.
+Each blueprint declares **which dotted-path keys it owns**. Keys are compared segment by segment:
+`scripts` covers `scripts.dev` but not `scripts.devtools`. List leaves such as `scripts.dev` or
+`devDependencies.husky` unless the blueprint owns a whole subtree, because an owned parent blocks
+every other blueprint from claiming anything under it.
+
+Blueprints never compose a shared script value. Planning checks two things before any file or the
+lockfile is written, and applying checks a third against the file on disk before its first write:
+
+- **One owner per key.** Two blueprints claiming the same key, or one claiming a key that contains
+  the other's (`scripts` and `scripts.test`), is a `pjt.plan.conflict-merge` error naming both owners
+  and the key, in either declaration order. The human resolves it by removing the key from one of
+  them. Different keys under the same parent coexist, and one blueprint declaring a key and its own
+  descendant simply owns the ancestor.
+- **Every written field is owned.** Each field in `value` must equal an owned key or sit under one.
+  Objects are merged key by key, so each leaf is checked; arrays, scalars, `null` and an empty `{}`
+  replace what is there, so each counts as a single field. A field no owned key covers is a
+  `pjt.plan.unowned-merge-write` error naming the file and field.
+
+- **No unowned ancestor is replaced.** A blueprint that owns only `a.b` and writes `{ a: { b: … } }`
+  turns `a` into an object. When your file holds `a` as an array, a string, a number or `null`, and
+  no owned key covers `a`, `pjt build` and `pjt remodel` stop with
+  [`pjt.apply.merge-ancestor-not-object`](/errors/pjt.apply.merge-ancestor-not-object/) before any
+  file or the lockfile is written. An absent or object `a` is fine, and so is one the blueprint owns.
+  `pjt inspect` reports the file as drift.
+
+`ownedKeys` and `value` can be computed from options, so the first two checks run at runtime against the real
+values, not at authoring time. No ESLint rule enforces them, because lint cannot see computed values.
 
 Keys you add yourself are kept: `pjt build` and `pjt remodel` merge the blueprint value into your
-file and leave every other key alone, and removing a blueprint deletes only the keys it owned.
+file and leave every other key alone. `.pjt.lock` records the fields each merge blueprint wrote, and
+removing a blueprint deletes exactly those fields, not the whole owned key. A blueprint that owned
+`scripts` and wrote `scripts.build` takes only `scripts.build` with it: the `scripts.custom` you added,
+and any key another blueprint claims, stay. An object left empty by the deletion goes too. A field
+the blueprint wrote as a string, number or array, and that you have since turned into an object with
+children of your own, is left alone with its children. When a blueprint that stays turns a field it
+wrote into an object, the new children are kept. A field it wrote that now sits under a value it
+writes, such as the old children of an object it now writes as `{}`, is removed, and the empty
+object stays.
 `pjt inspect` reports `~ modify package.json (JSON merge)` when an owned key no longer matches,
 and `pjt remodel` rewrites it to the blueprint value. A key you set that a blueprint also owns
-takes the blueprint's value, so leave such keys to the blueprint. A `package.json` that does not
+takes the blueprint's value, so leave such keys to the blueprint. When a blueprint leaves and another
+now claims an overlapping key, the departing blueprint's removal skips that key. A lockfile written
+before version 3 records only the claimed key, so when its blueprint leaves while that key holds an
+object, `pjt remodel` cannot tell the blueprint's fields from yours and stops with
+[`pjt.remove.ambiguous-merge-claim`](/errors/pjt.remove.ambiguous-merge-claim/) before writing anything. A `package.json` that does not
 parse is reported as unparseable JSON, and remodel rewrites it from the blueprint's keys alone.
 
 ## owned — single blueprint owns the whole file

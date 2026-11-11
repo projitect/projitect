@@ -32,7 +32,7 @@ const readFile = (relative: string): Promise<string> =>
   run(Effect.flatMap(BlueprintFileSystem, (fs) => fs.readFile(relative)))
 
 const lockfile = (overrides: Partial<PjtLock.PjtLock> = {}): PjtLock.PjtLock => ({
-  version: 2,
+  version: 3,
   blueprints: {
     "pjt:a": {
       version: "1.0.0",
@@ -41,7 +41,12 @@ const lockfile = (overrides: Partial<PjtLock.PjtLock> = {}): PjtLock.PjtLock => 
     "pjt:b": {
       version: "2.0.0",
       operations: [
-        { _tag: "Merge", path: "package.json", ownedKeys: ["scripts.test"] },
+        {
+          _tag: "Merge",
+          path: "package.json",
+          ownedKeys: ["scripts.test"],
+          writtenPaths: ["scripts.test"],
+        },
         { _tag: "Owned", path: "generated.ts", ownerId: "pjt:b" },
       ],
     },
@@ -69,12 +74,12 @@ describe("readLockfile / writeLockfile round-trip", () => {
     await run(writeLockfile({ lock: lockfile() }))
     const raw = await readFile(".pjt.lock")
     expect(raw.endsWith("\n")).toBe(true)
-    expect(raw).toContain('  "version": 2')
+    expect(raw).toContain('  "version": 3')
   })
 
   it("preserves a region operation's commentSuffix when set", async () => {
     const original: PjtLock.PjtLock = {
-      version: 2,
+      version: 3,
       blueprints: {
         "pjt:md": {
           version: "1",
@@ -127,7 +132,7 @@ describe("readLockfile / writeLockfile round-trip", () => {
 
   it("preserves operations across all four ownership modes", async () => {
     const original: PjtLock.PjtLock = {
-      version: 2,
+      version: 3,
       blueprints: {
         "pjt:r": {
           version: "1",
@@ -137,7 +142,14 @@ describe("readLockfile / writeLockfile round-trip", () => {
         },
         "pjt:m": {
           version: "1",
-          operations: [{ _tag: "Merge", path: "package.json", ownedKeys: ["a", "b.c"] }],
+          operations: [
+            {
+              _tag: "Merge",
+              path: "package.json",
+              ownedKeys: ["a", "b.c"],
+              writtenPaths: ["a", "b.c"],
+            },
+          ],
         },
         "pjt:o": {
           version: "1",
@@ -163,7 +175,7 @@ describe("lockfile versions", () => {
     expect(out).toEqual(v1)
   })
 
-  it("writes a v1 lock back as v2 and keeps every operation", async () => {
+  it("writes a v1 lock back as v3 and keeps every operation", async () => {
     const v1: PjtLock.PjtLock = {
       version: 1,
       blueprints: {
@@ -198,13 +210,33 @@ describe("lockfile versions", () => {
       },
     }
     await run(writeLockfile({ lock: v1 }))
-    expect(JSON.parse(await readFile(".pjt.lock"))).toEqual({ ...v1, version: 2 })
-    expect(await run(readLockfile)).toEqual({ ...v1, version: 2 })
+    expect(JSON.parse(await readFile(".pjt.lock"))).toEqual({ ...v1, version: 3 })
+    expect(await run(readLockfile)).toEqual({ ...v1, version: 3 })
   })
 
-  it("round-trips a v2 lockfile with and without a content hash", async () => {
-    const original: PjtLock.PjtLock = {
+  it("reads a v2 lock and writes it back as v3, keeping legacy merge claims without writtenPaths", async () => {
+    const v2: PjtLock.PjtLock = {
       version: 2,
+      blueprints: {
+        "pjt:m": {
+          version: "1",
+          operations: [{ _tag: "Merge", path: "package.json", ownedKeys: ["scripts"] }],
+        },
+      },
+    }
+    await writeFile(".pjt.lock", JSON.stringify(v2))
+    const read = await run(readLockfile)
+    expect(read).toEqual(v2)
+    if (read === null) {
+      throw new Error("expected a lockfile")
+    }
+    await run(writeLockfile({ lock: read }))
+    expect(JSON.parse(await readFile(".pjt.lock"))).toEqual({ ...v2, version: 3 })
+  })
+
+  it("round-trips a v3 lockfile with and without a content hash", async () => {
+    const original: PjtLock.PjtLock = {
+      version: 3,
       blueprints: {
         "pjt:assets": {
           version: "1",
@@ -221,7 +253,7 @@ describe("lockfile versions", () => {
       },
     }
     await run(writeLockfile({ lock: original }))
-    expect(await readFile(".pjt.lock")).toContain('  "version": 2')
+    expect(await readFile(".pjt.lock")).toContain('  "version": 3')
     const out = await run(readLockfile)
     expect(out).toEqual(original)
   })
@@ -252,9 +284,9 @@ describe("readLockfile — error paths", () => {
   })
 
   it("rejects the first unsupported version with pjt.lock.version-mismatch", async () => {
-    await writeFile(".pjt.lock", JSON.stringify({ version: 3, blueprints: {} }))
+    await writeFile(".pjt.lock", JSON.stringify({ version: 4, blueprints: {} }))
     const err = await runError(readLockfile)
-    expect(err).toMatchObject({ id: "pjt.lock.version-mismatch", found: 3, expected: 2 })
+    expect(err).toMatchObject({ id: "pjt.lock.version-mismatch", found: 4, expected: 3 })
   })
 })
 

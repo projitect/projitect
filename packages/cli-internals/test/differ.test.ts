@@ -296,4 +296,22 @@ describe("renderInspectReport", () => {
     expect(out).toContain("- delete gen.ts")
     expect(out).toContain("(seed pjt:s for .pjt.ts retained")
   })
+
+  it("lists merge fields by what the blueprint wrote and flags an ambiguous legacy claim", () => {
+    const out = renderInspectReport({
+      diff: { files: [], hasDrift: false },
+      removals: [
+        {
+          _tag: "Merge",
+          path: "package.json",
+          ownedKeys: ["scripts"],
+          writtenPaths: ["scripts.build"],
+        },
+      ],
+      upgrades: [],
+      ambiguousMergeClaims: [{ blueprintId: "pjt:old", path: "package.json", key: "scripts" }],
+    })
+    expect(out).toContain("- remove merge keys scripts.build from package.json")
+    expect(out).toContain('! cannot remove "scripts" from package.json: pjt:old left .pjt.ts')
+  })
 })

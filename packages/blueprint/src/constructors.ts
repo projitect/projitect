@@ -54,8 +54,12 @@ export const regionFile = (spec: RegionFileSpec): Blueprint.Blueprint => ({
 
 /**
  * Spec for a merge-mode blueprint: deep-merge a partial value into a structured (JSON) file.
- * The `ownedKeys` list declares which dotted-path keys this blueprint claims — two blueprints
- * claiming the same key is a `pjt.plan.conflict-merge` error.
+ * The `ownedKeys` list declares which dotted-path keys this blueprint claims, compared by whole
+ * segments (`scripts` covers `scripts.test`, not `scripts.testing`). Two blueprints claiming the
+ * same key, or one a key that contains the other's, is a `pjt.plan.conflict-merge` error. Every
+ * field `value` writes must equal or sit under an owned key, or planning fails with
+ * `pjt.plan.unowned-merge-write`; arrays, scalars and `{}` count as one field. Both checks run at
+ * plan time on the real values, so `ownedKeys` and `value` may be computed.
  */
 export interface JsonMergeSpec {
   readonly id: string

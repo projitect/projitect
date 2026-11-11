@@ -20,6 +20,13 @@ export const LockRegionOp = Schema.TaggedStruct("Region", {
 export const LockMergeOp = Schema.TaggedStruct("Merge", {
   path: Schema.String,
   ownedKeys: Schema.Array(Schema.String),
+  /**
+   * Provenance recorded by lockfile v3: the dotted fields the blueprint's merge value actually
+   * wrote — plain objects recurse, arrays and scalars are whole fields. Removal deletes only
+   * these, so children a user added under an owned key survive. Absent on every entry read from
+   * a v1 or v2 lockfile, which marks a legacy claim.
+   */
+  writtenPaths: Schema.optional(Schema.Array(Schema.String)),
 })
 
 export const LockOwnedOp = Schema.TaggedStruct("Owned", {
@@ -48,10 +55,10 @@ export const BlueprintLockEntry = Schema.Struct({
 /**
  * `.pjt.lock` schema. Committed alongside `package.json` so the team's drift-detection stays
  * consistent. Top-level `version` lets us evolve the file format with explicit migrations: readers
- * accept v1 and v2, and the engine writes v2.
+ * accept v1, v2 and v3, and the engine writes v3.
  */
 export const PjtLock = Schema.Struct({
-  version: Schema.Literals([1, 2]),
+  version: Schema.Literals([1, 2, 3]),
   blueprints: Schema.Record(Schema.String, BlueprintLockEntry),
 })
 
@@ -64,4 +71,4 @@ export type BlueprintLockEntry = typeof BlueprintLockEntry.Type
 export type PjtLock = typeof PjtLock.Type
 
 /** Empty lockfile — used for the very first `pjt init`. */
-export const empty: PjtLock = { version: 2, blueprints: {} }
+export const empty: PjtLock = { version: 3, blueprints: {} }

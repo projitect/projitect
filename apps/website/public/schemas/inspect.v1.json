@@ -102,6 +102,19 @@
                 "items": {
                   "type": "string"
                 }
+              },
+              "writtenPaths": {
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               }
             },
             "required": [

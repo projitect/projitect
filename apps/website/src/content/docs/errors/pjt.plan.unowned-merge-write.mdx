@@ -1,0 +1,13 @@
+---
+title: pjt.plan.unowned-merge-write
+slug: errors/pjt.plan.unowned-merge-write
+description: A merge blueprint writes a JSON field that none of its owned keys covers.
+sidebar:
+  label: pjt.plan.unowned-merge-write
+---
+
+**What**: A merge-mode blueprint may only write fields it owns. Each field in its `value` must equal one of its `ownedKeys` or sit under one. Objects are merged key by key, so each leaf is checked; arrays, scalars, `null` and an empty `{}` replace what is already in the file, so each counts as one field (an array is covered by owning its key, not its elements). The error names the file, the field and the blueprint. Nothing is written, and `.pjt.lock` is left as it was.
+
+**How to fix**: Add the field, or an ancestor key, to the blueprint's `ownedKeys`, or remove the field from its `value`. Because `ownedKeys` and `value` can be computed, the check runs at plan time on the values the blueprint actually returns.
+
+Once the blueprint is fixed, run `pjt remodel`.
