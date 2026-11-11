@@ -1,5 +1,5 @@
 ---
-"projitect": major
+"@projitect/cli": major
 ---
 
 `@projitect/cli-internals` ships a browser-safe engine entry, `@projitect/cli-internals/browser`:
