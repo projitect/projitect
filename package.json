@@ -8,6 +8,7 @@
     "build": "pnpm -r --filter './packages/*' build",
     "changeset": "changeset",
     "check-all": "pnpm tc && pnpm lint && pnpm test && pnpm knip && pnpm check:guidance",
+    "check:changesets": "node scripts/check-changesets.mjs",
     "check:guidance": "node scripts/check-guidance.mjs",
     "format": "prettier --write \"**/*.{md,mdx,yml,yaml,json5,css}\"",
     "kanban:score": "tsx .claude/skills/kanban/scripts/score-backlog.ts",
@@ -36,6 +37,7 @@
   "devDependencies": {
     "@changesets/changelog-github": "0.5.2",
     "@changesets/cli": "2.31.0",
+    "@changesets/get-release-plan": "4.0.16",
     "@effect/language-service": "^0.86.2",
     "@eslint-community/eslint-plugin-eslint-comments": "4.7.1",
     "@eslint/js": "9.39.4",

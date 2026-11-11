@@ -72,6 +72,14 @@ jobs:
       - uses: ./.github/actions/setup
       - run: pnpm check:guidance
 
+  changesets:
+    name: changesets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup
+      - run: pnpm check:changesets
+
   # ────────────────────────────────────────────────────────────────
   # Build once, share the dist/ outputs with downstream jobs.
   # ────────────────────────────────────────────────────────────────
