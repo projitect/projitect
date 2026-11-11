@@ -1,0 +1,13 @@
+---
+title: pjt.react.invalid-options
+slug: errors/pjt.react.invalid-options
+description: A react() option is invalid — an unknown template, or a name that is not a valid npm package name.
+sidebar:
+  label: pjt.react.invalid-options
+---
+
+**What**: `react()` validates its options before it plans anything. This error fires when `template` is not `"react-ts"` or `"react"`, or when `name` is not valid for a new npm package. Invalid names include empty or blank names, names longer than 214 characters, uppercase names, reserved names such as `node_modules` and `favicon.ico`, Node core module names such as `http`, and legacy special characters such as `~`. The error names the offending `field` and `value` and explains the validation failure.
+
+**Why**: `template` picks the generated files, and `name` becomes the `name` key in `package.json`. A value that is invalid for a new package is refused instead of written. The name does not select a directory; `directory()` handles that separately.
+
+**How to fix**: Use `template: "react-ts"` (the default) or `template: "react"` for JavaScript. Use a lowercase npm package name such as `my-app` or `@acme/app`. To put the app in a folder, wrap it in `directory("my-app", [react({ name: "my-app" })])`; a scoped name is not a valid folder name, so pick a separate directory name in that case.

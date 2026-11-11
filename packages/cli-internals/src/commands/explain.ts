@@ -73,6 +73,8 @@ const ERROR_BLURBS: Readonly<Record<Errors.ErrorId, string>> = {
     "A merge blueprint writes a JSON field that none of its `ownedKeys` covers. Add the field or an ancestor key to `ownedKeys`.",
   "pjt.plan.conflict-owned":
     "Two blueprints both claim full ownership of one file. Only one `ownFile` per path is allowed.",
+  "pjt.react.invalid-options":
+    'A `react()` option is invalid: `template` must be "react-ts" or "react", and `name` must be a valid npm package name.',
   "pjt.skills.invalid-path":
     "A skill name, target root or file path is empty, absolute, or tries to leave the skills directory — or a skill has no `SKILL.md`.",
   "pjt.region.missing-end":

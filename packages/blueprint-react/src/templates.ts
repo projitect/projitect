@@ -1,8 +1,11 @@
 /**
  * Starter source for the React app. Every file here is seeded: written once, never enforced.
+ * The TypeScript starter uses its tsconfig's automatic JSX runtime. The JavaScript component and
+ * test import React explicitly because Vitest uses its own config without Vite's React plugin.
  */
 
-export const indexHtml = `<!doctype html>
+/** The `index.html` entry page; `entry` is the module the page loads, e.g. `src/main.tsx`. */
+export const indexHtml = (entry: string) => `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -11,7 +14,7 @@ export const indexHtml = `<!doctype html>
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <script type="module" src="/${entry}"></script>
   </body>
 </html>
 `
@@ -33,9 +36,7 @@ createRoot(root).render(
 )
 `
 
-export const appTsx = `import { useState } from "react"
-
-export default function App() {
+const appBody = `export default function App() {
   const [count, setCount] = useState(0)
 
   return (
@@ -53,6 +54,14 @@ export default function App() {
   )
 }
 `
+
+export const appTsx = `import { useState } from "react"
+
+${appBody}`
+
+export const appJsx = `import React, { useState } from "react"
+
+${appBody}`
 
 export const appTestTsx = `import { cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, describe, expect, it } from "vitest"
@@ -73,6 +82,9 @@ describe("App", () => {
   })
 })
 `
+
+export const appTestJsx = `import React from "react"
+${appTestTsx}`
 
 export const indexCss = `:root {
   font-family: system-ui, sans-serif;

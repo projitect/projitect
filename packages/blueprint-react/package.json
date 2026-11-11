@@ -25,6 +25,9 @@
     "build:clean": "tsc --build --clean",
     "tc": "tsc --build"
   },
+  "dependencies": {
+    "validate-npm-package-name": "^7.0.2"
+  },
   "devDependencies": {
     "@projitect/blueprint": "workspace:*",
     "@projitect/blueprint-gitignore": "workspace:*",
@@ -32,6 +35,7 @@
     "@projitect/blueprint-vitest": "workspace:*",
     "@projitect/core": "workspace:*",
     "@projitect/test-kit": "workspace:*",
+    "@types/validate-npm-package-name": "^4.0.2",
     "effect": "4.0.0-rc.111",
     "typescript": "5.9.3"
   },
